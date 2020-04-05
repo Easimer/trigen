@@ -111,3 +111,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/public")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
+find_package(SDL2 REQUIRED)
+
+add_subdirectory(bark_test)
