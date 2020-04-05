@@ -14,6 +14,25 @@ Point const asgn = [=]() { \
     return Point(x, y); \
 }();
 
+class Float_Iterator {
+public:
+    constexpr Float_Iterator(float v) : it(v) {}
+    bool operator!=(Float_Iterator const& other) const {
+        return it < other.it;
+    }
+
+    Float_Iterator& operator++() {
+        it += 0.001f;
+        return *this;
+    }
+
+    float operator*() const {
+        return it;
+    }
+private:
+    float it;
+};
+
 template<typename Point>
 class Catmull_Rom {
 public:
@@ -24,7 +43,7 @@ public:
         t[2] = GetT(t[1], p2, p3);
     }
 
-    void GeneratePoints(size_t unCountPoints, Point* pOutBuf) {
+    void GeneratePoints(size_t unCountPoints, Point* pOutBuf) const {
         size_t i = 0;
         float const flStep = (t[1] - t[0]) / unCountPoints;
         for (float T = t[0]; T < t[1]; T += flStep) {
@@ -37,6 +56,19 @@ public:
             pOutBuf[i++] = c0;
         }
     }
+
+    Point operator()(float const T) const {
+        GENSTEP(a1, T, 0.0f, t[0], p[0], p[1]);
+        GENSTEP(a2, T, t[0], t[1], p[1], p[2]);
+        GENSTEP(a3, T, t[1], t[2], p[2], p[3]);
+        GENSTEP(b1, T, 0.0f, t[1], a1, a2);
+        GENSTEP(b2, T, t[0], t[2], a2, a3);
+        GENSTEP(c0, T, t[0], t[1], b1, b2);
+        return c0;
+    }
+
+    auto begin() const { return Float_Iterator(t[0]); }
+    auto end() const { return Float_Iterator(t[1]); }
 private:
 
     float GetT(float t, Point const& p0, Point const& p1) {
