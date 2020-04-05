@@ -110,3 +110,4 @@ find_package(SDL2_ttf REQUIRED)
 
 add_subdirectory(bark_test)
 add_subdirectory(ifs_test)
+add_subdirectory(cylindergen)
