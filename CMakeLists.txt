@@ -106,5 +106,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 find_package(SDL2 REQUIRED)
+find_package(SDL2_ttf REQUIRED)
 
 add_subdirectory(bark_test)
+add_subdirectory(ifs_test)
