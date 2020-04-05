@@ -22,6 +22,9 @@ struct Vector2 {
     T x, y;
 };
 
+template<typename T> T GetX(Vector2<T> const& v) { return v.x; }
+template<typename T> T GetY(Vector2<T> const& v) { return v.y; }
+
 using Vector2f = Vector2<float>;
 
 struct ScaleRotateTranslate2 {
@@ -69,7 +72,7 @@ public:
 };
 
 template<typename T, size_t N>
-struct Iterated_Function_System : public IIterated_Function_System<T::domain_type> {
+struct Iterated_Function_System : public IIterated_Function_System<typename T::domain_type> {
     static_assert(N > 0, "There must be atleast one transform!");
 
     std::array<T, N> const transforms;
