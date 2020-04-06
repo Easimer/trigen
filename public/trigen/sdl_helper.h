@@ -13,12 +13,12 @@ namespace sdl {
 
         Renderer(int w, int h) : Renderer("trigen", w, h) {}
 
-        Renderer(const char* pszTitle, int w, int h) {
+        Renderer(const char* pszTitle, int w, int h, Uint32 flags = SDL_WINDOW_SHOWN) {
             window = SDL_CreateWindow(
                 pszTitle,
                 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                 w, h,
-                SDL_WINDOW_SHOWN
+                flags
             );
             if (window != NULL) {
                 renderer = SDL_CreateRenderer(
