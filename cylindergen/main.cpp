@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
             {0.0f, -32.0f, 0.0f},
             {0.0f, 0.0f, 0.0f},
             {16.0f, 32.0f, 0.0f},
-            {32.0f, 64.0f, 0.0f},
+            {128.0f, 256.0f, 0.0f},
         };
 
         Mesh_Builder mb;

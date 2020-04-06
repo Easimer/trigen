@@ -8,7 +8,8 @@
 #include <trigen/linear_math.h>
 #include "meshbuilder.h"
 
-// Catmull_Rom<lm::Vector4>
-
+// =============================================
+// Purpose: build a 3D mesh from a Catmull-Rom spline.
+// =============================================
 Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr);
 

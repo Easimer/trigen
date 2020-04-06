@@ -34,7 +34,9 @@ public:
         }
     };
 
-    Mesh_Builder(float flEpsilon = 0.1f) : Epsilon(flEpsilon) {}
+    Mesh_Builder(float flEpsilon = 0.1f) : Epsilon(flEpsilon), triangles{} {
+        triangles.reserve(24);
+    }
 
     void PushTriangle(lm::Vector4 const& v0, lm::Vector4 const& v1, lm::Vector4 const& v2) {
         std::array<Vertex, 3> vertices = {

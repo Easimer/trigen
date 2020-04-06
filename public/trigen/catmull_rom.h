@@ -48,7 +48,7 @@ public:
     void GeneratePoints(size_t unCountPoints, Point* pOutBuf) const {
         size_t i = 0;
         float const flStep = (t[1] - t[0]) / unCountPoints;
-        for (float T = t[0]; T < t[1]; T += flStep) {
+        for (float T = t[0]; T < t[1] && i < unCountPoints; T += flStep) {
             GENSTEP(a1, T, 0.0f, t[0], p[0], p[1]);
             GENSTEP(a2, T, t[0], t[1], p[1], p[2]);
             GENSTEP(a3, T, t[1], t[2], p[2], p[3]);
