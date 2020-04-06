@@ -11,6 +11,7 @@
 #include <trigen/linear_math.h>
 #include "glres.h"
 #include "meshbuilder.h"
+#include "trunk_generator.h"
 
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
@@ -204,10 +205,21 @@ int main(int argc, char** argv) {
             {-0.5f,  0.5f, 0.0f},
         };
 
+        lm::Vector4 const controlPoints[] = {
+            {0.0f, -32.0f, 0.0f},
+            {0.0f, 0.0f, 0.0f},
+            {16.0f, 32.0f, 0.0f},
+            {32.0f, 64.0f, 0.0f},
+        };
+
         Mesh_Builder mb;
         mb.PushTriangle(vertices[0], vertices[1], vertices[2]);
         mb.PushTriangle(vertices[3], vertices[4], vertices[5]);
         auto optmesh = mb.Optimize();
+
+        Catmull_Rom<lm::Vector4> cr(controlPoints[0], controlPoints[1], controlPoints[2], controlPoints[3]);
+        auto optmesh2 = MeshFromSpline(cr);
+        auto asd = BuildModel(optmesh2);
 
         gl::Vertex_Shader vsh;
         gl::Fragment_Shader fsh;
@@ -218,7 +230,8 @@ int main(int argc, char** argv) {
         auto program = builder.Attach(vsh).Attach(fsh).Link();
         if (program) {
             auto hProgram = std::move(program.value());
-            Draw_Load_Unit dlu = { std::move(hProgram), BuildModel(optmesh) };
+            // Draw_Load_Unit dlu = { std::move(hProgram), BuildModel(optmesh) };
+            Draw_Load_Unit dlu = { std::move(hProgram), std::move(asd) };
             RenderLoop(r, dlu);
         } else {
             printf("Failed to link shader program: %s\n", builder.Error());

@@ -3,16 +3,18 @@
 // Purpose: Centripetal Catmull-Rom spline implementation
 //
 
+#pragma once
 #include <type_traits>
 
 #define GENSTEP(asgn, t, t0, t1, p0, p1) \
-Point const asgn = [=]() { \
+Point const asgn([=]() { \
     float const tmp0 = (t1 - t) / (t1 - t0); \
     float const tmp1 = (t - t0) / (t1 - t0); \
     float const x = tmp0 * GetX(p0) + tmp1 * GetX(p1); \
     float const y = tmp0 * GetY(p0) + tmp1 * GetY(p1); \
-    return Point(x, y); \
-}();
+    float const z = tmp0 * GetZ(p0) + tmp1 * GetZ(p1); \
+    return Point(x, y, z); \
+}());
 
 class Float_Iterator {
 public:
@@ -74,7 +76,8 @@ private:
     float GetT(float t, Point const& p0, Point const& p1) {
         float const dx = GetX(p1) - GetX(p0);
         float const dy = GetY(p1) - GetY(p0);
-        float const a = dx * dx + dy * dy;
+        float const dz = GetZ(p1) - GetZ(p0);
+        float const a = dx * dx + dy * dy + dz * dz;
         float const b = sqrt(a);
         float const c = sqrt(b);
         return c + t;

@@ -24,6 +24,7 @@ struct Vector2 {
 
 template<typename T> T GetX(Vector2<T> const& v) { return v.x; }
 template<typename T> T GetY(Vector2<T> const& v) { return v.y; }
+template<typename T> T GetZ(Vector2<T> const& v) { return T(0); }
 
 using Vector2f = Vector2<float>;
 

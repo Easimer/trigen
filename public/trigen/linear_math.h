@@ -86,7 +86,7 @@ namespace lm {
             };
         }
 
-        float const m_flValues[4];
+        float m_flValues[4];
     };
 
     inline Vector4 operator*(float lam, Vector4 const& other) {
@@ -219,4 +219,40 @@ namespace lm {
         forward = Matrix4(m);
         inverse = Matrix4(minv);
     }
+
+    inline Matrix4 RotationY(float radians) {
+        Matrix4 ret(1.0f);
+        auto const s = sinf(radians);
+        auto const c = cosf(radians);
+
+        ret.Idx(0, 0) = c;
+        ret.Idx(2, 0) = -s;
+        ret.Idx(0, 2) = s;
+        ret.Idx(2, 2) = c;
+
+        return ret;
+    }
+
+    inline Vector4 operator*(Matrix4 const& lhs, Vector4 const& rhs) {
+        float const* pMat = lhs.Data();
+        float const* pVec = rhs.m_flValues;
+        float const v0 = pVec[0];
+        float const v1 = pVec[1];
+        float const v2 = pVec[2];
+        float const v3 = pVec[3];
+        float r[4];
+        for (int i = 0; i < 4; i++) {
+            float const c0 = pMat[i + 0 * 4];
+            float const c1 = pMat[i + 1 * 4];
+            float const c2 = pMat[i + 2 * 4];
+            float const c3 = pMat[i + 3 * 4];
+
+            r[i] = c0 * v0 + c1 * v1 + c2 * v2 + c3 * v3;
+        }
+        return Vector4(r[0], r[1], r[2], r[3]);
+    }
 }
+
+inline float GetX(lm::Vector4 const& v) { return v[0]; }
+inline float GetY(lm::Vector4 const& v) { return v[1]; }
+inline float GetZ(lm::Vector4 const& v) { return v[2]; }

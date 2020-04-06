@@ -3,6 +3,7 @@
 // Purpose: triangle-based mesh builder
 //
 
+#pragma once
 #include <unordered_set>
 #include <array>
 #include <vector>
@@ -33,6 +34,8 @@ public:
         }
     };
 
+    Mesh_Builder(float flEpsilon = 0.1f) : Epsilon(flEpsilon) {}
+
     void PushTriangle(lm::Vector4 const& v0, lm::Vector4 const& v1, lm::Vector4 const& v2) {
         std::array<Vertex, 3> vertices = {
             Vertex {v0[0], v0[1], v0[2]},
@@ -49,7 +52,8 @@ public:
         return dx * dx + dy * dy + dz * dz;
     }
 
-    const float Epsilon = 0.1f;
+    // TODO(danielm): calculate this value when Optimize is called
+    const float Epsilon;
 
     Optimized_Mesh Optimize() const {
         Optimized_Mesh ret;
