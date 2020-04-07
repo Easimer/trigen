@@ -10,10 +10,13 @@ namespace sdl {
     struct Renderer {
         SDL_Window* window;
         SDL_Renderer* renderer;
+        int const width;
+        int const height;
 
         Renderer(int w, int h) : Renderer("trigen", w, h) {}
 
-        Renderer(const char* pszTitle, int w, int h, Uint32 flags = SDL_WINDOW_SHOWN) {
+        Renderer(const char* pszTitle, int w, int h, Uint32 flags = SDL_WINDOW_SHOWN)
+            : width(w), height(h) {
             window = SDL_CreateWindow(
                 pszTitle,
                 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,

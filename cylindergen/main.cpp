@@ -4,7 +4,10 @@
 //
 
 #include <cassert>
+#include <ctime>
 #include <optional>
+#include <fstream>
+#include <sstream>
 #include <SDL.h>
 #include "glad/glad.h"
 #include <trigen/sdl_helper.h>
@@ -125,6 +128,12 @@ struct Draw_Load_Unit {
     Element_Model mdl;
 };
 
+struct Camera_State {
+    lm::Vector4 position;
+    lm::Vector4 euler_rotation;
+    lm::Matrix4 mvp;
+};
+
 static Element_Model BuildModel(Mesh_Builder::Optimized_Mesh const& opt) {
     gl::VAO vao;
     gl::VBO vbo_vertices;
@@ -150,38 +159,71 @@ static void Draw(Element_Model const& elemmdl) {
 
 static void RenderLoop(GL_Renderer& r, Draw_Load_Unit const& dlu) {
     bool bExit = false;
+    Camera_State cam;
+    lm::Matrix4 matProj, matInvProj;
+    lm::Perspective(matProj, matInvProj, r.width, r.height, 1.57079633f, 0.01f, 1000.0f);
+    cam.position = lm::Vector4(0, 32, 128);
+
+    gl::Uniform_Location<lm::Matrix4> locMVP(dlu.program, "matMVP");
+
+    float flZoom = 1.0f;
+
     while (!bExit) {
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             switch (ev.type) {
-            case SDL_QUIT:
-                bExit = true;
-                break;
+                case SDL_QUIT: {
+                    bExit = true;
+                    break;
+                }
+                case SDL_MOUSEMOTION: {
+                    if (ev.motion.state & SDL_BUTTON_RMASK) {
+                        cam.euler_rotation = cam.euler_rotation + lm::Vector4(0, ev.motion.xrel / 32.0f, 0);
+                    }
+                    break;
+                }
+                case SDL_MOUSEWHEEL: {
+                    flZoom += -ev.wheel.y;
+                    break;
+                }
             }
         }
 
+        if (flZoom < 1.0f) { flZoom = 1.0f; }
+
+        // Arcball camera
+        auto matView = lm::Scale(1.0f / flZoom) * lm::RotationY(cam.euler_rotation[1]) * lm::Translation(-cam.position[0], -cam.position[1], -cam.position[2]);
+        auto matMVP = matView * matProj;
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(dlu.program);
+        gl::SetUniformLocation(locMVP, matMVP);
         Draw(dlu.mdl);
 
         r.Present();
     }
 }
 
-static char const* pszVertexShaderSource =
-"#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"void main()\n"
-"{\n"
-"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-"}";
+template<GLenum kType>
+static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) {
+    gl::Shader<kType> shader;
 
-static char const* pszFragmentShaderSource =
-"#version 330 core\n"
-"out vec4 FragColor;\n"
-"void main() {\n"
-"FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-"} ";
+    std::ifstream f(pszPath);
+    if (f) {
+        std::stringstream ss;
+        ss << f.rdbuf();
+        if (CompileShaderFromString(shader, ss.str().c_str())) {
+            return shader;
+        }
+    }
+
+
+    return {};
+}
+
+static float randf() {
+    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+}
 
 int main(int argc, char** argv) {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -205,36 +247,45 @@ int main(int argc, char** argv) {
             {-0.5f,  0.5f, 0.0f},
         };
 
-        lm::Vector4 const controlPoints[] = {
-            {0.0f, -32.0f, 0.0f},
-            {0.0f, 0.0f, 0.0f},
-            {16.0f, 32.0f, 0.0f},
-            {128.0f, 256.0f, 0.0f},
-        };
+        srand(time(NULL));
+        lm::Vector4 controlPoints[12];
+        lm::Vector4 dir(0, 1, 0);
+        controlPoints[0] = lm::Vector4();
+        for (int i = 1; i < 12; i++) {
+            float const dx = randf() * 2 - 1;
+            float const dy = randf();
+            float const dz = randf() * 2 - 1;
+            dir = dir + lm::Vector4(dx, dy, dz);
+            controlPoints[i] = controlPoints[i - 1] + 16 * dir;
+        }
 
         Mesh_Builder mb;
         mb.PushTriangle(vertices[0], vertices[1], vertices[2]);
         mb.PushTriangle(vertices[3], vertices[4], vertices[5]);
         auto optmesh = mb.Optimize();
 
-        Catmull_Rom<lm::Vector4> cr(controlPoints[0], controlPoints[1], controlPoints[2], controlPoints[3]);
-        auto optmesh2 = MeshFromSpline(cr);
+        Catmull_Rom_Composite<lm::Vector4> cr(12, controlPoints);
+        auto optmesh2 = MeshFromSpline(cr, [=](size_t i, lm::Vector4 const& p) {
+            return 16.0f;
+        });
         auto asd = BuildModel(optmesh2);
 
-        gl::Vertex_Shader vsh;
-        gl::Fragment_Shader fsh;
+        auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
+        auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
 
-        CompileShaderFromString(vsh, pszVertexShaderSource);
-        CompileShaderFromString(fsh, pszFragmentShaderSource);
-        auto builder = gl::Shader_Program_Builder();
-        auto program = builder.Attach(vsh).Attach(fsh).Link();
-        if (program) {
-            auto hProgram = std::move(program.value());
-            // Draw_Load_Unit dlu = { std::move(hProgram), BuildModel(optmesh) };
-            Draw_Load_Unit dlu = { std::move(hProgram), std::move(asd) };
-            RenderLoop(r, dlu);
+        if (vsh && fsh) {
+            auto builder = gl::Shader_Program_Builder();
+            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
+            if (program) {
+                auto hProgram = std::move(program.value());
+                // Draw_Load_Unit dlu = { std::move(hProgram), BuildModel(optmesh) };
+                Draw_Load_Unit dlu = { std::move(hProgram), std::move(asd) };
+                RenderLoop(r, dlu);
+            } else {
+                printf("Failed to link shader program: %s\n", builder.Error());
+            }
         } else {
-            printf("Failed to link shader program: %s\n", builder.Error());
+            printf("Failed to load the generic shaders!\n");
         }
     }
     SDL_Quit();

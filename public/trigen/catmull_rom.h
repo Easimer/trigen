@@ -4,6 +4,7 @@
 //
 
 #pragma once
+#include <cassert>
 #include <type_traits>
 
 #define GENSTEP(asgn, t, t0, t1, p0, p1) \
@@ -85,4 +86,34 @@ private:
 private:
     float t[3];
     Point p[4];
+};
+
+template<typename Point>
+class Catmull_Rom_Composite {
+public:
+    Catmull_Rom_Composite() : m_unPoints(0), m_pPoints(0) {}
+    Catmull_Rom_Composite(size_t unPoints, Point const* pPoints)
+        : m_unPoints(unPoints), m_pPoints(pPoints) {}
+
+    void GeneratePoints(size_t unBufCount, Point* pOutBuf) const {
+        assert(m_unPoints >= 4);
+        assert(m_pPoints != NULL);
+
+        auto const unCurveCount = m_unPoints - 3;
+        auto const unPointsPerCurve = unBufCount / unCurveCount;
+        auto const unRemainder = unBufCount - unPointsPerCurve * unCurveCount;
+
+        for (size_t iCurve = 0; iCurve < unCurveCount; iCurve++) {
+            bool const bLast = (iCurve == unCurveCount - 1);
+            // Add remainder points to the point count when processing the last curve
+            auto const unPoints = bLast ? unPointsPerCurve + unRemainder : unPointsPerCurve;
+            auto const cr = Catmull_Rom<Point>(m_pPoints[iCurve + 0], m_pPoints[iCurve + 1], m_pPoints[iCurve + 2], m_pPoints[iCurve + 3]);
+            auto const uiBaseOffset = iCurve * unPointsPerCurve;
+            cr.GeneratePoints(unPoints, &pOutBuf[uiBaseOffset]);
+        }
+    }
+
+private:
+    size_t m_unPoints;
+    Point const* m_pPoints;
 };

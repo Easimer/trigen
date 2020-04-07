@@ -46,12 +46,6 @@ namespace lm {
             return m_flValues;
         }
 
-        Matrix4 operator*(Matrix4 const& other) const {
-            Matrix4 ret;
-
-            return ret;
-        }
-
         float Idx(unsigned uiRow, unsigned uiCol) const {
             uiRow &= 0b11;
             uiCol &= 0b11;
@@ -231,6 +225,20 @@ namespace lm {
         ret.Idx(2, 2) = c;
 
         return ret;
+    }
+
+    inline Matrix4 Scale(float x, float y, float z) {
+        Matrix4 ret(1.0f);
+
+        ret.Idx(0, 0) = x;
+        ret.Idx(1, 1) = y;
+        ret.Idx(2, 2) = z;
+
+        return ret;
+    }
+
+    inline Matrix4 Scale(float l) {
+        return Scale(l, l, l);
     }
 
     inline Vector4 operator*(Matrix4 const& lhs, Vector4 const& rhs) {

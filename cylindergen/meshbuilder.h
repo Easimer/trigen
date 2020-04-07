@@ -47,7 +47,7 @@ public:
         triangles.push_back({ vertices });
     }
 
-    float Metric(Vertex const& lhs, Vertex const& rhs) const {
+    static float Metric(Vertex const& lhs, Vertex const& rhs) {
         auto dx = lhs[0] - rhs[0];
         auto dy = lhs[1] - rhs[1];
         auto dz = lhs[2] - rhs[2];
@@ -99,3 +99,37 @@ public:
 private:
     std::vector<Triangle> triangles;
 };
+
+// Computes the union of two optimized meshes
+inline Mesh_Builder::Optimized_Mesh operator+(
+    Mesh_Builder::Optimized_Mesh const& lhs,
+    Mesh_Builder::Optimized_Mesh const& rhs) {
+    Mesh_Builder::Optimized_Mesh ret;
+    // Arrays that map an element index in lhs/rhs
+    // to an element index in the new mesh
+    std::unique_ptr<size_t[]> lhs_map, rhs_map;
+    auto const flEpsilon = 0.00001f;
+    std::array<Mesh_Builder::Optimized_Mesh const*, 2> aMeshes = { &lhs, &rhs };
+
+    for (auto const& mesh : aMeshes) {
+        for (size_t iElem = 0; iElem < mesh->elements.size(); iElem ++) {
+            std::optional<unsigned int> elementIndex;
+            auto iVtx = mesh->elements[iElem];
+            for (size_t iOptVtx = 0; iOptVtx < ret.vertices.size() && !elementIndex; iOptVtx++) {
+                auto M = Mesh_Builder::Metric(mesh->vertices[iVtx], ret.vertices[iOptVtx]);
+                if (M <= flEpsilon) {
+                    elementIndex = iOptVtx;
+                }
+            }
+
+            if (!elementIndex) {
+                elementIndex = ret.vertices.size();
+                ret.vertices.push_back(mesh->vertices[iVtx]);
+            }
+
+            ret.elements.push_back(elementIndex.value());
+        }
+    }
+
+    return ret;
+}

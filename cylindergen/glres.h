@@ -102,8 +102,12 @@ namespace gl {
 
     using VBO = Managed_Resource<GLuint, VBO_Allocator>;
     using VAO = Managed_Resource<GLuint, VAO_Allocator>;
-    using Vertex_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_VERTEX_SHADER>>;
-    using Fragment_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_FRAGMENT_SHADER>>;
+    template<GLenum kType>
+    using Shader = Managed_Resource<GLuint, Shader_Allocator<kType>>;
+    // using Vertex_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_VERTEX_SHADER>>;
+    // using Fragment_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_FRAGMENT_SHADER>>;
+    using Vertex_Shader = Shader<GL_VERTEX_SHADER>;
+    using Fragment_Shader = Shader<GL_FRAGMENT_SHADER>;
     using Shader_Program = Managed_Resource<GLuint, Shader_Program_Allocator>;
 
     class Shader_Program_Builder {
@@ -136,4 +140,27 @@ namespace gl {
         Shader_Program program;
         char errorMsg[256] = { 0 };
     };
+
+    template<typename T>
+    struct Uniform_Location {
+    public:
+        Uniform_Location(Shader_Program const& hProgram, char const* pszName) {
+            loc = glGetUniformLocation(hProgram, pszName);
+        }
+
+        Uniform_Location(Uniform_Location const&) = delete;
+        void operator=(Uniform_Location const&) = delete;
+
+        operator GLuint() const { return loc; }
+    private:
+        GLuint loc;
+    };
+
+    template<typename T>
+    inline void SetUniformLocation(Uniform_Location<T> const&, T const&) = delete;
+
+    template<>
+    inline void SetUniformLocation<lm::Matrix4>(Uniform_Location<lm::Matrix4> const& uiLoc, lm::Matrix4 const& matMatrix) {
+        glUniformMatrix4fv(uiLoc, 1, GL_FALSE, matMatrix.Data());
+    }
 }

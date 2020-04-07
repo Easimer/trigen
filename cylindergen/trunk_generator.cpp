@@ -9,16 +9,18 @@
 #include <trigen/catmull_rom.h>
 #include "trunk_generator.h"
 
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr) {
-    size_t const unPoints = 16; // Number of points in the spline
-    size_t const unSides = 12; // Number of cylinder sides
+struct Mesh_From_Spline_Params {
+    std::vector<lm::Vector4> const& avPoints;
+    size_t const unPoints;
+    size_t const unSides;
+};
+
+static Mesh_Builder::Optimized_Mesh MeshFromSpline_impl(Mesh_From_Spline_Params const& params, TG_RadiusFunc radiusFunc) {
+    auto const& avPoints = params.avPoints;
+    auto const unPoints = params.unPoints;
+    auto const unSides = params.unSides;
+
     Mesh_Builder mb(0.00001f);
-    auto const avPoints = [unPoints, cr]() {
-        std::vector<lm::Vector4> buf;
-        buf.resize(unPoints);
-        cr.GeneratePoints(unPoints, buf.data());
-        return buf;
-    }();
 
     auto const flHalfAlpha = M_PI / unSides;
     auto const flAlpha = 2 * flHalfAlpha;
@@ -30,8 +32,10 @@ Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr) 
         auto const& sp1 = avPoints[i + 1];
         auto fwd = lm::Vector4(1, 0, 0);
         auto rgt = lm::Vector4(0, 0, 1);
-        auto const flRadius0 = flBaseRadius * powf(0.9, i + 0);
-        auto const flRadius1 = flBaseRadius * powf(0.9, i + 1);
+        auto const flRadius0 = radiusFunc(i, sp0);
+        auto const flRadius1 = radiusFunc(i, sp0);
+        // auto const flRadius0 = flBaseRadius * powf(0.99, i + 0);
+        // auto const flRadius1 = flBaseRadius * powf(0.99, i + 1);
         auto const flSideLength0 = 2 * flRadius0 * cosf(flHalfAlpha);
         auto const flSideLength1 = 2 * flRadius1 * cosf(flHalfAlpha);
 
@@ -55,6 +59,40 @@ Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr) 
         fwd = matRotateY * fwd;
     }
 
-    auto opt = mb.Optimize();
-    return opt;
+    return mb.Optimize();
+}
+
+static float LegacyRadiusFunction(size_t i, lm::Vector4 const& p) {
+    return 4.0f * powf(0.99, i + 0);
+}
+
+Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr) {
+    size_t const unPoints = 16; // Number of points in the spline
+    size_t const unSides = 12; // Number of cylinder sides
+    auto const avPoints = [unPoints, cr]() {
+        std::vector<lm::Vector4> buf;
+        buf.resize(unPoints);
+        cr.GeneratePoints(unPoints, buf.data());
+        return buf;
+    }();
+
+    return MeshFromSpline_impl({ avPoints, unPoints, unSides }, LegacyRadiusFunction);
+}
+
+Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr) {
+    return MeshFromSpline(cr, LegacyRadiusFunction);
+}
+
+Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc radiusFunc) {
+    size_t const unPoints = 32; // Number of points in the spline
+    size_t const unSides = 12; // Number of cylinder sides
+    Mesh_Builder mb(0.00001f);
+    auto const avPoints = [unPoints, cr]() {
+        std::vector<lm::Vector4> buf;
+        buf.resize(unPoints);
+        cr.GeneratePoints(unPoints, buf.data());
+        return buf;
+    }();
+
+    return MeshFromSpline_impl({ avPoints, unPoints, unSides }, radiusFunc);
 }
