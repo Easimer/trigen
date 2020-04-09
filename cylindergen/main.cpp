@@ -8,10 +8,12 @@
 #include <optional>
 #include <fstream>
 #include <sstream>
+#include <stack>
 #include <SDL.h>
 #include "glad/glad.h"
 #include <trigen/sdl_helper.h>
 #include <trigen/linear_math.h>
+#include "general.h"
 #include "glres.h"
 #include "meshbuilder.h"
 #include "trunk_generator.h"
@@ -225,9 +227,256 @@ static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
 
+template<size_t N, typename... T>
+struct Rule_Set_Impl {
+    constexpr std::string const& F(char const) const {
+        throw std::exception();
+        return empty;
+    }
+
+    std::string const empty;
+};
+
+enum class Lindenmayer_Op {
+    Noop,
+    Forward,
+    Push, Pop,
+    Yaw_Pos, Yaw_Neg,
+    Pitch_Pos, Pitch_Neg,
+    Roll_Pos, Roll_Neg,
+};
+
+class Lindenmayer_System {
+public:
+    using Alphabet = std::unordered_map<char, std::vector<Lindenmayer_Op>>;
+    using Rule_Set = std::unordered_map<char, std::string>;
+
+    Lindenmayer_System(std::string const& axiom, Alphabet const& alphabet, Rule_Set const& rules)
+    : axiom(axiom), alphabet(alphabet), rules(rules) {
+        // Check that every character is present in the alphabet
+        for (auto& ch : axiom) {
+            assert(alphabet.count(ch));
+        }
+        for (auto& rule : rules) {
+            assert(alphabet.count(rule.first) > 0);
+            for (auto& ch : rule.second) {
+                assert(alphabet.count(ch) > 0);
+            }
+        }
+    }
+
+    std::vector<Lindenmayer_Op> Iterate(size_t unIterations) const {
+        std::vector<Lindenmayer_Op> ret;
+        std::string current = axiom;
+        std::string buf;
+
+        for (size_t uiCurrentIteration = 0; uiCurrentIteration < unIterations; uiCurrentIteration++) {
+            for (size_t iOff = 0; iOff < current.size(); iOff++) {
+                auto cur = current[iOff];
+                assert(alphabet.count(cur) == 1);
+                if (rules.count(cur)) {
+                    buf += rules.at(cur);
+                } else {
+                    buf += cur;
+                }
+            }
+            current = std::move(buf);
+        }
+
+        ret.reserve(current.size());
+        for (auto ch : current) {
+            auto const& Y = alphabet.at(ch);
+            for (auto op : Y) {
+                ret.push_back(op);
+            }
+        }
+
+        return ret;
+    }
+private:
+    std::string const axiom;
+    Alphabet const alphabet;
+    Rule_Set const rules;
+};
+
+struct Execution_State {
+    uint32_t uiNodeCurrent;
+    float flYaw, flPitch, flRoll;
+};
+
+lm::Vector4 GetDirectionVector(Execution_State const& s) {
+    auto u = cosf(s.flYaw) * cosf(s.flPitch);
+    auto v = cosf(s.flPitch) * sinf(s.flYaw);
+    auto w = sinf(s.flPitch);
+    return lm::Vector4(-v, w, -u);
+}
+
+Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
+    Tree_Node_Pool pool;
+    std::stack<Execution_State> stack;
+    Execution_State state = {};
+    uint32_t uiRoot;
+    float const flStep = 32.0f;
+
+    //state.flPitch = M_PI / 2.0f;
+    pool.Allocate(uiRoot);
+    state.uiNodeCurrent = uiRoot;
+
+    for (uint32_t pc = 0; pc < ops.size(); pc++) {
+        auto dir = GetDirectionVector(state);
+        switch (ops[pc]) {
+        case Lindenmayer_Op::Forward:
+        {
+            uint32_t nextNodeIdx;
+            auto& nextNode = pool.Allocate(nextNodeIdx);
+            auto& curNode = pool.GetNode(state.uiNodeCurrent);
+            nextNode.vPosition = curNode.vPosition + flStep * dir;
+            printf("Node: (%f, %f, %f)\n", nextNode.vPosition[0], nextNode.vPosition[1], nextNode.vPosition[2]);
+            curNode.AddChild(nextNodeIdx);
+            state.uiNodeCurrent = nextNodeIdx;
+            break;
+        }
+        case Lindenmayer_Op::Push:
+        {
+            stack.push(state);
+            break;
+        }
+        case Lindenmayer_Op::Pop:
+        {
+            state = stack.top();
+            stack.pop();
+            break;
+        }
+        case Lindenmayer_Op::Yaw_Pos:
+        {
+            state.flYaw += 0.785398163f;
+            break;
+        }
+        case Lindenmayer_Op::Yaw_Neg:
+        {
+            state.flYaw -= 0.785398163f;
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    return pool;
+}
+
+// - push current node
+// - while current child count == 1
+//      - current = child
+// - fetch other endpoint from topstack
+// - connect two endpoints
+// - push current node
+// - for every child node of current:
+//      - recurse
+// - pop current node
+
+// process(startnode, endnode)
+// process nodes sliding window
+
+// multichildren(node)
+// push(node)
+// mesh = empty()
+// for every branch
+//     current = branchnode
+//     while current.children = 1
+//          current = current.child
+//     process(top(stack), current)
+//     if childcount(current) != 0:
+//          mesh += multichildren(current)
+// pop(node)
+// return mesh
+
+// process_root(node)
+// push(node)
+// current = node
+// while current.children = 1
+//      current = current.child
+// process(node, current)
+// if childcount(current) != 0:
+//      mesh += multichildren(current)
+// pop(node)
+
+static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
+    std::vector<lm::Vector4> points;
+
+    // start node might have multiple children.
+    // the code below won't handle that properly, so we add
+    // that node here
+    auto const& pStart = tree.GetNode(uiStart);
+    points.push_back(pStart.vPosition);
+    points.push_back(pStart.vPosition);
+    uint32_t uiCursor = uiBranch;
+    while(1) {
+        auto const& cur = tree.GetNode(uiCursor);
+        points.push_back(cur.vPosition);
+
+        if (uiCursor == uiEnd) {
+            break;
+        }
+
+        assert(cur.unChildCount == 1);
+        uiCursor = cur.aiChildren[0];
+    };
+    points.push_back(tree.GetNode(uiEnd).vPosition);
+
+    Catmull_Rom_Composite<lm::Vector4> cr(points.size(), points.data());
+    return MeshFromSpline(cr);
+}
+
+static Mesh_Builder::Optimized_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t const uiNode) {
+    Mesh_Builder::Optimized_Mesh ret;
+
+    auto const& node = tree.GetNode(uiNode);
+    // assert(node.unChildCount > 1);
+    for (uint32_t uiChildOff = 0; uiChildOff < node.unChildCount; uiChildOff++) {
+        auto const uiBranchHead = node.aiChildren[uiChildOff];
+        auto uiCurrent = uiBranchHead;
+        auto const* pCurrent = &tree.GetNode(uiCurrent);
+        while (pCurrent->unChildCount == 1) {
+            uiCurrent = pCurrent->aiChildren[0];
+            pCurrent = &tree.GetNode(uiCurrent);
+        }
+
+        ret = ret + ProcessNodes(tree, uiNode, uiBranchHead, uiCurrent);
+        if (pCurrent->unChildCount > 1) {
+            ret = ret + ProcessMultiNode(tree, uiCurrent);
+        }
+    }
+
+    return ret;
+}
+
+static Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree) {
+    auto const& root = tree.GetNode(0);
+    assert(root.unChildCount > 0);
+
+    return ProcessMultiNode(tree, 0);
+}
+
 int main(int argc, char** argv) {
     SDL_Init(SDL_INIT_EVERYTHING);
     GL_Renderer r;
+
+    Lindenmayer_System::Alphabet const alphabet = {
+        {'[', {Lindenmayer_Op::Push, Lindenmayer_Op::Yaw_Neg}},
+        {']', {Lindenmayer_Op::Pop, Lindenmayer_Op::Yaw_Pos}},
+        {'0', {Lindenmayer_Op::Forward}},
+        {'1', {Lindenmayer_Op::Forward}},
+    };
+
+    Lindenmayer_System::Rule_Set const rules = {
+        {'1', "11"},
+        {'0', "1[0]0"},
+    };
+
+    Lindenmayer_System sys("0", alphabet, rules);
+    auto const tree = EvaluateLindenmayerOps(sys.Iterate(3));
+
     if (r) {
         SDL_GL_SetSwapInterval(-1);
         gladLoadGLLoader(SDL_GL_GetProcAddress);
@@ -238,6 +487,9 @@ int main(int argc, char** argv) {
             printf("[ gfx ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
 
+        srand(time(NULL));
+
+        /*
         lm::Vector4 const vertices[] = {
             {0.5f,  0.5f, 0.0f,},
             {0.5f, -0.5f, 0.0f,},
@@ -247,7 +499,6 @@ int main(int argc, char** argv) {
             {-0.5f,  0.5f, 0.0f},
         };
 
-        srand(time(NULL));
         lm::Vector4 controlPoints[12];
         lm::Vector4 dir(0, 1, 0);
         controlPoints[0] = lm::Vector4();
@@ -269,6 +520,9 @@ int main(int argc, char** argv) {
             return 16.0f;
         });
         auto asd = BuildModel(optmesh2);
+        */
+
+        auto asd = BuildModel(ProcessTree(tree));
 
         auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
         auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
