@@ -316,9 +316,9 @@ Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
     std::stack<Execution_State> stack;
     Execution_State state = {};
     uint32_t uiRoot;
-    float const flStep = 32.0f;
+    float const flStep = 64.0f;
 
-    //state.flPitch = M_PI / 2.0f;
+    state.flPitch = M_PI / 2.0f;
     pool.Allocate(uiRoot);
     state.uiNodeCurrent = uiRoot;
 
@@ -349,12 +349,12 @@ Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
         }
         case Lindenmayer_Op::Yaw_Pos:
         {
-            state.flYaw += 0.785398163f;
+            state.flPitch += 0.785398163f;
             break;
         }
         case Lindenmayer_Op::Yaw_Neg:
         {
-            state.flYaw -= 0.785398163f;
+            state.flPitch -= 0.785398163f;
             break;
         }
         default:
@@ -365,41 +365,57 @@ Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
     return pool;
 }
 
-// - push current node
-// - while current child count == 1
-//      - current = child
-// - fetch other endpoint from topstack
-// - connect two endpoints
-// - push current node
-// - for every child node of current:
-//      - recurse
-// - pop current node
+#include <future>
+#include <optional>
+#include <variant>
+#include <memory>
 
-// process(startnode, endnode)
-// process nodes sliding window
+struct Future_Union_Mesh {
+    using FM = std::future<Mesh_Builder::Optimized_Mesh>;
+    using OT = std::unique_ptr<Future_Union_Mesh>;
+    using OFM = std::optional<FM>;
+    using V = std::variant <std::monostate, FM, OT>;
 
-// multichildren(node)
-// push(node)
-// mesh = empty()
-// for every branch
-//     current = branchnode
-//     while current.children = 1
-//          current = current.child
-//     process(top(stack), current)
-//     if childcount(current) != 0:
-//          mesh += multichildren(current)
-// pop(node)
-// return mesh
+    V lhs;
+    OT rhs;
 
-// process_root(node)
-// push(node)
-// current = node
-// while current.children = 1
-//      current = current.child
-// process(node, current)
-// if childcount(current) != 0:
-//      mesh += multichildren(current)
-// pop(node)
+
+    Mesh_Builder::Optimized_Mesh operator()(FM& x) {
+        return x.get();
+    }
+
+    Mesh_Builder::Optimized_Mesh operator()(OT& x) {
+        if (x != NULL) {
+            return *x;
+        } else {
+            return {};
+        }
+    }
+
+    Mesh_Builder::Optimized_Mesh operator()(std::monostate const&) {
+        return {};
+    }
+
+    operator Mesh_Builder::Optimized_Mesh() {
+        auto const x = std::visit(*this, lhs);
+        if (rhs != NULL) {
+            return x + *rhs;
+        } else {
+            return x;
+        }
+    }
+};
+
+void Union(Future_Union_Mesh& lhs, Future_Union_Mesh&& rhs) {
+    auto x = std::make_unique<Future_Union_Mesh>(std::move(lhs));
+    auto y = std::make_unique<Future_Union_Mesh>(std::move(rhs));
+    lhs = Future_Union_Mesh { std::move(x), std::move(y) };
+}
+
+void Union(Future_Union_Mesh& lhs, Future_Union_Mesh::FM&& fm) {
+    auto y = std::make_unique<Future_Union_Mesh>(std::move(lhs));
+    lhs = Future_Union_Mesh{ std::move(fm), std::move(y) };
+}
 
 static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
     std::vector<lm::Vector4> points;
@@ -408,9 +424,11 @@ static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uin
     // the code below won't handle that properly, so we add
     // that node here
     auto const& pStart = tree.GetNode(uiStart);
-    points.push_back(pStart.vPosition);
+    auto const& pSecond = tree.GetNode(uiBranch);
+    points.push_back(pStart.vPosition - (pSecond.vPosition - pStart.vPosition));
     points.push_back(pStart.vPosition);
     uint32_t uiCursor = uiBranch;
+    uint32_t uiPrev = uiStart;
     while(1) {
         auto const& cur = tree.GetNode(uiCursor);
         points.push_back(cur.vPosition);
@@ -420,16 +438,24 @@ static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uin
         }
 
         assert(cur.unChildCount == 1);
+        uiPrev = uiCursor;
         uiCursor = cur.aiChildren[0];
     };
-    points.push_back(tree.GetNode(uiEnd).vPosition);
+    auto const& pEnd = tree.GetNode(uiEnd);
+    auto const& pPenultimate = tree.GetNode(uiPrev);
+    points.push_back(pEnd.vPosition + (pEnd.vPosition - pPenultimate.vPosition));
+
+    printf("(%f, %f, %f) -> (%f, %f, %f)\n",
+        pStart.vPosition[0], pStart.vPosition[1], pStart.vPosition[2],
+        pEnd.vPosition[0], pEnd.vPosition[1], pEnd.vPosition[2]
+        );
 
     Catmull_Rom_Composite<lm::Vector4> cr(points.size(), points.data());
-    return MeshFromSpline(cr);
+    return MeshFromSpline(cr, [](auto i, auto const& p) { return 4.0f; });
 }
 
-static Mesh_Builder::Optimized_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t const uiNode) {
-    Mesh_Builder::Optimized_Mesh ret;
+static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t const uiNode) {
+    Future_Union_Mesh ret;
 
     auto const& node = tree.GetNode(uiNode);
     // assert(node.unChildCount > 1);
@@ -442,9 +468,9 @@ static Mesh_Builder::Optimized_Mesh ProcessMultiNode(Tree_Node_Pool const& tree,
             pCurrent = &tree.GetNode(uiCurrent);
         }
 
-        ret = ret + ProcessNodes(tree, uiNode, uiBranchHead, uiCurrent);
+        Union(ret, std::async(&ProcessNodes, tree, uiNode, uiBranchHead, uiCurrent));
         if (pCurrent->unChildCount > 1) {
-            ret = ret + ProcessMultiNode(tree, uiCurrent);
+            Union(ret, ProcessMultiNode(tree, uiCurrent));
         }
     }
 

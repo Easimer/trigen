@@ -259,6 +259,23 @@ namespace lm {
         }
         return Vector4(r[0], r[1], r[2], r[3]);
     }
+
+    inline float LengthSq(Vector4 const& v) {
+        return v[0] * v[0] + v[1] * v[1] + v[2] * v[2] + v[3] * v[3];
+    }
+
+    inline float Length(Vector4 const& v) {
+        return sqrtf(LengthSq(v));
+    }
+
+    inline Vector4 Normalized(Vector4 const& v) {
+        auto const L = Length(v);
+        return Vector4(v[0] / L, v[1] / L, v[2] / L, v[3] / L);
+    }
+
+    inline Vector4 Cross(Vector4 const& u, Vector4 const& v) {
+        return Vector4(u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]);
+    }
 }
 
 inline float GetX(lm::Vector4 const& v) { return v[0]; }
