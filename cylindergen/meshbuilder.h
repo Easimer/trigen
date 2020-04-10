@@ -10,6 +10,8 @@
 #include <optional>
 #include <trigen/linear_math.h>
 
+#include <trigen/profiler.h>
+
 class Mesh_Builder {
 public:
     using Vertex = std::array<float, 3>;
@@ -58,6 +60,7 @@ public:
     const float Epsilon;
 
     Optimized_Mesh Optimize() const {
+        SCOPE_BENCHMARK();
         Optimized_Mesh ret;
         auto orig = 3 * triangles.size();
 
@@ -100,14 +103,11 @@ private:
     std::vector<Triangle> triangles;
 };
 
-// Computes the union of two optimized meshes
-inline Mesh_Builder::Optimized_Mesh operator+(
+inline Mesh_Builder::Optimized_Mesh UnionGlobal(
     Mesh_Builder::Optimized_Mesh const& lhs,
     Mesh_Builder::Optimized_Mesh const& rhs) {
+    SCOPE_BENCHMARK();
     Mesh_Builder::Optimized_Mesh ret;
-    // Arrays that map an element index in lhs/rhs
-    // to an element index in the new mesh
-    std::unique_ptr<size_t[]> lhs_map, rhs_map;
     auto const flEpsilon = 0.00001f;
     std::array<Mesh_Builder::Optimized_Mesh const*, 2> aMeshes = { &lhs, &rhs };
 
@@ -132,4 +132,49 @@ inline Mesh_Builder::Optimized_Mesh operator+(
     }
 
     return ret;
+}
+
+inline Mesh_Builder::Optimized_Mesh UnionWindow(
+    Mesh_Builder::Optimized_Mesh const& lhs,
+    Mesh_Builder::Optimized_Mesh const& rhs,
+    size_t unWindowSize) {
+    SCOPE_BENCHMARK();
+    Mesh_Builder::Optimized_Mesh ret;
+    auto const flEpsilon = 0.00001f;
+    std::array<Mesh_Builder::Optimized_Mesh const*, 2> aMeshes = { &lhs, &rhs };
+
+    for (auto const& mesh : aMeshes) {
+        for (size_t iElem = 0; iElem < mesh->elements.size(); iElem ++) {
+            std::optional<unsigned int> elementIndex;
+            auto iVtx = mesh->elements[iElem];
+            auto const uiStart = ret.vertices.size() > unWindowSize ? ret.vertices.size() - unWindowSize : 0;
+            for (size_t iOptVtx = uiStart; iOptVtx < ret.vertices.size() && !elementIndex; iOptVtx++) {
+                auto M = Mesh_Builder::Metric(mesh->vertices[iVtx], ret.vertices[iOptVtx]);
+                if (M <= flEpsilon) {
+                    elementIndex = iOptVtx;
+                }
+            }
+
+            if (!elementIndex) {
+                elementIndex = ret.vertices.size();
+                ret.vertices.push_back(mesh->vertices[iVtx]);
+            }
+
+            ret.elements.push_back(elementIndex.value());
+        }
+    }
+
+    return ret;
+}
+
+// Computes the union of two optimized meshes
+inline Mesh_Builder::Optimized_Mesh operator+(
+    Mesh_Builder::Optimized_Mesh const& lhs,
+    Mesh_Builder::Optimized_Mesh const& rhs) {
+    auto const unPointCount = lhs.vertices.size() + rhs.vertices.size();
+    if (unPointCount > 256) {
+        return UnionWindow(lhs, rhs, 256);
+    } else {
+        return UnionGlobal(lhs, rhs);
+    }
 }

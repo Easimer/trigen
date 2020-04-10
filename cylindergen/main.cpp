@@ -17,6 +17,7 @@
 #include "glres.h"
 #include "meshbuilder.h"
 #include "trunk_generator.h"
+#include <trigen/profiler.h>
 
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
@@ -386,7 +387,7 @@ struct Future_Union_Mesh {
 
     Mesh_Builder::Optimized_Mesh operator()(OT& x) {
         if (x != NULL) {
-            return *x;
+            return (Mesh_Builder::Optimized_Mesh)*x;
         } else {
             return {};
         }
@@ -396,10 +397,10 @@ struct Future_Union_Mesh {
         return {};
     }
 
-    operator Mesh_Builder::Optimized_Mesh() {
+    explicit operator Mesh_Builder::Optimized_Mesh() {
         auto const x = std::visit(*this, lhs);
         if (rhs != NULL) {
-            return x + *rhs;
+            return x + (Mesh_Builder::Optimized_Mesh)*rhs;
         } else {
             return x;
         }
@@ -419,6 +420,7 @@ void Union(Future_Union_Mesh& lhs, Future_Union_Mesh::FM&& fm) {
 
 static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
     std::vector<lm::Vector4> points;
+    Scope_Benchmark _bm("ProcessNodes");
 
     // start node might have multiple children.
     // the code below won't handle that properly, so we add
@@ -468,7 +470,7 @@ static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t c
             pCurrent = &tree.GetNode(uiCurrent);
         }
 
-        Union(ret, std::async(&ProcessNodes, tree, uiNode, uiBranchHead, uiCurrent));
+        Union(ret, std::async(std::launch::async, &ProcessNodes, tree, uiNode, uiBranchHead, uiCurrent));
         if (pCurrent->unChildCount > 1) {
             Union(ret, ProcessMultiNode(tree, uiCurrent));
         }
@@ -480,8 +482,9 @@ static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t c
 static Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree) {
     auto const& root = tree.GetNode(0);
     assert(root.unChildCount > 0);
+    Scope_Benchmark _bm("ProcessTree");
 
-    return ProcessMultiNode(tree, 0);
+    return (Mesh_Builder::Optimized_Mesh)ProcessMultiNode(tree, 0);
 }
 
 int main(int argc, char** argv) {
@@ -501,7 +504,7 @@ int main(int argc, char** argv) {
     };
 
     Lindenmayer_System sys("0", alphabet, rules);
-    auto const tree = EvaluateLindenmayerOps(sys.Iterate(3));
+    auto const tree = EvaluateLindenmayerOps(sys.Iterate(5));
 
     if (r) {
         SDL_GL_SetSwapInterval(-1);

@@ -93,15 +93,18 @@ Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> c
 }
 
 Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc radiusFunc) {
-    size_t const unPoints = 8; // Number of points in the spline
-    size_t const unSides = 8; // Number of cylinder sides
+    size_t const unSubdivisions = 8; // Number of subdivisions in the spline
+    size_t const unSides = 5; // Number of cylinder sides
     Mesh_Builder mb(0.00001f);
+    /*
     auto const avPoints = [unPoints, cr]() {
         std::vector<lm::Vector4> buf;
         buf.resize(unPoints);
         cr.GeneratePoints(unPoints, buf.data());
         return buf;
     }();
+    */
+    auto const avPoints = cr.GeneratePoints(unSubdivisions);
 
-    return MeshFromSpline_impl({ avPoints, unPoints, unSides }, radiusFunc);
+    return MeshFromSpline_impl({ avPoints, avPoints.size(), unSides }, radiusFunc);
 }

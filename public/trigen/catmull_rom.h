@@ -6,6 +6,7 @@
 #pragma once
 #include <cassert>
 #include <type_traits>
+#include <vector>
 
 #define GENSTEP(asgn, t, t0, t1, p0, p1) \
 Point const asgn([=]() { \
@@ -50,6 +51,12 @@ public:
         size_t i = 0;
         float const flStep = (t[1] - t[0]) / unCountPoints;
         for (float T = t[0]; T < t[1] && i < unCountPoints; T += flStep) {
+            // If we're filling the last slot in the out array, then emit
+            // the endpoint of the curve rather than the next one.
+            if (i == unCountPoints - 1) {
+                T = t[1];
+            }
+
             GENSTEP(a1, T, 0.0f, t[0], p[0], p[1]);
             GENSTEP(a2, T, t[0], t[1], p[1], p[2]);
             GENSTEP(a3, T, t[1], t[2], p[2], p[3]);
@@ -58,6 +65,25 @@ public:
             GENSTEP(c0, T, t[0], t[1], b1, b2);
             pOutBuf[i++] = c0;
         }
+    }
+
+    std::vector<Point> GeneratePoints(size_t unSubdivisions) const {
+        std::vector<Point> ret;
+
+        float const flStep = (t[1] - t[0]) / (unSubdivisions + 1);
+        for (float T = t[0]; LessThanOrWithinEpsilon(T, t[1], 0.00001f); T += flStep) {
+            GENSTEP(a1, T, 0.0f, t[0], p[0], p[1]);
+            GENSTEP(a2, T, t[0], t[1], p[1], p[2]);
+            GENSTEP(a3, T, t[1], t[2], p[2], p[3]);
+            GENSTEP(b1, T, 0.0f, t[1], a1, a2);
+            GENSTEP(b2, T, t[0], t[2], a2, a3);
+            GENSTEP(c0, T, t[0], t[1], b1, b2);
+            ret.push_back(c0);
+        }
+
+        assert(ret.size() == unSubdivisions + 2);
+
+        return ret;
     }
 
     Point operator()(float const T) const {
@@ -73,6 +99,10 @@ public:
     auto begin() const { return Float_Iterator(t[0]); }
     auto end() const { return Float_Iterator(t[1]); }
 private:
+    bool LessThanOrWithinEpsilon(float flLhs, float flRhs, float flEpsilon) const {
+        float flDist = fabs(flRhs - flLhs);
+        return flLhs < flRhs || (flDist < flEpsilon);
+    }
 
     float GetT(float t, Point const& p0, Point const& p1) {
         float const dx = GetX(p1) - GetX(p0);
@@ -111,6 +141,21 @@ public:
             auto const uiBaseOffset = iCurve * unPointsPerCurve;
             cr.GeneratePoints(unPoints, &pOutBuf[uiBaseOffset]);
         }
+    }
+
+    std::vector<Point> GeneratePoints(size_t unSubdivisions) const {
+        assert(m_unPoints >= 4);
+        assert(m_pPoints != NULL);
+        std::vector<Point> ret;
+
+        auto const unCurveCount = m_unPoints - 3;
+        for (size_t iCurve = 0; iCurve < unCurveCount; iCurve++) {
+            auto const cr = Catmull_Rom<Point>(m_pPoints[iCurve + 0], m_pPoints[iCurve + 1], m_pPoints[iCurve + 2], m_pPoints[iCurve + 3]);
+            auto const res = cr.GeneratePoints(unSubdivisions);
+            ret.insert(ret.end(), res.cbegin(), res.cend() - 1);
+        }
+
+        return ret;
     }
 
 private:
