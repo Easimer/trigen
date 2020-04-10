@@ -7,9 +7,14 @@
 #include <cstdio>
 #include <SDL.h>
 
+#ifdef _NDEBUG
 #define SCOPE_BENCHMARK() Scope_Benchmark __bm(__FUNCTION__)
+#else
+#define SCOPE_BENCHMARK()
+#endif
 
 struct Scope_Benchmark {
+#ifdef _NDEBUG
     Scope_Benchmark(char const* pszScopeName) : uiStart(SDL_GetPerformanceCounter()), pszScopeName(pszScopeName) {}
 
     ~Scope_Benchmark() {
@@ -20,4 +25,5 @@ struct Scope_Benchmark {
 
     char const* pszScopeName;
     Uint64 const uiStart;
+#endif
 };

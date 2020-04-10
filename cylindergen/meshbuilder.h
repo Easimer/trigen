@@ -173,7 +173,7 @@ inline Mesh_Builder::Optimized_Mesh operator+(
     Mesh_Builder::Optimized_Mesh const& rhs) {
     auto const unPointCount = lhs.vertices.size() + rhs.vertices.size();
     if (unPointCount > 256) {
-        return UnionWindow(lhs, rhs, 256);
+        return UnionWindow(lhs, rhs, 32);
     } else {
         return UnionGlobal(lhs, rhs);
     }

@@ -312,12 +312,22 @@ lm::Vector4 GetDirectionVector(Execution_State const& s) {
     return lm::Vector4(-v, w, -u);
 }
 
-Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
+struct Lindenmayer_Parameters {
+    constexpr Lindenmayer_Parameters()
+        : Lindenmayer_Parameters(64.0f) {}
+    constexpr Lindenmayer_Parameters(float flStep)
+        : Lindenmayer_Parameters(flStep, 0.785398163f, 0.785398163f, 0.785398163f) {}
+    constexpr Lindenmayer_Parameters(float flStep, float flYaw, float flPitch, float flRoll)
+        : flStep(flStep), flYaw(flYaw), flPitch(flPitch), flRoll(flRoll) {}
+
+    float flStep, flYaw, flPitch, flRoll;
+};
+
+Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops, Lindenmayer_Parameters const& params) {
     Tree_Node_Pool pool;
     std::stack<Execution_State> stack;
     Execution_State state = {};
     uint32_t uiRoot;
-    float const flStep = 64.0f;
 
     state.flPitch = M_PI / 2.0f;
     pool.Allocate(uiRoot);
@@ -331,7 +341,7 @@ Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
             uint32_t nextNodeIdx;
             auto& nextNode = pool.Allocate(nextNodeIdx);
             auto& curNode = pool.GetNode(state.uiNodeCurrent);
-            nextNode.vPosition = curNode.vPosition + flStep * dir;
+            nextNode.vPosition = curNode.vPosition + params.flStep * dir;
             printf("Node: (%f, %f, %f)\n", nextNode.vPosition[0], nextNode.vPosition[1], nextNode.vPosition[2]);
             curNode.AddChild(nextNodeIdx);
             state.uiNodeCurrent = nextNodeIdx;
@@ -350,12 +360,32 @@ Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops) {
         }
         case Lindenmayer_Op::Yaw_Pos:
         {
-            state.flPitch += 0.785398163f;
+            state.flYaw += params.flYaw;
             break;
         }
         case Lindenmayer_Op::Yaw_Neg:
         {
-            state.flPitch -= 0.785398163f;
+            state.flYaw -= params.flYaw;
+            break;
+        }
+        case Lindenmayer_Op::Roll_Pos:
+        {
+            state.flRoll += params.flRoll;
+            break;
+        }
+        case Lindenmayer_Op::Roll_Neg:
+        {
+            state.flRoll -= params.flRoll;
+            break;
+        }
+        case Lindenmayer_Op::Pitch_Pos:
+        {
+            state.flPitch += params.flPitch;
+            break;
+        }
+        case Lindenmayer_Op::Pitch_Neg:
+        {
+            state.flPitch -= params.flPitch;
             break;
         }
         default:
@@ -420,7 +450,6 @@ void Union(Future_Union_Mesh& lhs, Future_Union_Mesh::FM&& fm) {
 
 static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
     std::vector<lm::Vector4> points;
-    Scope_Benchmark _bm("ProcessNodes");
 
     // start node might have multiple children.
     // the code below won't handle that properly, so we add
@@ -482,7 +511,6 @@ static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t c
 static Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree) {
     auto const& root = tree.GetNode(0);
     assert(root.unChildCount > 0);
-    Scope_Benchmark _bm("ProcessTree");
 
     return (Mesh_Builder::Optimized_Mesh)ProcessMultiNode(tree, 0);
 }
@@ -492,19 +520,22 @@ int main(int argc, char** argv) {
     GL_Renderer r;
 
     Lindenmayer_System::Alphabet const alphabet = {
-        {'[', {Lindenmayer_Op::Push, Lindenmayer_Op::Yaw_Neg}},
-        {']', {Lindenmayer_Op::Pop, Lindenmayer_Op::Yaw_Pos}},
-        {'0', {Lindenmayer_Op::Forward}},
-        {'1', {Lindenmayer_Op::Forward}},
+        {'[', {Lindenmayer_Op::Push}},
+        {']', {Lindenmayer_Op::Pop}},
+        {'-', {Lindenmayer_Op::Pitch_Neg}},
+        {'+', {Lindenmayer_Op::Pitch_Pos}},
+        {'F', {Lindenmayer_Op::Forward}},
+        {'X', {}},
     };
 
     Lindenmayer_System::Rule_Set const rules = {
-        {'1', "11"},
-        {'0', "1[0]0"},
+        {'X', "F+[[X]-X]-F[-FX]+X"},
+        {'F', "FF"},
     };
 
-    Lindenmayer_System sys("0", alphabet, rules);
-    auto const tree = EvaluateLindenmayerOps(sys.Iterate(5));
+    Lindenmayer_System sys("X", alphabet, rules);
+    Lindenmayer_Parameters params(64.0f, 0.436332313f, 0.436332313f, 0.436332313f);
+    auto const tree = EvaluateLindenmayerOps(sys.Iterate(6), params);
 
     if (r) {
         SDL_GL_SetSwapInterval(-1);
