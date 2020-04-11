@@ -3,6 +3,7 @@
 // Purpose: Generate 3D mesh from a Lindenmayer-system
 //
 
+#include "stdafx.h"
 #include <cassert>
 #include <ctime>
 #include <optional>
@@ -16,8 +17,21 @@
 #include "general.h"
 #include "glres.h"
 #include "meshbuilder.h"
+#include "future_union_mesh.h"
 #include "trunk_generator.h"
+#include "lindenmayer.h"
 #include <trigen/profiler.h>
+
+#include <imgui.h>
+#include <imgui_impl_opengl3.h>
+#include <imgui_impl_sdl.h>
+#include <queue>
+#include <map>
+
+template<typename R>
+bool is_ready(std::future<R> const& f) {
+    return f.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
 
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
@@ -69,16 +83,26 @@ static void GLMessageCallback
 #endif
 }
 
-void Bind(gl::VBO const& vbo) {
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+template<typename T>
+void _Bind(GLuint hHandle);
+
+template<>
+void _Bind<gl::VBO>(GLuint hVBO) {
+    glBindBuffer(GL_ARRAY_BUFFER, hVBO);
+}
+
+template<>
+void _Bind<gl::VAO>(GLuint hVAO) {
+    glBindVertexArray(hVAO);
+}
+
+template<typename T>
+void Bind(T const& res) {
+    _Bind<typename T::Resource>(res);
 }
 
 void BindElements(gl::VBO const& vbo) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo);
-}
-
-void Bind(gl::VAO const& vao) {
-    glBindVertexArray(vao);
 }
 
 static void UploadStaticVertices(gl::VBO const& vbo, GLsizei size, void const* data) {
@@ -123,13 +147,35 @@ static gl::VAO BuildVAO(gl::VBO const& hPos) {
 struct Element_Model {
     gl::VAO vao;
     gl::VBO vbo_vertices, vbo_elements;
-    const size_t elements;
+    size_t elements;
 };
 
 struct Draw_Load_Unit {
     gl::Shader_Program program;
     Element_Model mdl;
 };
+
+struct Cmd_Draw_Element_Model {
+    gl::Weak_Resource_Reference<gl::VAO> vao;
+    gl::Weak_Resource_Reference<gl::VBO> vbo_vertices, vbo_elements;
+    const size_t elements;
+    lm::Vector4 position;
+
+    Cmd_Draw_Element_Model(lm::Vector4 const& pos, Element_Model const& emdl)
+        : vao(emdl.vao), vbo_vertices(emdl.vbo_vertices), vbo_elements(emdl.vbo_elements),
+        elements(emdl.elements), position(pos) {}
+};
+
+struct Cmd_Change_Program {
+    gl::Weak_Resource_Reference<gl::Shader_Program> program;
+};
+
+using Cmd_Draw = std::variant<
+    Cmd_Draw_Element_Model,
+    Cmd_Change_Program
+>;
+
+using Draw_Queue = std::vector<Cmd_Draw>;
 
 struct Camera_State {
     lm::Vector4 position;
@@ -160,56 +206,87 @@ static void Draw(Element_Model const& elemmdl) {
     glDrawElements(GL_TRIANGLES, elemmdl.elements, GL_UNSIGNED_INT, 0);
 }
 
-static void RenderLoop(GL_Renderer& r, Draw_Load_Unit const& dlu) {
+struct Renderer_State {
     bool bExit = false;
     Camera_State cam;
     lm::Matrix4 matProj, matInvProj;
-    lm::Perspective(matProj, matInvProj, r.width, r.height, 1.57079633f, 0.01f, 1000.0f);
-    cam.position = lm::Vector4(0, 32, 128);
-
-    gl::Uniform_Location<lm::Matrix4> locMVP(dlu.program, "matMVP");
-
     float flZoom = 1.0f;
+};
 
-    while (!bExit) {
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            switch (ev.type) {
-                case SDL_QUIT: {
-                    bExit = true;
-                    break;
+class Render_Pass {
+public:
+    Render_Pass(GL_Renderer& r, Renderer_State& state)
+        : r(r), state(state) {
+        auto const matView =
+            lm::Scale(1.0f / state.flZoom) *
+            lm::RotationY(state.cam.euler_rotation[1]) *
+            lm::Translation(-state.cam.position);
+        matVP = matView * state.matProj;
+    }
+
+    void operator()(Cmd_Change_Program const& chprog) {
+        locMVP = gl::Uniform_Location<lm::Matrix4>(chprog.program, "matMVP");
+        glUseProgram(chprog.program);
+    }
+
+    void operator()(Cmd_Draw_Element_Model const& draw) {
+        auto const matMVP = lm::Translation(draw.position) * matVP;
+        gl::SetUniformLocation(locMVP.value(), matMVP);
+        Bind(draw.vao);
+        glDrawElements(GL_TRIANGLES, draw.elements, GL_UNSIGNED_INT, 0);
+    }
+private:
+    GL_Renderer& r;
+    Renderer_State& state;
+
+    std::optional<gl::Uniform_Location<lm::Matrix4>> locMVP;
+    lm::Matrix4 matVP;
+};
+
+static void ProcessEvents(GL_Renderer& r, Renderer_State& state) {
+    SDL_Event ev;
+
+    while (SDL_PollEvent(&ev)) {
+        ImGui_ImplSDL2_ProcessEvent(&ev);
+        switch (ev.type) {
+            case SDL_QUIT: {
+                state.bExit = true;
+                break;
+            }
+            case SDL_MOUSEMOTION: {
+                if (ev.motion.state & SDL_BUTTON_RMASK) {
+                    state.cam.euler_rotation =
+                        state.cam.euler_rotation + lm::Vector4(0, ev.motion.xrel / 32.0f, 0);
                 }
-                case SDL_MOUSEMOTION: {
-                    if (ev.motion.state & SDL_BUTTON_RMASK) {
-                        cam.euler_rotation = cam.euler_rotation + lm::Vector4(0, ev.motion.xrel / 32.0f, 0);
-                    }
-                    break;
-                }
-                case SDL_MOUSEWHEEL: {
-                    flZoom += -ev.wheel.y;
-                    break;
-                }
+                break;
+            }
+            case SDL_MOUSEWHEEL: {
+                state.flZoom += -ev.wheel.y;
+                break;
             }
         }
+    }
 
-        if (flZoom < 1.0f) { flZoom = 1.0f; }
+    if (state.flZoom < 1.0f) { state.flZoom = 1.0f; }
 
-        // Arcball camera
-        auto matView = lm::Scale(1.0f / flZoom) * lm::RotationY(cam.euler_rotation[1]) * lm::Translation(-cam.position[0], -cam.position[1], -cam.position[2]);
-        auto matMVP = matView * matProj;
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame(r);
+    ImGui::NewFrame();
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glUseProgram(dlu.program);
-        gl::SetUniformLocation(locMVP, matMVP);
-        Draw(dlu.mdl);
+}
 
-        r.Present();
+static void RenderPass(GL_Renderer& r, Renderer_State& state, Draw_Queue const& dq) {
+    Render_Pass visitor(r, state);
+
+    for (auto const& cmd : dq) {
+        std::visit(visitor, cmd);
     }
 }
 
 template<GLenum kType>
 static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) {
-    gl::Shader<kType> shader;
+    gl::Shader<kType> shader; 
 
     std::ifstream f(pszPath);
     if (f) {
@@ -226,226 +303,6 @@ static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) 
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-}
-
-template<size_t N, typename... T>
-struct Rule_Set_Impl {
-    constexpr std::string const& F(char const) const {
-        throw std::exception();
-        return empty;
-    }
-
-    std::string const empty;
-};
-
-enum class Lindenmayer_Op {
-    Noop,
-    Forward,
-    Push, Pop,
-    Yaw_Pos, Yaw_Neg,
-    Pitch_Pos, Pitch_Neg,
-    Roll_Pos, Roll_Neg,
-};
-
-class Lindenmayer_System {
-public:
-    using Alphabet = std::unordered_map<char, std::vector<Lindenmayer_Op>>;
-    using Rule_Set = std::unordered_map<char, std::string>;
-
-    Lindenmayer_System(std::string const& axiom, Alphabet const& alphabet, Rule_Set const& rules)
-    : axiom(axiom), alphabet(alphabet), rules(rules) {
-        // Check that every character is present in the alphabet
-        for (auto& ch : axiom) {
-            assert(alphabet.count(ch));
-        }
-        for (auto& rule : rules) {
-            assert(alphabet.count(rule.first) > 0);
-            for (auto& ch : rule.second) {
-                assert(alphabet.count(ch) > 0);
-            }
-        }
-    }
-
-    std::vector<Lindenmayer_Op> Iterate(size_t unIterations) const {
-        std::vector<Lindenmayer_Op> ret;
-        std::string current = axiom;
-        std::string buf;
-
-        for (size_t uiCurrentIteration = 0; uiCurrentIteration < unIterations; uiCurrentIteration++) {
-            for (size_t iOff = 0; iOff < current.size(); iOff++) {
-                auto cur = current[iOff];
-                assert(alphabet.count(cur) == 1);
-                if (rules.count(cur)) {
-                    buf += rules.at(cur);
-                } else {
-                    buf += cur;
-                }
-            }
-            current = std::move(buf);
-        }
-
-        ret.reserve(current.size());
-        for (auto ch : current) {
-            auto const& Y = alphabet.at(ch);
-            for (auto op : Y) {
-                ret.push_back(op);
-            }
-        }
-
-        return ret;
-    }
-private:
-    std::string const axiom;
-    Alphabet const alphabet;
-    Rule_Set const rules;
-};
-
-struct Execution_State {
-    uint32_t uiNodeCurrent;
-    float flYaw, flPitch, flRoll;
-};
-
-lm::Vector4 GetDirectionVector(Execution_State const& s) {
-    auto u = cosf(s.flYaw) * cosf(s.flPitch);
-    auto v = cosf(s.flPitch) * sinf(s.flYaw);
-    auto w = sinf(s.flPitch);
-    return lm::Vector4(-v, w, -u);
-}
-
-struct Lindenmayer_Parameters {
-    constexpr Lindenmayer_Parameters()
-        : Lindenmayer_Parameters(64.0f) {}
-    constexpr Lindenmayer_Parameters(float flStep)
-        : Lindenmayer_Parameters(flStep, 0.785398163f, 0.785398163f, 0.785398163f) {}
-    constexpr Lindenmayer_Parameters(float flStep, float flYaw, float flPitch, float flRoll)
-        : flStep(flStep), flYaw(flYaw), flPitch(flPitch), flRoll(flRoll) {}
-
-    float flStep, flYaw, flPitch, flRoll;
-};
-
-Tree_Node_Pool EvaluateLindenmayerOps(std::vector<Lindenmayer_Op> const& ops, Lindenmayer_Parameters const& params) {
-    Tree_Node_Pool pool;
-    std::stack<Execution_State> stack;
-    Execution_State state = {};
-    uint32_t uiRoot;
-
-    state.flPitch = M_PI / 2.0f;
-    pool.Allocate(uiRoot);
-    state.uiNodeCurrent = uiRoot;
-
-    for (uint32_t pc = 0; pc < ops.size(); pc++) {
-        auto dir = GetDirectionVector(state);
-        switch (ops[pc]) {
-        case Lindenmayer_Op::Forward:
-        {
-            uint32_t nextNodeIdx;
-            auto& nextNode = pool.Allocate(nextNodeIdx);
-            auto& curNode = pool.GetNode(state.uiNodeCurrent);
-            nextNode.vPosition = curNode.vPosition + params.flStep * dir;
-            printf("Node: (%f, %f, %f)\n", nextNode.vPosition[0], nextNode.vPosition[1], nextNode.vPosition[2]);
-            curNode.AddChild(nextNodeIdx);
-            state.uiNodeCurrent = nextNodeIdx;
-            break;
-        }
-        case Lindenmayer_Op::Push:
-        {
-            stack.push(state);
-            break;
-        }
-        case Lindenmayer_Op::Pop:
-        {
-            state = stack.top();
-            stack.pop();
-            break;
-        }
-        case Lindenmayer_Op::Yaw_Pos:
-        {
-            state.flYaw += params.flYaw;
-            break;
-        }
-        case Lindenmayer_Op::Yaw_Neg:
-        {
-            state.flYaw -= params.flYaw;
-            break;
-        }
-        case Lindenmayer_Op::Roll_Pos:
-        {
-            state.flRoll += params.flRoll;
-            break;
-        }
-        case Lindenmayer_Op::Roll_Neg:
-        {
-            state.flRoll -= params.flRoll;
-            break;
-        }
-        case Lindenmayer_Op::Pitch_Pos:
-        {
-            state.flPitch += params.flPitch;
-            break;
-        }
-        case Lindenmayer_Op::Pitch_Neg:
-        {
-            state.flPitch -= params.flPitch;
-            break;
-        }
-        default:
-            break;
-        }
-    }
-
-    return pool;
-}
-
-#include <future>
-#include <optional>
-#include <variant>
-#include <memory>
-
-struct Future_Union_Mesh {
-    using FM = std::future<Mesh_Builder::Optimized_Mesh>;
-    using OT = std::unique_ptr<Future_Union_Mesh>;
-    using OFM = std::optional<FM>;
-    using V = std::variant <std::monostate, FM, OT>;
-
-    V lhs;
-    OT rhs;
-
-
-    Mesh_Builder::Optimized_Mesh operator()(FM& x) {
-        return x.get();
-    }
-
-    Mesh_Builder::Optimized_Mesh operator()(OT& x) {
-        if (x != NULL) {
-            return (Mesh_Builder::Optimized_Mesh)*x;
-        } else {
-            return {};
-        }
-    }
-
-    Mesh_Builder::Optimized_Mesh operator()(std::monostate const&) {
-        return {};
-    }
-
-    explicit operator Mesh_Builder::Optimized_Mesh() {
-        auto const x = std::visit(*this, lhs);
-        if (rhs != NULL) {
-            return x + (Mesh_Builder::Optimized_Mesh)*rhs;
-        } else {
-            return x;
-        }
-    }
-};
-
-void Union(Future_Union_Mesh& lhs, Future_Union_Mesh&& rhs) {
-    auto x = std::make_unique<Future_Union_Mesh>(std::move(lhs));
-    auto y = std::make_unique<Future_Union_Mesh>(std::move(rhs));
-    lhs = Future_Union_Mesh { std::move(x), std::move(y) };
-}
-
-void Union(Future_Union_Mesh& lhs, Future_Union_Mesh::FM&& fm) {
-    auto y = std::make_unique<Future_Union_Mesh>(std::move(lhs));
-    lhs = Future_Union_Mesh{ std::move(fm), std::move(y) };
 }
 
 static Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
@@ -519,23 +376,23 @@ int main(int argc, char** argv) {
     SDL_Init(SDL_INIT_EVERYTHING);
     GL_Renderer r;
 
-    Lindenmayer_System::Alphabet const alphabet = {
-        {'[', {Lindenmayer_Op::Push}},
-        {']', {Lindenmayer_Op::Pop}},
-        {'-', {Lindenmayer_Op::Pitch_Neg}},
-        {'+', {Lindenmayer_Op::Pitch_Pos}},
-        {'F', {Lindenmayer_Op::Forward}},
+    Lindenmayer::System::Alphabet const alphabet = {
+        {'[', {Lindenmayer::Op::Push}},
+        {']', {Lindenmayer::Op::Pop}},
+        {'-', {Lindenmayer::Op::Pitch_Neg}},
+        {'+', {Lindenmayer::Op::Pitch_Pos}},
+        {'F', {Lindenmayer::Op::Forward}},
         {'X', {}},
     };
 
-    Lindenmayer_System::Rule_Set const rules = {
+    Lindenmayer::System::Rule_Set const rules = {
         {'X', "F+[[X]-X]-F[-FX]+X"},
         {'F', "FF"},
     };
 
-    Lindenmayer_System sys("X", alphabet, rules);
-    Lindenmayer_Parameters params(64.0f, 0.436332313f, 0.436332313f, 0.436332313f);
-    auto const tree = EvaluateLindenmayerOps(sys.Iterate(6), params);
+    Lindenmayer::System sys("X", alphabet, rules);
+    Lindenmayer::Parameters params(64.0f, 0.436332313f, 0.436332313f, 0.436332313f);
+    auto tree = Lindenmayer::Execute(sys.Iterate(4), params);
 
     if (r) {
         SDL_GL_SetSwapInterval(-1);
@@ -547,42 +404,21 @@ int main(int argc, char** argv) {
             printf("[ gfx ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
 
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+        ImGui::StyleColorsDark();
+
+        ImGui_ImplSDL2_InitForOpenGL(r, (void*)r.glctx);
+        ImGui_ImplOpenGL3_Init("#version 130");
+
         srand(time(NULL));
+        std::future<Mesh_Builder::Optimized_Mesh> meshTree;
+        std::optional<Element_Model> mdlTree;
 
-        /*
-        lm::Vector4 const vertices[] = {
-            {0.5f,  0.5f, 0.0f,},
-            {0.5f, -0.5f, 0.0f,},
-            {-0.5f,  0.5f, 0.0f,},
-            {0.5f, -0.5f, 0.0f,},
-            {-0.5f, -0.5f, 0.0f,},
-            {-0.5f,  0.5f, 0.0f},
-        };
-
-        lm::Vector4 controlPoints[12];
-        lm::Vector4 dir(0, 1, 0);
-        controlPoints[0] = lm::Vector4();
-        for (int i = 1; i < 12; i++) {
-            float const dx = randf() * 2 - 1;
-            float const dy = randf();
-            float const dz = randf() * 2 - 1;
-            dir = dir + lm::Vector4(dx, dy, dz);
-            controlPoints[i] = controlPoints[i - 1] + 16 * dir;
-        }
-
-        Mesh_Builder mb;
-        mb.PushTriangle(vertices[0], vertices[1], vertices[2]);
-        mb.PushTriangle(vertices[3], vertices[4], vertices[5]);
-        auto optmesh = mb.Optimize();
-
-        Catmull_Rom_Composite<lm::Vector4> cr(12, controlPoints);
-        auto optmesh2 = MeshFromSpline(cr, [=](size_t i, lm::Vector4 const& p) {
-            return 16.0f;
-        });
-        auto asd = BuildModel(optmesh2);
-        */
-
-        auto asd = BuildModel(ProcessTree(tree));
+        size_t unCurrentIterationCount = 0;
+        size_t unDesiredIterationCount = 2;
 
         auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
         auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
@@ -592,15 +428,66 @@ int main(int argc, char** argv) {
             auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
             if (program) {
                 auto hProgram = std::move(program.value());
-                // Draw_Load_Unit dlu = { std::move(hProgram), BuildModel(optmesh) };
-                Draw_Load_Unit dlu = { std::move(hProgram), std::move(asd) };
-                RenderLoop(r, dlu);
+                Renderer_State state;
+                lm::Perspective(state.matProj, state.matInvProj, r.width, r.height, 1.57079633f, 0.01f, 1000.0f);
+                state.cam.position = lm::Vector4(0, 32, 128);
+                float flFrameTime = 0;
+                while (!state.bExit) {
+                    Draw_Queue dq;
+                    auto const uiTimeStart = SDL_GetPerformanceCounter();
+
+                    ProcessEvents(r, state);
+
+                    if (unCurrentIterationCount != unDesiredIterationCount) {
+                        tree = Lindenmayer::Execute(sys.Iterate(unDesiredIterationCount), params);
+                        mdlTree.reset();
+                        meshTree = std::async(std::launch::async, [=]() {
+                            return ProcessTree(tree);
+                        });
+                        unCurrentIterationCount = unDesiredIterationCount;
+                    }
+
+                    if (ImGui::Begin("Config")) {
+                        ImGui::Text("Frame time: %f ms\n", flFrameTime * 1000);
+                        int nDesiredIterationCount = unDesiredIterationCount;
+                        ImGui::InputInt("Iteration count", &nDesiredIterationCount);
+                        if (nDesiredIterationCount > 0) {
+                            unDesiredIterationCount = (size_t)nDesiredIterationCount;
+                        }
+                        if (meshTree.valid() && !is_ready(meshTree)) {
+                            ImGui::Text("Generating mesh...");
+                        }
+                    }
+                    ImGui::End();
+
+                    Cmd_Change_Program chprog{hProgram};
+                    dq.push_back(chprog);
+                    if (mdlTree.has_value()) {
+                        Cmd_Draw_Element_Model draw(lm::Vector4(), mdlTree.value());
+                        dq.push_back(draw);
+                    } else {
+                        if (meshTree.valid() && is_ready(meshTree)) {
+                            mdlTree = BuildModel(meshTree.get());
+                        }
+                    }
+                    RenderPass(r, state, dq);
+
+                    ImGui::Render();
+                    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+                    auto const uiTimeEnd = SDL_GetPerformanceCounter();
+                    flFrameTime = (uiTimeEnd - uiTimeStart) / (double)SDL_GetPerformanceFrequency();
+                    r.Present();
+                }
+
             } else {
                 printf("Failed to link shader program: %s\n", builder.Error());
             }
         } else {
             printf("Failed to load the generic shaders!\n");
         }
+
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplSDL2_Shutdown();
     }
     SDL_Quit();
     return 0;

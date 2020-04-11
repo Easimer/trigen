@@ -17,6 +17,7 @@ namespace gl {
     public:
         using Handle_Type = Handle;
         using Allocator_Type = Allocator;
+        using Resource = Managed_Resource<Handle, Allocator>;
 
         Managed_Resource() {
             Allocator::Allocate(&handle);
@@ -47,12 +48,17 @@ namespace gl {
         Handle handle;
     };
 
-    template<typename Resource>
+    template<typename R>
     class Weak_Resource_Reference {
     public:
+        using Resource = R;
         using Handle_Type = typename Resource::Handle_Type;
         Weak_Resource_Reference(Resource const& res) {
             handle = res;
+        }
+
+        operator Handle_Type() const {
+            return handle;
         }
     private:
         Handle_Type handle;
@@ -148,12 +154,15 @@ namespace gl {
             loc = glGetUniformLocation(hProgram, pszName);
         }
 
-        Uniform_Location(Uniform_Location const&) = delete;
-        void operator=(Uniform_Location const&) = delete;
+        Uniform_Location(Weak_Resource_Reference<Shader_Program> const& hProgram, char const* pszName) {
+            loc = glGetUniformLocation(hProgram, pszName);
+        }
 
-        operator GLuint() const { return loc; }
+        explicit Uniform_Location(GLint loc) : loc(loc) {}
+
+        operator GLint() const { return loc; }
     private:
-        GLuint loc;
+        GLint loc;
     };
 
     template<typename T>

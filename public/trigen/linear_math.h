@@ -105,6 +105,10 @@ namespace lm {
         return lhs + (-1 * rhs);
     }
 
+    inline Vector4 operator-(Vector4 const& v) {
+        return Vector4(-v[0], -v[1], -v[2], -v[3]);
+    }
+
     using mat4 = Matrix4;
 
     namespace detail {
@@ -180,6 +184,10 @@ namespace lm {
     inline Matrix4 Translation(float x, float y, float z) {
         float const m[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1 };
         return Matrix4(m);
+    }
+
+    inline Matrix4 Translation(Vector4 const& v) {
+        return Translation(v[0], v[1], v[2]);
     }
 
     inline Matrix4 operator*(Matrix4 const& A, Matrix4 const& B) {

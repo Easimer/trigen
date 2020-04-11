@@ -3,6 +3,7 @@
 // Purpose: wood trunk mesh generation
 //
 
+#include "stdafx.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <trigen/linear_math.h>
