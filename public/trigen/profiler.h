@@ -4,17 +4,26 @@
 //
 
 #pragma once
+
+#ifdef PROFILER_ENABLE
+#ifdef _NDEBUG
+#define PROFILER_ENABLED (1)
+#endif /* _NDEBUG */
+#else
+#define PROFILER_ENABLED (0)
+#endif /* PROFILER_ENABLE */
+
+#if PROFILER_ENABLED
 #include <cstdio>
 #include <SDL.h>
 
-#ifdef _NDEBUG
 #define SCOPE_BENCHMARK() Scope_Benchmark __bm(__FUNCTION__)
 #else
 #define SCOPE_BENCHMARK()
 #endif
 
 struct Scope_Benchmark {
-#ifdef _NDEBUG
+#if PROFILER_ENABLED
     Scope_Benchmark(char const* pszScopeName) : uiStart(SDL_GetPerformanceCounter()), pszScopeName(pszScopeName) {}
 
     ~Scope_Benchmark() {
@@ -25,5 +34,7 @@ struct Scope_Benchmark {
 
     char const* pszScopeName;
     Uint64 const uiStart;
-#endif
+#endif /* PROFILER_ENABLED */
 };
+
+#undef PROFILER_ENABLED
