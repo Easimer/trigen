@@ -4,9 +4,9 @@
 //
 
 #include "stdafx.h"
+#include "application.h"
+/*
 #include <trigen/sdl_helper.h>
-#include "render_queue.h"
-#include "tree_renderer.h"
 #include <trigen/GL.h>
 #include <trigen/lindenmayer.h>
 
@@ -20,7 +20,7 @@
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
 
-    GL_Renderer() : Renderer("editor", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL) {
+    GL_Renderer() : Renderer("editor", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL), glctx(NULL) {
         if (window != NULL && renderer != NULL) {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
@@ -77,75 +77,6 @@ static void GLMessageCallback
 #define SET_GUI_CTX(ctx) ImGui::SetCurrentContext(ctx)
 #define POP_GUI_CTX() ImGui::SetCurrentContext(__guictx);
 
-class Lindenmayer_Tree_Source : public Tree_Renderer::ITree_Source {
-public:
-    virtual Tree_Node_Pool const* GetNodes() override {
-        return &tree;
-    }
-    virtual bool DidTreeChange() override {
-        return false;
-    }
-    // TODO(danielm): implement this
-
-    virtual void Edit(ImGuiContext* gui) {
-        PUSH_GUI_CTX();
-        SET_GUI_CTX(gui);
-
-        if (ImGui::Button("Apply")) {
-        }
-
-        POP_GUI_CTX();
-    }
-
-    void Edit(Lindenmayer::System::Alphabet& alphabet) {
-    }
-
-    void Edit(std::vector<Lindenmayer::Op>& ops) {
-    }
-
-    static char const* MarshalOp(Lindenmayer::Op op) {
-        using Lindenmayer::Op;
-        switch (op) {
-        case Op::Forward: return "FWD";
-        case Op::Noop: return "NOOP";
-        case Op::Pitch_Neg: return "-P";
-        case Op::Pitch_Pos: return "+P";
-        case Op::Yaw_Neg: return "-Y";
-        case Op::Yaw_Pos: return "+Y";
-        case Op::Roll_Neg: return "-R";
-        case Op::Roll_Pos: return "+R";
-        case Op::Push: return "PSH";
-        case Op::Pop: return "POP";
-        default: return "(???)";
-        }
-    }
-
-
-    struct Editable_Alphabet {
-        void Edit() {
-            for (auto const& kv : alphabet) {
-
-            }
-        }
-
-        Lindenmayer::System::Alphabet alphabet;
-    };
-
-    struct Editable_Ops {
-        void Edit(char const* pszLabel) {
-            ImGui::Text(pszLabel);
-            for (int i = 0; i < ops.size(); i++) {
-                ImGui::Text("%d: %s", i, MarshalOp(ops[i]));
-            }
-        }
-
-        std::vector<Lindenmayer::Op> ops;
-    };
-
-private:
-    Tree_Node_Pool tree;
-};
-
 enum Application_Result {
     k_nApplication_Result_OK = 0,
     k_nApplication_Result_Quit = 1,
@@ -153,8 +84,6 @@ enum Application_Result {
 };
 
 struct Application_Data {
-    Tree_Renderer::Tree tree = NULL;
-    Lindenmayer_Tree_Source ts;
     gl::Shader_Program program;
 };
 
@@ -180,7 +109,6 @@ static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) 
 static Application_Result OnPreFrame() {
     if (gpAppData == NULL) {
         gpAppData = new Application_Data;
-        gpAppData->tree = Tree_Renderer::CreateTree(&gpAppData->ts);
         auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
         auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
         auto builder = gl::Shader_Program_Builder();
@@ -214,7 +142,7 @@ static Application_Result OnPostFrame() {
     return k_nApplication_Result_OK;
 }
 
-int main(int argc, char** argv) {
+int old_main(int argc, char** argv) {
     printf("editor v0.0.1\n");
     printf("Initializing SDL2\n");
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -303,5 +231,14 @@ int main(int argc, char** argv) {
     }
 
     SDL_Quit();
+    return 0;
+}
+*/
+
+int main(int argc, char** argv) {
+    printf("editor v0.0.1\n");
+
+    app_main_loop();
+
     return 0;
 }

@@ -1,6 +1,6 @@
 // === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
 //
-// Purpose: precompiled header
+// Purpose: softbody simulation library
 //
 
 #pragma once
@@ -22,11 +22,6 @@
 
 #include <KHR/khrplatform.h>
 #include <glad/glad.h>
-
-using Vec3 = glm::vec3;
-using Mat3 = glm::mat3;
-using Mat4 = glm::mat4;
-using Quat = glm::quat;
 #else
 
 #include <assert.h>

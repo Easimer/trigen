@@ -168,8 +168,20 @@ namespace gl {
     template<typename T>
     inline void SetUniformLocation(Uniform_Location<T> const&, T const&) = delete;
 
+#ifdef GLRES_GLM
+    template<>
+    inline void SetUniformLocation<glm::mat4>(Uniform_Location<glm::mat4> const& uiLoc, glm::mat4 const& matMatrix) {
+        glUniformMatrix4fv(uiLoc, 1, GL_FALSE, glm::value_ptr(matMatrix));
+    }
+
+    template<>
+    inline void SetUniformLocation<glm::vec3>(Uniform_Location<glm::vec3> const& uiLoc, glm::vec3 const& vVec) {
+        glUniform3fv(uiLoc, 1, glm::value_ptr(vVec));
+    }
+#else
     template<>
     inline void SetUniformLocation<lm::Matrix4>(Uniform_Location<lm::Matrix4> const& uiLoc, lm::Matrix4 const& matMatrix) {
         glUniformMatrix4fv(uiLoc, 1, GL_FALSE, matMatrix.Data());
     }
+#endif
 }
