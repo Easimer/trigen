@@ -10,6 +10,10 @@
 #include <SDL_events.h>
 
 namespace gfx {
+    struct Renderer_Config {
+        unsigned width, height;
+    };
+
     class IRenderer {
     public:
         virtual void new_frame() = 0;
@@ -28,8 +32,11 @@ namespace gfx {
         ) = 0;
 
         virtual bool pump_event_queue(SDL_Event& ev) = 0;
+
+        virtual void change_resolution(unsigned* inout_width, unsigned* inout_height) = 0;
+        virtual void get_resolution(unsigned* out_width, unsigned* out_height) = 0;
     };
 
-    IRenderer* make_renderer();
+    IRenderer* make_renderer(Renderer_Config const&);
     void destroy_renderer(IRenderer*);
 }

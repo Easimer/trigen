@@ -7,8 +7,14 @@
 #include "softbody.h"
 #include <cstdlib>
 
+// nocheckin 
+#include <imgui.h>
+
 #define PHYSICS_STEP (1.0f / 25.0f)
-#define SIM_SIZE_LIMIT (1024)
+#define SIM_SIZE_LIMIT (4)
+
+#define DISABLE_GROWTH
+#define DISABLE_PHOTOTROPISM
 
 using Vec3 = glm::vec3;
 using Mat3 = glm::mat3;
@@ -32,6 +38,30 @@ struct Particle_Group {
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+}
+
+static Vec3 longest_axis_normalized(Vec3 const& v) {
+    auto idx =
+        (v.x > v.y) ?
+        ((v.x > v.z) ? (0) : (2))
+        :
+        ((v.y > v.z ? (1) : (2)));
+    Vec3 ret(0, 0, 0);
+    ret[idx] = 1;
+    return glm::normalize(ret);
+}
+
+static void get_head_and_tail_of_particle(
+    Vec3 const& pos,
+    Vec3 const& longest_axis,
+    Quat const& orientation,
+    Vec3* out_head,
+    Vec3* out_tail
+) {
+    auto const axis_rotated = orientation * longest_axis * glm::inverse(orientation);
+    auto const axis_rotated_half = 0.5f * axis_rotated;
+    *out_head = pos - axis_rotated_half;
+    *out_tail = pos + axis_rotated_half;
 }
 
 struct Softbody_Simulation {
@@ -90,30 +120,39 @@ struct Softbody_Simulation {
     }
 
     void predict_positions(float dt) {
+        ImGui::Begin("Predict_Positions", NULL, ImGuiWindowFlags_NoCollapse);
+
         predicted_position.clear();
         for (auto i = 0ull; i < position.size(); i++) {
+            ImGui::Text("particle %ull", i);
+
             auto a = Vec3();
             auto const a_g = Vec3(0, -1, 0);
             auto const goal_dir = (goal_position[i] - position[i]);
             auto const a_goal = goal_dir * dt;
-            // a += a_g;
-            a += 1.0f * a_goal;
+            a += a_g;
+            a += 16.0f * a_goal;
             auto const v = velocity[i] + dt * a;
             velocity[i] = v;
             // Vec3 const x_p = system.position[i] + dt * system.velocity[i] + (dt * dt / 2) * a + 2.0f * goal_dir * dt;
             Vec3 const x_p = position[i] + dt * velocity[i] + (dt * dt / 2) * a;
             predicted_position.push_back(x_p);
 
+#ifndef DISABLE_PHOTOTROPISM
             // Phototropism
             auto v_forward = glm::normalize(orientation[i] * Vec3(0, 1, 0) * glm::inverse(orientation[i]));
             auto v_light = glm::normalize(light_source - position[i]);
             auto v_light_axis = glm::cross(v_light, v_forward);
+            ImGui::InputFloat3("v_forward", &v_forward[0]);
+            ImGui::InputFloat3("v_light", &v_light[0]);
+            ImGui::InputFloat3("v_light_axis", &v_light_axis[0]);
             auto O = 0.0f; // TODO: detect occlusion, probably by shadow mapping
             auto eta = 0.5f; // suspectability to phototropism
             auto angle_light = (1 - O) * eta * dt;
             auto Q_light = glm::normalize(Quat(angle_light, v_light_axis));
             // angular_velocity[i] = Q_light * angular_velocity[i] * glm::inverse(Q_light);
             orientation[i] = Q_light * orientation[i];
+#endif /* !defined(DISABLE_PHOTOTROPISM) */
 
             auto ang_vel = angular_velocity[i];
             auto orient = orientation[i];
@@ -132,7 +171,12 @@ struct Softbody_Simulation {
             }
 
             orientation[i] = orient_temp;
+
+
+            ImGui::InputFloat4("orientation", &orientation[i][0]);
         }
+
+        ImGui::End();
     }
 
     Mat3 polar_decompose_r(Mat3 const& A) {
@@ -288,6 +332,7 @@ struct Softbody_Simulation {
 
         goal_position[pidx] = x_t;
 
+#ifndef DISABLE_GROWTH
         // TODO(danielm): novekedesi rata
         // Novesztjuk az agat
         auto g = 4.0f; // 1/sec
@@ -299,23 +344,32 @@ struct Softbody_Simulation {
             // Ha tulleptuk a meret-limitet, novesszunk uj agat
             if (r >= 1.5f && position.size() < SIM_SIZE_LIMIT) {
                 auto lateral_chance = randf();
+                constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
+                auto longest_axis = longest_axis_normalized(size[pidx]);
+                auto new_longest_axis = longest_axis_normalized(new_size);
                 if (lateral_chance < prob_branching) {
                     // Oldalagat novesszuk
                     auto bud_rot_offset = glm::angleAxis(-45.0f, Vec3(0, 0, 1));
                     auto lateral_orientation = bud_rot_offset * orientation[pidx];
-                    auto l_pos = position[pidx] + lateral_orientation * Vec3(0, 1, 0) * glm::inverse(lateral_orientation);
-                    auto l_idx = add_particle(l_pos, Vec3(0.5f, 0.5f, 2.0f), 1.0f);
+                    auto l_pos = position[pidx]
+                        + orientation[pidx] * (longest_axis / 2.0f) * glm::inverse(orientation[pidx])
+                        + lateral_orientation * (new_longest_axis / 2.0f) * glm::inverse(lateral_orientation);
+                    auto l_idx = add_particle(l_pos, new_size, 1.0f);
                     lateral_bud[pidx] = l_idx;
+                    connect_particles(pidx, l_idx);
                     orientation[l_idx] = lateral_orientation;
                 }
 
                 // Csucsot novesszuk
-                auto pos = position[pidx] + orientation[pidx] * Vec3(0, 1, 0) * glm::inverse(orientation[pidx]);
-                auto a_idx = add_particle(pos, Vec3(0.5f, 0.5f, 2.0f), 1.0f);
+                auto pos = position[pidx]
+                    + orientation[pidx] * (longest_axis /2.0f) * glm::inverse(orientation[pidx])
+                    + orientation[pidx] * (new_longest_axis /2.0f) * glm::inverse(orientation[pidx]);
+                auto a_idx = add_particle(pos, new_size, 1.0f);
                 apical_child[pidx] = a_idx;
+                    connect_particles(pidx, a_idx);
             }
         }
-
+#endif /* !defined(DISABLE_GROWTH) */
     }
 };
 
@@ -343,9 +397,16 @@ struct Particle_Iterator_Impl : public sb::Particle_Iterator {
 
     virtual sb::Particle get() const override {
         assert(idx < sim->position.size());
+        Vec3 head, tail;
+        Vec3 const pos = sim->position[idx];
+        Vec3 const size = sim->size[idx];
+        auto const orientation = sim->orientation[idx];
+        get_head_and_tail_of_particle(pos, longest_axis_normalized(size), orientation, &head, &tail);
+
         return sb::Particle {
             idx,
-            sim->position[idx]
+            pos,
+            head, tail,
         };
     }
 };
@@ -354,7 +415,11 @@ struct Particle_Iterator_Impl : public sb::Particle_Iterator {
 Softbody_Simulation* sb::create_simulation(Config const& configuration) {
     auto ret = new Softbody_Simulation;
 
-    ret->add_particle(configuration.seed_position, Vec3(1, 1, 2), 1);
+    auto idx_root = ret->add_particle(configuration.seed_position, Vec3(1, 1, 2), 1);
+    auto idx_up = ret->add_particle(configuration.seed_position + Vec3(0, 0, 2), Vec3(1, 1, 2), 1);
+    auto idx_down = ret->add_particle(configuration.seed_position - Vec3(0, 0, 2), Vec3(1, 1, 2), 1);
+    ret->connect_particles(idx_root, idx_up);
+    ret->connect_particles(idx_root, idx_down);
 
     return ret;
 }
@@ -385,11 +450,11 @@ void sb::step(Softbody_Simulation* s, float delta_time) {
         // instabilla a szimulacio
         if (s->time_accumulator > PHYSICS_STEP) {
             auto phdt = s->time_accumulator;
-            // kihagyjuk a nulladik (seed) elemet
-            // for (auto idx = 0ull; idx < s->position.size(); idx++) {
+            auto p0 = s->position[0];
             for (auto idx = 0ull; idx < s->predicted_position.size(); idx++) {
                 s->simulate_group(idx, phdt);
             }
+            s->position[0] = p0;
 
             s->time_accumulator = 0;
         }

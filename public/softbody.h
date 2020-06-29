@@ -24,6 +24,8 @@ namespace sb {
     struct Particle {
         size_t id;
         glm::vec3 position;
+
+        glm::vec3 start, end;
     };
 
     struct Arrow {

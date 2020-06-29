@@ -71,10 +71,12 @@ static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) 
 class GL_Renderer : public sdl::Renderer, public gfx::IRenderer {
 public:
     GL_Renderer() :
+        m_width(1280), m_height(720),
         Renderer("editor", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL),
         glctx(NULL),
         m_pImGuiCtx(NULL),
         m_view(glm::translate(Vec3(0.0f, 0.0f, -15.0f))),
+        m_proj(glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 1000.0f)),
         m_uiTimeStart(0) {
         if (window != NULL && renderer != NULL) {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -153,15 +155,16 @@ public:
         if (m_point_cloud_shader.has_value()) {
             auto& shader = m_point_cloud_shader.value();
             glUseProgram(shader);
-            auto locView = gl::Uniform_Location<Mat4>(shader, "matView");
-            auto locProj = gl::Uniform_Location<Mat4>(shader, "matProj");
-            auto locModel = gl::Uniform_Location<Mat4>(shader, "matModel");
-            // auto matMVP = m_view * glm::perspective(1.57079633f, 720.0f / 1280.0f, 0.01f, 1000.0f);
-            auto matProj = glm::perspective(1.57079633f, 1280.0f / 720.0f, 0.01f, 1000.0f);
-            auto matModel = Mat4(1.0f);
+            
+            auto const matModel = glm::translate(vWorldPosition);
+
+            auto const locView = gl::Uniform_Location<Mat4>(shader, "matView");
+            auto const locProj = gl::Uniform_Location<Mat4>(shader, "matProj");
+            auto const locModel = gl::Uniform_Location<Mat4>(shader, "matModel");
+
             gl::SetUniformLocation(locModel , matModel);
             gl::SetUniformLocation(locView, m_view);
-            gl::SetUniformLocation(locProj, matProj);
+            gl::SetUniformLocation(locProj, m_proj);
 
             glDrawArrays(GL_POINTS, 0, nCount);
 
@@ -247,11 +250,10 @@ public:
             auto locModel = gl::Uniform_Location<Mat4>(shader, "matModel");
             auto locColor0 = gl::Uniform_Location<Vec3>(shader, "vColor0");
             auto locColor1 = gl::Uniform_Location<Vec3>(shader, "vColor1");
-            auto matProj = glm::perspective(1.57079633f, 1280.0f / 720.0f, 0.01f, 1000.0f);
-            auto matModel = Mat4(1.0f);
+            auto matModel = glm::translate(vWorldPosition);
             gl::SetUniformLocation(locModel , matModel);
             gl::SetUniformLocation(locView, m_view);
-            gl::SetUniformLocation(locProj, matProj);
+            gl::SetUniformLocation(locProj, m_proj);
             gl::SetUniformLocation(locColor0, vStartColor);
             gl::SetUniformLocation(locColor1, vEndColor);
 
@@ -264,16 +266,34 @@ public:
         }
     }
 
+    virtual void change_resolution(unsigned* inout_width, unsigned* inout_height) override {
+        assert(inout_width != NULL);
+        assert(inout_height != NULL);
+
+        m_width = *inout_width;
+        m_height = *inout_height;
+        SDL_SetWindowSize(window, m_width, m_height);
+
+        m_proj = glm::perspective(glm::radians(90.0f), (*inout_height) / (float)(*inout_width), 0.01f, 1000.0f);
+    }
+
+    virtual void get_resolution(unsigned* out_width, unsigned* out_height) override {
+        *out_width = m_width;
+        *out_height = m_height;
+    }
+
 private:
+    unsigned m_width, m_height;
     SDL_GLContext glctx;
     ImGuiContext* m_pImGuiCtx;
     Mat4 m_view;
+    Mat4 m_proj;
     decltype(SDL_GetPerformanceCounter()) m_uiTimeStart;
     std::optional<gl::Shader_Program> m_point_cloud_shader;
     std::optional<gl::Shader_Program> m_line_shader;
 };
 
-gfx::IRenderer* gfx::make_renderer() {
+gfx::IRenderer* gfx::make_renderer(gfx::Renderer_Config const&) {
     SDL_Init(SDL_INIT_EVERYTHING);
     return new GL_Renderer();
 }
