@@ -10,7 +10,7 @@
 #include <cstdlib>
 
 #define PHYSICS_STEP (1.0f / 25.0f)
-#define SIM_SIZE_LIMIT (128)
+#define SIM_SIZE_LIMIT (1024)
 
 // #define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
@@ -49,6 +49,10 @@ void Softbody_Simulation::initialize(sb::Config const& configuration) {
 #endif /* DEBUG_TETRAHEDRON */
 
     params = configuration;
+
+    if (params.particle_count_limit > SIM_SIZE_LIMIT) {
+        params.particle_count_limit = SIM_SIZE_LIMIT;
+    }
 }
 
 void Softbody_Simulation::predict_positions(float dt) {
@@ -170,7 +174,7 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
         size[pidx] += Vec3(g * dt, g * dt, 0);
 
         // Ha tulleptuk a meret-limitet, novesszunk uj agat
-        if (r >= 1.5f && position.size() < SIM_SIZE_LIMIT) {
+        if (r >= 1.5f && position.size() < params.particle_count_limit) {
             auto lateral_chance = randf();
             constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
             auto longest_axis = longest_axis_normalized(size[pidx]);

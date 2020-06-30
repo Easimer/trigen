@@ -21,6 +21,8 @@ namespace sb {
         float phototropism_response_strength;   // eta
         float branching_probability;
         float branch_angle_variance;
+
+        unsigned particle_count_limit;
     };
 
     struct Relation {

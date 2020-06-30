@@ -208,6 +208,15 @@ private:
     Quat q_down, q_now;
 };
 
+static unsigned g_sim_speed = 1;
+
+static void edit_unsigned(char const* l, unsigned* v) {
+    int t = (int)*v;
+    ImGui::InputInt(l, &t);
+    if (t < 0) t = 0;
+    *v = (unsigned)t;
+}
+
 static bool display_simulation_config(sb::Config& cfg) {
     ImGui::InputFloat3("Seed position", &cfg.seed_position.x);
     ImGui::InputFloat("Density", &cfg.density);
@@ -218,6 +227,9 @@ static bool display_simulation_config(sb::Config& cfg) {
     ImGui::InputFloat("Phototropism response str.", &cfg.phototropism_response_strength);
     ImGui::InputFloat("Branching probability", &cfg.branching_probability);
     ImGui::InputFloat("Branch angle variance", &cfg.branch_angle_variance);
+
+    edit_unsigned("Particle count limit", &cfg.particle_count_limit);
+    edit_unsigned("Simulation speed", &g_sim_speed);
 
     return ImGui::Button("Reset simulation");
 }
@@ -244,6 +256,7 @@ void app_main_loop() {
         1.0f, // phototropism_response_strength
         0.25f, // branching_probability
         glm::pi<float>(), // branch_angle_variance
+        128, // particle_count_limit
     };
     auto sim = sb::create_simulation(sim_cfg);
 
@@ -298,7 +311,9 @@ void app_main_loop() {
         sun_angle = glm::mod(sun_angle + delta / 16.0f, glm::pi<double>());
         auto sun_pos = Vec3(1000 * glm::cos(sun_angle), 1000 * glm::sin(sun_angle), 0.0f);
         sb::set_light_source_position(sim, sun_pos);
-        for (int i = 0; i < 1; i++) {
+
+        auto steps = (g_sim_speed > 0) ? g_sim_speed : 1;
+        for (unsigned i = 0; i < steps; i++) {
             sb::step(sim, delta);
         }
         render_softbody_simulation(&rq, sim);
