@@ -40,7 +40,7 @@ Mat3 polar_decompose_r(Mat3 const& A) {
     auto v2 = A4[2];
 
     if (v2.z == 0.0f) {
-        assert(0);
+        fprintf(stderr, "v2.z == 0.0f\n");
         v2.z = 1;
         A4[2] = v2;
     }

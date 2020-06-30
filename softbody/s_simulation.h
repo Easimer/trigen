@@ -28,6 +28,7 @@ struct Softbody_Simulation {
     Vector<Vec3> size;
     Vector<Quat> orientation;
     Vector<float> density;
+    Vector<float> age;
     Map<unsigned, Vector<unsigned>> edges;
     Map<unsigned, unsigned> apical_child;
     Map<unsigned, unsigned> lateral_bud;
@@ -39,6 +40,8 @@ struct Softbody_Simulation {
     float time_accumulator = 0.0f;
 
     Vec3 light_source = Vec3(0, 0, 0);
+
+    sb::Config params;
 
     // Stores functions whose execution has been deferred until after the parallelized
     // part

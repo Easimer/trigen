@@ -19,6 +19,8 @@ namespace sb {
         float stiffness;                        // s
         float aging_rate;                       // t_s
         float phototropism_response_strength;   // eta
+        float branching_probability;
+        float branch_angle_variance;
     };
 
     struct Relation {

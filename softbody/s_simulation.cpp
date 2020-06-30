@@ -12,8 +12,20 @@
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define SIM_SIZE_LIMIT (128)
 
+// #define DEBUG_TETRAHEDRON
+#ifdef DEBUG_TETRAHEDRON
+#define DISABLE_GROWTH
+#define DISABLE_PHOTOTROPISM
+#endif /* defined(DEBUG_TETRAHEDRON) */
+
 // #define DISABLE_GROWTH
 // #define DISABLE_PHOTOTROPISM
+
+#define DEFER_LAMBDA(lambda)                \
+{                                           \
+    Lock_Guard g(deferred_lock);            \
+    deferred.push_back(std::move(lambda));   \
+}
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -35,6 +47,8 @@ void Softbody_Simulation::initialize(sb::Config const& configuration) {
     connect_particles(idx_t1, idx_t2);
     connect_particles(idx_t0, idx_t2);
 #endif /* DEBUG_TETRAHEDRON */
+
+    params = configuration;
 }
 
 void Softbody_Simulation::predict_positions(float dt) {
@@ -44,16 +58,22 @@ void Softbody_Simulation::predict_positions(float dt) {
 
     auto const R = range(0, N);
     std::for_each(std::execution::par, R.begin(), R.end(), [&](unsigned i) {
+        auto p_age = (age[i] += dt);
+        auto stiffness = glm::min(1.0f, params.stiffness + p_age / params.aging_rate);
+
         auto a = Vec3();
         auto const a_g = Vec3(0, -1, 0);
         auto const goal_dir = (goal_position[i] - position[i]);
         auto const a_goal = goal_dir * dt;
         a += a_g;
-        a += 64.0f * a_goal;
+        a += 64.0f * stiffness * a_goal;
         auto const v = velocity[i] + dt * a;
         velocity[i] = v;
-        // Vec3 const x_p = system.position[i] + dt * system.velocity[i] + (dt * dt / 2) * a + 2.0f * goal_dir * dt;
         Vec3 const x_p = position[i] + dt * velocity[i] + (dt * dt / 2) * a;
+
+        // TODO: set an upper bound for density
+        // TODO: density rate of change parameter
+        density[i] = glm::min(8.0f, density[i] += dt * params.aging_rate);
 
         predicted_position[i] = x_p;
 
@@ -63,8 +83,7 @@ void Softbody_Simulation::predict_positions(float dt) {
         auto v_light = glm::normalize(light_source - position[i]);
         auto v_light_axis = glm::cross(v_light, v_forward);
         auto O = 0.0f; // TODO: detect occlusion, probably by shadow mapping
-        auto eta = 0.5f; // suspectability to phototropism
-        auto angle_light = (1 - O) * eta * dt;
+        auto angle_light = (1 - O) * params.phototropism_response_strength * dt;
         auto Q_light = glm::normalize(Quat(angle_light, v_light_axis));
         angular_velocity[i] = Q_light * angular_velocity[i] * glm::inverse(Q_light);
         orientation[i] = Q_light * orientation[i];
@@ -92,7 +111,7 @@ void Softbody_Simulation::predict_positions(float dt) {
 
 void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
     auto const& neighbors = edges[pidx];
-    auto& owner_pos = position[pidx];
+    auto owner_pos = predicted_position[pidx];
     auto& owner_rest_pos = rest_position[pidx];
 
     auto const [owner_mass, masses] = [&]() {
@@ -123,8 +142,6 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
             c_rest += (m_i / W) * rest_position[i];
         }
         auto const m_c = mass_of_particle(pidx);
-        // c = (m_c / W) * position[pidx];
-        // c_rest = (m_c / W) * rest_position[pidx];
         c += (m_c / W) * owner_pos;
         c_rest += (m_c / W) * owner_rest_pos;
 
@@ -135,9 +152,8 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
     calculate_orientation_matrix(&group);
     auto const x_t = group.orient * (owner_rest_pos - group.c_rest) + group.c;
     auto const& owner_predicted = predicted_position[pidx];
-    // auto const v = (owner_predicted - owner_pos) / dt;
-    // velocity[pidx] = v;
-    owner_pos = owner_predicted;
+
+    position[pidx] = owner_predicted;
 
     center_of_mass[pidx] = c;
     rest_center_of_mass[pidx] = c_rest;
@@ -159,9 +175,9 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
             constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
             auto longest_axis = longest_axis_normalized(size[pidx]);
             auto new_longest_axis = longest_axis_normalized(new_size);
-            if (lateral_chance < prob_branching) {
+            if (lateral_chance < params.branching_probability) {
                 // Oldalagat novesszuk
-                auto angle = randf() * glm::two_pi<float>();
+                auto angle = (2 * randf() - 1) * params.branch_angle_variance;
                 auto x = 2 * randf() - 1;
                 auto y = 2 * randf() - 1;
                 auto z = 2 * randf() - 1;
@@ -178,8 +194,8 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
                     connect_particles(pidx, l_idx);
                     orientation[l_idx] = lateral_orientation;
                 };
-                Lock_Guard g(deferred_lock);
-                deferred.push_back(std::move(func_add));
+
+                DEFER_LAMBDA(func_add);
             }
 
             // Csucsot novesszuk
@@ -191,8 +207,8 @@ void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
                 apical_child[pidx] = a_idx;
                 connect_particles(pidx, a_idx);
             };
-            Lock_Guard g(deferred_lock);
-            deferred.push_back(std::move(func_add));
+
+            DEFER_LAMBDA(func_add);
         }
     }
 #endif /* !defined(DISABLE_GROWTH) */
@@ -213,6 +229,7 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     size.push_back(p_size);
     density.push_back(p_density);
     orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    age.push_back(0);
     edges[index] = {};
 
     return index;

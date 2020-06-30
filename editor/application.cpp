@@ -111,7 +111,7 @@ public:
                 }
 
                 if (distance < 0.1) distance = 0.1;
-                printf("distance: %f\n", distance);
+                // printf("distance: %f\n", distance);
                 update_matrix();
                 break;
             }
@@ -166,8 +166,8 @@ protected:
         if (get_arcball_coords(&v1, c, r, sx, sy)) {
             auto q_drag = Quat(glm::dot(v0, v1), glm::cross(v0, v1));
             q_now = glm::normalize(q_drag * q_down);
-            printf("q_drag %f %f %f %f\n", q_drag.w, q_drag.x, q_drag.y, q_drag.z);
-            printf("q_now %f %f %f %f\n", q_now.w, q_now.x, q_now.y, q_now.z);
+            // printf("q_drag %f %f %f %f\n", q_drag.w, q_drag.x, q_drag.y, q_drag.z);
+            // printf("q_now %f %f %f %f\n", q_now.w, q_now.x, q_now.y, q_now.z);
 
             update_matrix();
         }
@@ -192,11 +192,11 @@ protected:
         auto s = Vec2(sx, sy);
         auto v = (s - c) / r;
         auto v_len = glm::length(v);
-        printf("v %f %f\n", v.x, v.y);
-        printf("v_len %f\n", v_len);
+        // printf("v %f %f\n", v.x, v.y);
+        // printf("v_len %f\n", v_len);
         auto z = glm::sqrt(1 - v_len * v_len);
         *out = glm::normalize(Vec3(v.x, v.y, z));
-        printf("out %f %f %f\n", out->x, out->y, out->z);
+        // printf("out %f %f %f\n", out->x, out->y, out->z);
         return !glm::isnan(z);
     }
 private:
@@ -216,6 +216,8 @@ static bool display_simulation_config(sb::Config& cfg) {
     ImGui::InputFloat("Initial stiffness", &cfg.stiffness);
     ImGui::InputFloat("Aging rate", &cfg.aging_rate);
     ImGui::InputFloat("Phototropism response str.", &cfg.phototropism_response_strength);
+    ImGui::InputFloat("Branching probability", &cfg.branching_probability);
+    ImGui::InputFloat("Branch angle variance", &cfg.branch_angle_variance);
 
     return ImGui::Button("Reset simulation");
 }
@@ -240,6 +242,8 @@ void app_main_loop() {
         0.2f, // stiffness
         0.1f, // aging_rate
         1.0f, // phototropism_response_strength
+        0.25f, // branching_probability
+        glm::pi<float>(), // branch_angle_variance
     };
     auto sim = sb::create_simulation(sim_cfg);
 
