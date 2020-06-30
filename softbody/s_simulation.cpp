@@ -79,7 +79,15 @@ void Softbody_Simulation::predict_positions(float dt) {
         // TODO: density rate of change parameter
         density[i] = glm::min(8.0f, density[i] += dt * params.aging_rate);
 
-        predicted_position[i] = x_p;
+        // HACKHACKHACK: try to keep the particle within a r=4096 sphere
+        // otherwise the simulation would eventually become unstable
+        auto dist = glm::length(x_p);
+        auto dir = x_p / dist;
+        if (dist < 4096) {
+            predicted_position[i] = x_p;
+        } else {
+            predicted_position[i] = 4096.0f * dir;
+        }
 
 #ifndef DISABLE_PHOTOTROPISM
         // Phototropism
@@ -110,6 +118,8 @@ void Softbody_Simulation::predict_positions(float dt) {
         }
 
         orientation[i] = orient_temp;
+
+        // TODO: update the rest position
     });
 }
 
