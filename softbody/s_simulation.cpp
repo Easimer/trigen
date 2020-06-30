@@ -7,24 +7,11 @@
 #include "softbody.h"
 #include <cstdlib>
 
-// nocheckin 
-#include <imgui.h>
-
 #define PHYSICS_STEP (1.0f / 25.0f)
-#define SIM_SIZE_LIMIT (4)
+#define SIM_SIZE_LIMIT (128)
 
-#define DISABLE_GROWTH
-#define DISABLE_PHOTOTROPISM
-
-using Vec3 = glm::vec3;
-using Mat3 = glm::mat3;
-using Quat = glm::quat;
-
-template<typename T>
-using Vector = std::vector<T>;
-
-template<typename K, typename V>
-using Map = std::unordered_map<K, V>;
+// #define DISABLE_GROWTH
+// #define DISABLE_PHOTOTROPISM
 
 struct Particle_Group {
     unsigned owner;
@@ -64,6 +51,21 @@ static void get_head_and_tail_of_particle(
     *out_tail = pos + axis_rotated_half;
 }
 
+template<typename T, typename Iterator>
+static T sum(Iterator begin, Iterator end) {
+    T ret = 0;
+
+    while (begin != end) {
+        ret += *begin++;
+    }
+
+    return ret;
+}
+
+class Deferred_Particle_Creator {
+
+};
+
 struct Softbody_Simulation {
     Vector<Vec3> position;
     Vector<Vec3> velocity;
@@ -81,11 +83,19 @@ struct Softbody_Simulation {
 
     Vector<Vec3> predicted_position;
 
+    bool assert_parallel = false;
+
     float time_accumulator = 0.0f;
 
     Vec3 light_source = Vec3(0, 0, 0);
 
+    // Stores functions whose execution has been deferred until after the parallelized
+    // part
+    Mutex deferred_lock;
+    Vector<Fun<void()>> deferred;
+
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
+        assert(!assert_parallel);
         assert(p_density >= 0.0f && p_density <= 1.0f);
         Vec3 zero(0, 0, 0);
         unsigned const index = position.size();
@@ -105,6 +115,7 @@ struct Softbody_Simulation {
     }
 
     void connect_particles(unsigned a, unsigned b) {
+        assert(!assert_parallel);
         assert(a < position.size());
         assert(b < position.size());
 
@@ -120,22 +131,21 @@ struct Softbody_Simulation {
     }
 
     void predict_positions(float dt) {
-        ImGui::Begin("Predict_Positions", NULL, ImGuiWindowFlags_NoCollapse);
-
         predicted_position.clear();
+        auto a_wind = Vec3(randf() * 0.05, 0, 0);
         for (auto i = 0ull; i < position.size(); i++) {
-            ImGui::Text("particle %ull", i);
 
             auto a = Vec3();
             auto const a_g = Vec3(0, -1, 0);
             auto const goal_dir = (goal_position[i] - position[i]);
             auto const a_goal = goal_dir * dt;
             a += a_g;
-            a += 16.0f * a_goal;
+            a += 64.0f * a_goal;
             auto const v = velocity[i] + dt * a;
             velocity[i] = v;
             // Vec3 const x_p = system.position[i] + dt * system.velocity[i] + (dt * dt / 2) * a + 2.0f * goal_dir * dt;
             Vec3 const x_p = position[i] + dt * velocity[i] + (dt * dt / 2) * a;
+
             predicted_position.push_back(x_p);
 
 #ifndef DISABLE_PHOTOTROPISM
@@ -143,14 +153,11 @@ struct Softbody_Simulation {
             auto v_forward = glm::normalize(orientation[i] * Vec3(0, 1, 0) * glm::inverse(orientation[i]));
             auto v_light = glm::normalize(light_source - position[i]);
             auto v_light_axis = glm::cross(v_light, v_forward);
-            ImGui::InputFloat3("v_forward", &v_forward[0]);
-            ImGui::InputFloat3("v_light", &v_light[0]);
-            ImGui::InputFloat3("v_light_axis", &v_light_axis[0]);
             auto O = 0.0f; // TODO: detect occlusion, probably by shadow mapping
             auto eta = 0.5f; // suspectability to phototropism
             auto angle_light = (1 - O) * eta * dt;
             auto Q_light = glm::normalize(Quat(angle_light, v_light_axis));
-            // angular_velocity[i] = Q_light * angular_velocity[i] * glm::inverse(Q_light);
+            angular_velocity[i] = Q_light * angular_velocity[i] * glm::inverse(Q_light);
             orientation[i] = Q_light * orientation[i];
 #endif /* !defined(DISABLE_PHOTOTROPISM) */
 
@@ -166,17 +173,12 @@ struct Softbody_Simulation {
             auto delta_orient_angle = glm::angle(orient_temp * glm::inverse(orient));
             auto delta_orient_axis = glm::axis(orient_temp * glm::inverse(orient));
 
-            if (glm::abs(delta_orient_angle) >= glm::epsilon<float>()) {
+            if (glm::abs(delta_orient_angle) >= 0.05f) {
                 angular_velocity[i] = (delta_orient_angle / dt) * delta_orient_axis;
             }
 
             orientation[i] = orient_temp;
-
-
-            ImGui::InputFloat4("orientation", &orientation[i][0]);
         }
-
-        ImGui::End();
     }
 
     Mat3 polar_decompose_r(Mat3 const& A) {
@@ -210,35 +212,32 @@ struct Softbody_Simulation {
 
 
     void calculate_orientation_matrix(Particle_Group* group) {
-        /*
-        auto const A = [this, group]() {
-            Mat3 ret = group->owner_mass *
-                glm::outerProduct(
-                                  (position[group->owner] - group->c),
-                                  (rest_position[group->owner] - group->c_rest));
+        auto calculate_particle_matrix = [this](unsigned pidx) -> Mat3 {
+            auto mass_i = this->mass_of_particle(pidx);
+            auto const size = this->size[pidx];
+            auto const a = size[0];
+            auto const b = size[1];
+            auto const c = size[2];
+            auto const A_i = Mat3(a * a, 0, 0, 0, b * b, 0, 0, 0, c * c);
+            return mass_i * (1/5.0f) * A_i;
+        };
 
-            for(unsigned i = 0; i < group->neighbors.size(); i++) {
-                auto const pidx = group->neighbors[i];
-                auto const pos = position[pidx];
-                auto const pos_rest = rest_position[pidx];
-                auto const m_i = group->masses[i];
-                auto A_i = m_i *
-                    glm::outerProduct(
-                                      (pos - group->c),
-                                      (pos_rest - group->c_rest));
-                ret += A_i;
+        auto calculate_group_matrix = [this, group, calculate_particle_matrix]() -> Mat3 {
+            // sum (particle matrix + particle mass * (particle pos * particle rest pos)) - total group mass * (center * rest center)
+
+            float const sum_masses = group->owner_mass + sum<float>(group->masses.begin(), group->masses.end());
+
+            auto moment_sum =
+                calculate_particle_matrix(group->owner)
+                + this->mass_of_particle(group->owner) * glm::outerProduct(predicted_position[group->owner], rest_position[group->owner]);
+
+            for (auto neighbor : group->neighbors) {
+                moment_sum +=
+                    calculate_particle_matrix(neighbor)
+                    + this->mass_of_particle(neighbor) * glm::outerProduct(predicted_position[neighbor], rest_position[neighbor]);
             }
 
-            return ret;
-        }();
-        */
-
-        auto calcA_pq = [this, group](unsigned pidx) -> Mat3 {
-            auto const p_i = position[pidx] - center_of_mass[pidx];
-            auto const q_i = rest_position[pidx] - rest_center_of_mass[pidx];
-            auto const m_i = mass_of_particle(pidx);
-
-            return m_i * glm::outerProduct(p_i, q_i);
+            return moment_sum - sum_masses * glm::outerProduct(group->c, group->c_rest);
         };
 
         auto is_null_matrix = [](Mat3 const& m) -> bool {
@@ -250,33 +249,12 @@ struct Softbody_Simulation {
             return sum < glm::epsilon<float>();
         };
 
-        auto const A = [this, group, calcA_pq, is_null_matrix]() -> Mat3 {
-            auto sum = calcA_pq(group->owner);
-            if (is_null_matrix(sum)) {
-
-                for (auto i : group->neighbors) {
-                    sum += calcA_pq(i);
-                }
-
-                return sum;
-            } else {
-                // Amennyiben egy reszecske pontosan a csoportjanak tomegkozeppontjaban van,
-                // akkor az orientacios matrixa a nullmatrix lesz.
-                // Mivel az olyasmit a polar_decompose_r nem szereti, es jelentestartalmilag a nullmatrix
-                // es az identitasmatrix ugyanaz, ezert az identitasmatrixot adjuk vissza
-                return Mat3(1.0f);
-            }
-
-            return sum;
-        }();
-
         auto const& owner_size = size[group->owner];
 
-        auto const R = polar_decompose_r(A);
+        auto const R = polar_decompose_r(calculate_group_matrix());
 
         group->orient = R;
     }
-
 
     void simulate_group(unsigned pidx, float dt) {
         auto const& neighbors = edges[pidx];
@@ -307,7 +285,7 @@ struct Softbody_Simulation {
 
             for (auto i : neighbors) {
                 auto const m_i = mass_of_particle(i);
-                c += (m_i / W) * position[i];
+                c += (m_i / W) * predicted_position[i];
                 c_rest += (m_i / W) * rest_position[i];
             }
             auto const m_c = mass_of_particle(pidx);
@@ -335,7 +313,7 @@ struct Softbody_Simulation {
 #ifndef DISABLE_GROWTH
         // TODO(danielm): novekedesi rata
         // Novesztjuk az agat
-        auto g = 4.0f; // 1/sec
+        auto g = 1.0f; // 1/sec
         auto prob_branching = 0.25f;
         auto& r = size[pidx].x;
         if (r < 1.5f) {
@@ -349,24 +327,38 @@ struct Softbody_Simulation {
                 auto new_longest_axis = longest_axis_normalized(new_size);
                 if (lateral_chance < prob_branching) {
                     // Oldalagat novesszuk
-                    auto bud_rot_offset = glm::angleAxis(-45.0f, Vec3(0, 0, 1));
+                    auto angle = randf() * glm::two_pi<float>();
+                    auto x = 2 * randf() - 1;
+                    auto y = 2 * randf() - 1;
+                    auto z = 2 * randf() - 1;
+                    auto axis = glm::normalize(Vec3(x, y, z));
+                    auto bud_rot_offset = glm::angleAxis(angle, axis);
                     auto lateral_orientation = bud_rot_offset * orientation[pidx];
                     auto l_pos = position[pidx]
                         + orientation[pidx] * (longest_axis / 2.0f) * glm::inverse(orientation[pidx])
                         + lateral_orientation * (new_longest_axis / 2.0f) * glm::inverse(lateral_orientation);
-                    auto l_idx = add_particle(l_pos, new_size, 1.0f);
-                    lateral_bud[pidx] = l_idx;
-                    connect_particles(pidx, l_idx);
-                    orientation[l_idx] = lateral_orientation;
+
+                    auto func_add = [&, l_pos, new_size, pidx, lateral_orientation]() {
+                        auto l_idx = add_particle(l_pos, new_size, 1.0f);
+                        lateral_bud[pidx] = l_idx;
+                        connect_particles(pidx, l_idx);
+                        orientation[l_idx] = lateral_orientation;
+                    };
+                    Lock_Guard g(deferred_lock);
+                    deferred.push_back(std::move(func_add));
                 }
 
                 // Csucsot novesszuk
                 auto pos = position[pidx]
                     + orientation[pidx] * (longest_axis /2.0f) * glm::inverse(orientation[pidx])
                     + orientation[pidx] * (new_longest_axis /2.0f) * glm::inverse(orientation[pidx]);
-                auto a_idx = add_particle(pos, new_size, 1.0f);
-                apical_child[pidx] = a_idx;
-                    connect_particles(pidx, a_idx);
+                auto func_add = [&, pos, new_size, pidx]() {
+                    auto a_idx = add_particle(pos, new_size, 1.0f);
+                    apical_child[pidx] = a_idx;
+                        connect_particles(pidx, a_idx);
+                };
+                Lock_Guard g(deferred_lock);
+                deferred.push_back(std::move(func_add));
             }
         }
 #endif /* !defined(DISABLE_GROWTH) */
@@ -415,11 +407,21 @@ struct Particle_Iterator_Impl : public sb::Particle_Iterator {
 Softbody_Simulation* sb::create_simulation(Config const& configuration) {
     auto ret = new Softbody_Simulation;
 
-    auto idx_root = ret->add_particle(configuration.seed_position, Vec3(1, 1, 2), 1);
-    auto idx_up = ret->add_particle(configuration.seed_position + Vec3(0, 0, 2), Vec3(1, 1, 2), 1);
-    auto idx_down = ret->add_particle(configuration.seed_position - Vec3(0, 0, 2), Vec3(1, 1, 2), 1);
-    ret->connect_particles(idx_root, idx_up);
-    ret->connect_particles(idx_root, idx_down);
+    auto o = configuration.seed_position;
+    auto siz = Vec3(1, 1, 2);
+    auto idx_root = ret->add_particle(o, siz, 1);
+#ifdef DEBUG_TETRAHEDRON
+    auto idx_t0 = ret->add_particle(o + Vec3(-1, 2, 1), siz, 1);
+    auto idx_t1 = ret->add_particle(o + Vec3(+1, 2, 1), siz, 1);
+    auto idx_t2 = ret->add_particle(o + Vec3( 0, 2, -1), siz, 1);
+
+    ret->connect_particles(idx_root, idx_t0);
+    ret->connect_particles(idx_root, idx_t1);
+    ret->connect_particles(idx_root, idx_t2);
+    ret->connect_particles(idx_t0, idx_t1);
+    ret->connect_particles(idx_t1, idx_t2);
+    ret->connect_particles(idx_t0, idx_t2);
+#endif /* DEBUG_TETRAHEDRON */
 
     return ret;
 }
@@ -439,24 +441,92 @@ void sb::set_light_source_position(Softbody_Simulation* s, Vec3 const& pos) {
     }
 }
 
+static void stop_particle(Softbody_Simulation* s, unsigned pidx) {
+    s->velocity[pidx] = Vec3(0, 0, 0);
+    s->angular_velocity[pidx] = Vec3(0, 0, 0);
+}
+
+static void distributed_step(Softbody_Simulation* s, float dt, unsigned from, unsigned to) {
+    for (auto idx = from; idx < to; idx++) {
+        s->simulate_group(idx, dt);
+    }
+}
+
+class range {
+public:
+    class iterator {
+        friend class range;
+    public:
+        long int operator *() const { return i_; }
+        const iterator& operator ++() { ++i_; return *this; }
+        iterator operator ++(int) { iterator copy(*this); ++i_; return copy; }
+
+        bool operator ==(const iterator& other) const { return i_ == other.i_; }
+        bool operator !=(const iterator& other) const { return i_ != other.i_; }
+
+        iterator() : i_(0) {}
+    protected:
+        iterator(long int start) : i_(start) {}
+
+    private:
+        unsigned long i_;
+    };
+
+    iterator begin() const { return begin_; }
+    iterator end() const { return end_; }
+    range(long int  begin, long int end) : begin_(begin), end_(end) {}
+private:
+    iterator begin_;
+    iterator end_;
+};
+
+template<>
+struct std::iterator_traits<range::iterator> {
+    using difference_type = long int;
+    using value_type = long int;
+    using pointer = range::iterator*;
+    using reference = range::iterator&;
+    using iterator_category = std::forward_iterator_tag;
+};
+
 void sb::step(Softbody_Simulation* s, float delta_time) {
     assert(s != NULL);
     if (s != NULL) {
-        s->predict_positions(delta_time);
+        //s->predict_positions(delta_time);
 
         s->time_accumulator += delta_time;
 
         // Nem per-frame szimulalunk, hanem fix idokozonkent, hogy ne valjon
         // instabilla a szimulacio
-        if (s->time_accumulator > PHYSICS_STEP) {
-            auto phdt = s->time_accumulator;
+        while(s->time_accumulator > PHYSICS_STEP) {
+            auto phdt = PHYSICS_STEP;
             auto p0 = s->position[0];
+
+            s->predict_positions(phdt);
+
+            if (s->time_accumulator > 8 * PHYSICS_STEP) {
+                fprintf(stderr, "EXTREME LAG, ACC = %f\n", s->time_accumulator);
+            }
+
+            auto R = range(0, s->predicted_position.size());
+            s->assert_parallel = true;
+            std::for_each(std::execution::par, R.begin(), R.end(), [&](unsigned i) {
+                s->simulate_group(i, phdt);
+            });
+            s->assert_parallel = false;
+
+            for (auto& def_func : s->deferred) {
+                def_func();
+            }
+            s->deferred.clear();
+            /*
             for (auto idx = 0ull; idx < s->predicted_position.size(); idx++) {
                 s->simulate_group(idx, phdt);
             }
+            */
             s->position[0] = p0;
 
-            s->time_accumulator = 0;
+            s->time_accumulator -= PHYSICS_STEP;
         }
     }
 }
@@ -550,4 +620,67 @@ sb::Relation_Iterator* sb::get_apical_relations(Softbody_Simulation* s) {
 sb::Relation_Iterator* sb::get_lateral_relations(Softbody_Simulation* s) {
     assert(s != NULL);
     return new Lateral_Relation_Iterator(s);
+}
+
+sb::Relation_Iterator* sb::get_connections(Softbody_Simulation* s) {
+    assert(s != NULL);
+
+    class Connection_Iterator : public sb::Iterator<Relation> {
+    public:
+        Connection_Iterator(Softbody_Simulation* s) : s(s), pidx(0) {
+            iter = s->edges[0].begin();
+            end = s->edges[0].end();
+
+            if (iter == end) {
+                pidx++;
+            }
+        }
+    private:
+        Softbody_Simulation* s;
+        unsigned pidx;
+        typename Vector<unsigned>::const_iterator iter;
+        typename Vector<unsigned>::const_iterator end;
+
+        virtual void release() override {
+            delete this;
+        }
+
+        virtual void step() override {
+            if (pidx != s->position.size()) {
+                if (iter != end) {
+                    iter++;
+
+                    if (iter == end) {
+                        next_key();
+                    }
+                } else {
+                    next_key();
+                }
+            }
+        }
+
+        void next_key() {
+            pidx++;
+            if (pidx != s->position.size()) {
+                iter = s->edges[pidx].begin();
+                end = s->edges[pidx].end();
+            }
+        }
+
+        virtual bool ended() const override {
+            return pidx == s->position.size();
+        }
+
+        virtual sb::Relation get() const override {
+            assert(!ended());
+            return sb::Relation{
+                pidx,
+                s->position[pidx],
+                *iter,
+                s->position[*iter],
+            };
+        }
+    };
+
+    return new Connection_Iterator(s);
 }

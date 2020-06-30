@@ -122,6 +122,29 @@ private:
     }
 };
 
+class Visualize_Connections : public gfx::IRender_Command {
+public:
+    Visualize_Connections(Softbody_Simulation* s) : sim(s) {}
+private:
+    Softbody_Simulation* sim;
+    virtual void execute(gfx::IRenderer* renderer) override {
+        auto iter = sb::get_connections(sim);
+        std::vector<glm::vec3> lines;
+
+        while(!iter->ended()) {
+            auto rel = iter->get();
+            lines.push_back(rel.parent_position);
+            lines.push_back(rel.child_position);
+
+            iter->step();
+        }
+
+
+        renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
+    }
+
+};
+
 template<typename T>
 static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Softbody_Simulation* sim) {
     auto cmd = rq->allocate<T>();
@@ -139,6 +162,7 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim)
     // auto render_apical_branches = allocate_command_and_initialize<Command_Render_Apical_Relations>(rq, sim);
     // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
     auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim);
+    allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
     return true;
 }

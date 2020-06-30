@@ -76,7 +76,7 @@ public:
         glctx(NULL),
         m_pImGuiCtx(NULL),
         m_view(glm::translate(Vec3(0.0f, 0.0f, -15.0f))),
-        m_proj(glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 1000.0f)),
+        m_proj(glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 8192.0f)),
         m_uiTimeStart(0) {
         if (window != NULL && renderer != NULL) {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -199,13 +199,39 @@ public:
     }
 
     virtual bool pump_event_queue(SDL_Event& ev) override {
-        bool ret = SDL_PollEvent(&ev);
+        auto& io = ImGui::GetIO();
+        bool filtered = false;
 
-        if (ret) {
-            ImGui_ImplSDL2_ProcessEvent(&ev);
-        }
+        do {
+            filtered = false;
+            if (SDL_PollEvent(&ev)) {
+                ImGui_ImplSDL2_ProcessEvent(&ev);
 
-        return ret;
+                if (io.WantCaptureKeyboard) {
+                    switch (ev.type) {
+                    case SDL_KEYDOWN:
+                    case SDL_KEYUP:
+                        filtered = true;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                if (io.WantCaptureMouse) {
+                    switch (ev.type) {
+                    case SDL_MOUSEMOTION:
+                    case SDL_MOUSEBUTTONDOWN:
+                    case SDL_MOUSEBUTTONUP:
+                        filtered = true;
+                        break;
+                    }
+                }
+            } else {
+                return false;
+            }
+        } while (filtered);
+
+        return true;
     }
 
     virtual void draw_lines(

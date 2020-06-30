@@ -278,8 +278,6 @@ void app_main_loop() {
                     }
                     case SDL_MOUSEMOTION:
                     {
-                        auto pos = Vec3(ev.motion.x - r_width / 2.0f, -(ev.motion.y - r_height / 2.0f), 0);
-                        sun_angle = glm::atan<float>(pos.y, pos.x);
                         break;
                     }
                     case SDL_KEYUP:
@@ -304,12 +302,22 @@ void app_main_loop() {
 
         r_prefs.draw();
 
+        sun_angle = glm::mod(sun_angle + delta / 16.0f, glm::pi<double>());
         auto sun_pos = Vec3(1000 * glm::cos(sun_angle), 1000 * glm::sin(sun_angle), 0.0f);
         sb::set_light_source_position(sim, sun_pos);
-        sb::step(sim, delta);
+        for (int i = 0; i < 1; i++) {
+            sb::step(sim, delta);
+        }
         render_softbody_simulation(&rq, sim);
 
         rq.execute(renderer);
+
+        if (ImGui::Begin("Sun")) {
+            ImGui::Text("Angle:    %f\n", sun_angle);
+            ImGui::Text("Position: %f %f %f\n", sun_pos.x, sun_pos.y, sun_pos.z);
+        }
+        ImGui::End();
+
         delta = renderer->present();
     }
 

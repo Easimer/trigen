@@ -55,4 +55,5 @@ namespace sb {
     Particle_Iterator* get_particles(Softbody_Simulation*);
     Relation_Iterator* get_apical_relations(Softbody_Simulation*);
     Relation_Iterator* get_lateral_relations(Softbody_Simulation*);
+    Relation_Iterator* get_connections(Softbody_Simulation*);
 }
