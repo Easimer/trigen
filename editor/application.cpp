@@ -208,6 +208,18 @@ private:
     Quat q_down, q_now;
 };
 
+static bool display_simulation_config(sb::Config& cfg) {
+    ImGui::InputFloat3("Seed position", &cfg.seed_position.x);
+    ImGui::InputFloat("Density", &cfg.density);
+    ImGui::InputFloat("Attachment str.", &cfg.attachment_strength);
+    ImGui::InputFloat("Surface adaption str.", &cfg.surface_adaption_strength);
+    ImGui::InputFloat("Initial stiffness", &cfg.stiffness);
+    ImGui::InputFloat("Aging rate", &cfg.aging_rate);
+    ImGui::InputFloat("Phototropism response str.", &cfg.phototropism_response_strength);
+
+    return ImGui::Button("Reset simulation");
+}
+
 void app_main_loop() {
     bool quit = false;
 
@@ -222,6 +234,12 @@ void app_main_loop() {
     // Simulation setup
     sb::Config sim_cfg = {
         Vec3(0, 0, 0), // seed_position
+        1.0f, // density
+        1.0f, // attachment_strength
+        1.0f, // surface_adaption_strength
+        0.2f, // stiffness
+        0.1f, // aging_rate
+        1.0f, // phototropism_response_strength
     };
     auto sim = sb::create_simulation(sim_cfg);
 
@@ -286,6 +304,14 @@ void app_main_loop() {
         if (ImGui::Begin("Sun")) {
             ImGui::Text("Angle:    %f\n", sun_angle);
             ImGui::Text("Position: %f %f %f\n", sun_pos.x, sun_pos.y, sun_pos.z);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin("Configuration")) {
+            if (display_simulation_config(sim_cfg)) {
+                sb::destroy_simulation(sim);
+                sim = sb::create_simulation(sim_cfg);
+            }
         }
         ImGui::End();
 

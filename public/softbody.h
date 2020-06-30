@@ -12,6 +12,13 @@ struct Softbody_Simulation;
 namespace sb {
     struct Config {
         glm::vec3 seed_position;
+
+        float density;                          // rho
+        float attachment_strength;              // phi
+        float surface_adaption_strength;        // tau
+        float stiffness;                        // s
+        float aging_rate;                       // t_s
+        float phototropism_response_strength;   // eta
     };
 
     struct Relation {
