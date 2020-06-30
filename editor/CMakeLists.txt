@@ -11,6 +11,8 @@ set(SRC
 	r_renderer.h
 	r_queue.h
 	r_gl.cpp
+
+	events.h
 )
 
 set(SRC_SHADERS
