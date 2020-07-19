@@ -32,21 +32,7 @@ public:
     Arcball_Camera_Impl() {
         screen_size = Vec2(0, 0);
 
-        auto eye = Vec3(0, 0, 1);
-        auto center = Vec3();
-        auto up = Vec3(0, 1, 0);
-        auto dir = center - eye;
-        auto z_axis = glm::normalize(dir);
-        auto x_axis = glm::normalize(glm::cross(z_axis, glm::normalize(up)));
-        auto y_axis = glm::normalize(glm::cross(x_axis, z_axis));
-
-        x_axis = glm::normalize(glm::cross(z_axis, y_axis));
-
-        center_translation = -center;
-        translation = Vec3(0, 0, -glm::length(dir));
-        rotation = glm::normalize(glm::quat_cast(glm::transpose(Mat3(x_axis, y_axis, -z_axis))));
-
-        update_camera();
+        reset();
     }
 private:
     void release() override {
@@ -65,21 +51,41 @@ private:
         update_camera();
     }
 
+    void reset() {
+        auto eye = Vec3(0, 0, 1);
+        auto center = Vec3();
+        auto up = Vec3(0, 1, 0);
+        auto dir = center - eye;
+        auto z_axis = glm::normalize(dir);
+        auto x_axis = glm::normalize(glm::cross(z_axis, glm::normalize(up)));
+        auto y_axis = glm::normalize(glm::cross(x_axis, z_axis));
+
+        x_axis = glm::normalize(glm::cross(z_axis, y_axis));
+
+        center_translation = -center;
+        translation = Vec3(0, 0, -glm::length(dir));
+        rotation = glm::normalize(glm::quat_cast(glm::transpose(Mat3(x_axis, y_axis, -z_axis))));
+
+        update_camera();
+    }
+
     bool on_event(SDL_Event const& ev, float delta) override {
         switch (ev.type) {
         case SDL_MOUSEBUTTONDOWN:
         {
             if (ev.button.button == SDL_BUTTON_LEFT) {
-                assert(!mouse_position.has_value());
+                // assert(!mouse_position.has_value());
                 mouse_position = TransformCursorPosition(ev.button.x, ev.button.y);
+                return true;
             }
             break;
         }
         case SDL_MOUSEBUTTONUP:
         {
             if (ev.button.button == SDL_BUTTON_LEFT) {
-                assert(mouse_position.has_value());
+                // assert(mouse_position.has_value());
                 mouse_position.reset();
+                return true;
             }
             break;
         }
@@ -89,6 +95,7 @@ private:
                 Vec2 cur = TransformCursorPosition(ev.button.x, ev.button.y);
                 rotate(*mouse_position, cur);
                 mouse_position = cur;
+                return true;
             }
             break;
         }
@@ -105,6 +112,14 @@ private:
             if (z > -0.1) z = -0.1;
             translation.z = z;
             update_camera();
+            return true;
+        }
+        case SDL_KEYUP:
+        {
+            if ((ev.key.keysym.mod & KMOD_CTRL) && ev.key.keysym.sym == SDLK_r) {
+                reset();
+                return true;
+            }
             break;
         }
         }
