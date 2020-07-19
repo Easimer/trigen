@@ -13,6 +13,9 @@ set(SRC
 	r_gl.cpp
 
 	events.h
+
+	arcball_camera.cpp
+	arcball_camera.h
 )
 
 set(SRC_SHADERS

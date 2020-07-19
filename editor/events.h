@@ -37,3 +37,20 @@ public:
 private:
     std::vector<THandler> handlers;
 };
+
+#include <SDL.h>
+
+class IEvent_Handler {
+public:
+    virtual bool on_event(SDL_Event const& ev, float delta) = 0;
+
+    class Event_Handler_Caller {
+    public:
+        bool operator()(IEvent_Handler* h, SDL_Event const& ev, float delta) {
+            return h->on_event(ev, delta);
+        }
+    };
+
+    using caller_t = Event_Handler_Caller;
+};
+
