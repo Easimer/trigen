@@ -1,9 +1,14 @@
+// === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
+//
+// Purpose: Ellipsoid raymarching vertex shader
+//
+
 #version 330 core
 layout (location = 0) in vec2 aPosition;
 
-out vec4 vUV;
+out vec2 vUV;
 
 void main() {
-	vUV = vec4(aPosition, 0, 0);
+	vUV = aPosition;
 	gl_Position = vec4(aPosition, 0, 1);
 }

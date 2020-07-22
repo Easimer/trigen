@@ -8,10 +8,16 @@
 #include <cstdint>
 #include <vector>
 #include <SDL_events.h>
+#include <optional>
 
 namespace gfx {
     struct Renderer_Config {
         unsigned width, height;
+    };
+
+    struct Render_Context_Supplement {
+        // Position of the sun
+        std::optional<Vec3> sun;
     };
 
     class IRenderer {
@@ -31,11 +37,12 @@ namespace gfx {
             Vec3 const& vEndColor
         ) = 0;
 
-        // TODO(danielm): improve API: draw multiple shapes in one go
-        virtual void draw_ellipsoid(
-            Vec3 const& center,
-            Vec3 const& size,
-            Quat const& rotation
+        virtual void draw_ellipsoids(
+            Render_Context_Supplement const& ctx,
+            size_t count,
+            Vec3 const* centers,
+            Vec3 const* sizes,
+            Quat const* rotations
         ) = 0;
 
         virtual bool pump_event_queue(SDL_Event& ev) = 0;

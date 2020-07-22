@@ -37,19 +37,30 @@ private:
         std::vector<Vec3> lines;
         auto iter = sb::get_particles(sim);
 
+        std::vector<Vec3> positions;
+        std::vector<Vec3> sizes;
+        std::vector<Quat> rotations;
+
         while(!iter->ended()) {
             auto particle = iter->get();
             lines.push_back(particle.start);
             lines.push_back(particle.end);
 
-            renderer->draw_ellipsoid(particle.position, Vec3(2, 1, 1), glm::identity<glm::quat>());
+            positions.push_back(particle.position);
+            sizes.push_back(particle.size);
+            rotations.push_back(particle.orientation);
 
             iter->step();
         }
 
         iter->release();
 
+        // TODO(danielm): we need a way to get back the sun position from
+        // either the simulation or the application
+        gfx::Render_Context_Supplement ctx;
+
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));
+        renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
     }
 };
 

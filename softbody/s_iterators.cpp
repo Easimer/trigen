@@ -42,6 +42,8 @@ namespace sb {
             return sb::Particle{
                 idx,
                 pos,
+                orientation,
+                size,
                 head, tail,
             };
         }

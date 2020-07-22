@@ -190,12 +190,15 @@ public:
         }
     }
 
-    void draw_ellipsoid(
-        Vec3 const& center,
-        Vec3 const& size,
-        Quat const& rotation
+    void draw_ellipsoids(
+        gfx::Render_Context_Supplement const& ctx,
+        size_t count,
+        Vec3 const* centers,
+        Vec3 const* sizes,
+        Quat const* rotations
     ) override {
         if (m_sdf_ellipsoid_shader) {
+            // Setup screen quad
             float quad[] = {
                 -1,  1,
                  1,  1,
@@ -213,36 +216,37 @@ public:
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
 
-            auto& shader = m_sdf_ellipsoid_shader.value();
+            // Setup shader
+            auto& shader = *m_sdf_ellipsoid_shader;
             glUseProgram(shader);
 
-            auto const locProj = gl::Uniform_Location<Mat4>(shader, "matProj");
-            auto const locView = gl::Uniform_Location<Mat4>(shader, "matView");
-            auto const locMVP = gl::Uniform_Location<Mat4>(shader, "matMVP");
-
+            auto const locVP = gl::Uniform_Location<Mat4>(shader, "matVP");
+            auto const locInvVP = gl::Uniform_Location<Mat4>(shader, "matInvVP");
             auto const locSiz = gl::Uniform_Location<Vec3>(shader, "vSize");
             auto const locTranslation = gl::Uniform_Location<Vec3>(shader, "vTranslation");
             auto const locRotation = gl::Uniform_Location<Mat3>(shader, "matRotation");
+            auto const locSun = gl::Uniform_Location<Vec3>(shader, "vSun");
 
-            auto const locCamTranslation = gl::Uniform_Location<Vec3>(shader, "vCamTranslation");
-            auto const locCamRotation = gl::Uniform_Location<Mat3>(shader, "matCamRotation");
+            // NOTE(danielm): translation and rotation are not part of the MVP, they are
+            // supplied separately to the GPU
+            // TODO(danielm): do we really need to tho?
+            auto matVP = m_proj * m_view;
+            auto matInvVP = glm::inverse(matVP);
+            gl::SetUniformLocation(locVP, matVP);
+            gl::SetUniformLocation(locInvVP, matInvVP);
 
-            auto matRotation = Mat3(rotation);
-            auto matCamRotation = Mat3(m_view);
-            auto vCamTranslation = Vec3(m_view[3]);
+            // Set the position of the Sun
+            gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
 
-            gl::SetUniformLocation(locProj, m_proj);
-            gl::SetUniformLocation(locView, m_view);
-            // translation and rotation isn't part of MVP
-            // gl::SetUniformLocation(locMVP, m_proj * m_view * glm::translate(center) * Mat4(rotation));
-            gl::SetUniformLocation(locMVP, m_proj * m_view);
-            gl::SetUniformLocation(locTranslation, center);
-            gl::SetUniformLocation(locRotation, matRotation);
-            gl::SetUniformLocation(locCamTranslation, vCamTranslation);
-            gl::SetUniformLocation(locCamRotation, matCamRotation);
-            gl::SetUniformLocation(locSiz, size);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            // TODO(danielm): we should render multiple objects at a time,
+            // like uploading a 4-tuple of these parameters and taking their
+            // union
+            for (size_t i = 0; i < count; i++) {
+                gl::SetUniformLocation(locTranslation, centers[i]);
+                gl::SetUniformLocation(locRotation, Mat3(rotations[i]));
+                gl::SetUniformLocation(locSiz, sizes[i]);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            }
 
             glDeleteBuffers(1, &vbo);
             glDeleteVertexArrays(1, &vao);
@@ -251,7 +255,7 @@ public:
 
     virtual void new_frame() override {
         // Hotload shader every frame
-        LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
+        // LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
