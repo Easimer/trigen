@@ -1,0 +1,7 @@
+# GLSL shaders
+*.vsh.glsl text linguist-language=GLSL
+*.fsh.glsl text linguist-language=GLSL
+*.gsh.glsl text linguist-language=GLSL
+*.tcs.glsl text linguist-language=GLSL
+*.tes.glsl text linguist-language=GLSL
+*.cps.glsl text linguist-language=GLSL
