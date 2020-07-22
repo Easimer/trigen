@@ -31,6 +31,13 @@ namespace gfx {
             Vec3 const& vEndColor
         ) = 0;
 
+        // TODO(danielm): improve API: draw multiple shapes in one go
+        virtual void draw_ellipsoid(
+            Vec3 const& center,
+            Vec3 const& size,
+            Quat const& rotation
+        ) = 0;
+
         virtual bool pump_event_queue(SDL_Event& ev) = 0;
 
         virtual void change_resolution(unsigned* inout_width, unsigned* inout_height) = 0;

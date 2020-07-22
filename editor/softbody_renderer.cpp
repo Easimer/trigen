@@ -42,6 +42,8 @@ private:
             lines.push_back(particle.start);
             lines.push_back(particle.end);
 
+            renderer->draw_ellipsoid(particle.position, Vec3(2, 1, 1), glm::identity<glm::quat>());
+
             iter->step();
         }
 

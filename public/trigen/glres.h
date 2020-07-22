@@ -175,6 +175,11 @@ namespace gl {
     }
 
     template<>
+    inline void SetUniformLocation<glm::mat3>(Uniform_Location<glm::mat3> const& uiLoc, glm::mat3 const& matMatrix) {
+        glUniformMatrix3fv(uiLoc, 1, GL_FALSE, glm::value_ptr(matMatrix));
+    }
+
+    template<>
     inline void SetUniformLocation<glm::vec3>(Uniform_Location<glm::vec3> const& uiLoc, glm::vec3 const& vVec) {
         glUniform3fv(uiLoc, 1, glm::value_ptr(vVec));
     }

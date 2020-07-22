@@ -123,6 +123,9 @@ public:
                 auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
                 m_line_shader = std::move(program.value());
             }
+            LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
+
+            glEnable(GL_DEPTH_TEST);
         }
     }
 
@@ -134,25 +137,37 @@ public:
         }
     }
 
+    void LoadShader(char const* pathVsh, char const* pathFsh, std::optional<gl::Shader_Program>& out) {
+        auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>(pathVsh);
+        auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>(pathFsh);
+        if (vsh && fsh) {
+            auto builder = gl::Shader_Program_Builder();
+            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
+            if (program) {
+                out = std::move(program.value());
+            }
+        }
+    }
+
     virtual void set_camera(Mat4 const& view_matrix) override {
         m_view = view_matrix;
     }
 
     virtual void draw_points(Vec3 const* pPoints, size_t nCount, Vec3 const& vWorldPosition) override {
-        GLuint vao, vbo;
-        glCreateVertexArrays(1, &vao);
-        glCreateBuffers(1, &vbo);
-        glBindVertexArray(vao);
-
-        auto const size = nCount * 3 * sizeof(float);
-        auto const data = pPoints;
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, size, data, GL_STREAM_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
         if (m_point_cloud_shader.has_value()) {
+            GLuint vao, vbo;
+            glCreateVertexArrays(1, &vao);
+            glCreateBuffers(1, &vbo);
+            glBindVertexArray(vao);
+
+            auto const size = nCount * 3 * sizeof(float);
+            auto const data = pPoints;
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, size, data, GL_STREAM_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
             auto& shader = m_point_cloud_shader.value();
             glUseProgram(shader);
             
@@ -175,7 +190,69 @@ public:
         }
     }
 
+    void draw_ellipsoid(
+        Vec3 const& center,
+        Vec3 const& size,
+        Quat const& rotation
+    ) override {
+        if (m_sdf_ellipsoid_shader) {
+            float quad[] = {
+                -1,  1,
+                 1,  1,
+                -1, -1,
+                 1, -1,
+            };
+            GLuint vao, vbo;
+            glCreateVertexArrays(1, &vao);
+            glCreateBuffers(1, &vbo);
+            glBindVertexArray(vao);
+
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), quad, GL_STREAM_DRAW);
+
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            auto& shader = m_sdf_ellipsoid_shader.value();
+            glUseProgram(shader);
+
+            auto const locProj = gl::Uniform_Location<Mat4>(shader, "matProj");
+            auto const locView = gl::Uniform_Location<Mat4>(shader, "matView");
+            auto const locMVP = gl::Uniform_Location<Mat4>(shader, "matMVP");
+
+            auto const locSiz = gl::Uniform_Location<Vec3>(shader, "vSize");
+            auto const locTranslation = gl::Uniform_Location<Vec3>(shader, "vTranslation");
+            auto const locRotation = gl::Uniform_Location<Mat3>(shader, "matRotation");
+
+            auto const locCamTranslation = gl::Uniform_Location<Vec3>(shader, "vCamTranslation");
+            auto const locCamRotation = gl::Uniform_Location<Mat3>(shader, "matCamRotation");
+
+            auto matRotation = Mat3(rotation);
+            auto matCamRotation = Mat3(m_view);
+            auto vCamTranslation = Vec3(m_view[3]);
+
+            gl::SetUniformLocation(locProj, m_proj);
+            gl::SetUniformLocation(locView, m_view);
+            // translation and rotation isn't part of MVP
+            // gl::SetUniformLocation(locMVP, m_proj * m_view * glm::translate(center) * Mat4(rotation));
+            gl::SetUniformLocation(locMVP, m_proj * m_view);
+            gl::SetUniformLocation(locTranslation, center);
+            gl::SetUniformLocation(locRotation, matRotation);
+            gl::SetUniformLocation(locCamTranslation, vCamTranslation);
+            gl::SetUniformLocation(locCamRotation, matCamRotation);
+            gl::SetUniformLocation(locSiz, size);
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            glDeleteBuffers(1, &vbo);
+            glDeleteVertexArrays(1, &vao);
+        }
+    }
+
     virtual void new_frame() override {
+        // Hotload shader every frame
+        LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -194,6 +271,8 @@ public:
         SDL_GL_SwapWindow(window);
 
         m_uiTimeStart = SDL_GetPerformanceCounter();
+
+        SDL_Delay(0);
 
         return flFrameTime;
     }
@@ -317,6 +396,7 @@ private:
     decltype(SDL_GetPerformanceCounter()) m_uiTimeStart;
     std::optional<gl::Shader_Program> m_point_cloud_shader;
     std::optional<gl::Shader_Program> m_line_shader;
+    std::optional<gl::Shader_Program> m_sdf_ellipsoid_shader;
 };
 
 gfx::IRenderer* gfx::make_renderer(gfx::Renderer_Config const&) {
