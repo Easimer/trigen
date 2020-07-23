@@ -10,13 +10,17 @@
 #include <cstdlib>
 
 #define PHYSICS_STEP (1.0f / 25.0f)
+#define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
 
-// #define DEBUG_TETRAHEDRON
+#define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
 #define DISABLE_GROWTH
 #define DISABLE_PHOTOTROPISM
 #endif /* defined(DEBUG_TETRAHEDRON) */
+
+#define MULLER_2005 (0)
+#define MULLER_2011 (1)
 
 // #define DISABLE_GROWTH
 // #define DISABLE_PHOTOTROPISM
@@ -26,6 +30,43 @@
     Lock_Guard g(deferred_lock);            \
     deferred.push_back(std::move(lambda));   \
 }
+
+template<unsigned Order, typename T>
+struct Cache_Table {
+    constexpr static unsigned Size = 1 << Order;
+    constexpr static unsigned Mask = Size - 1;
+    struct Key_Value {
+        unsigned k;
+        T value;
+    };
+
+    Key_Value table[Size];
+
+    Cache_Table() {
+        clear();
+    }
+
+    void clear() {
+        for (auto& kv : table) {
+            kv.k = UINT_MAX;
+            kv.value = T();
+        }
+    }
+
+    T fetch_or_insert(unsigned key, std::function<T(unsigned key)> f) {
+        auto off = key & Mask;
+        assert(off < Size);
+
+        auto& slot = table[off];
+        if (slot.k == key) {
+            return slot.value;
+        }
+
+        slot.k = key;
+        slot.value = f(key);
+        return slot.value;
+    }
+};
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -56,176 +97,121 @@ void Softbody_Simulation::initialize(sb::Config const& configuration) {
 }
 
 void Softbody_Simulation::predict_positions(float dt) {
-    auto const N = position.size();
+    predicted_position.resize(position.size());
+    for (unsigned i = 0; i < position.size(); i++) {
+        auto pos = position[i];
+        auto goal = goal_position[i];
 
-    predicted_position.resize(N);
+        auto alpha = dt / TAU;
+        // auto alpha = 1.0f;
+        auto external_forces = Vec3(0, -1, 0);
 
-    auto const R = range(0, N);
-    std::for_each(std::execution::par, R.begin(), R.end(), [&](unsigned i) {
-        auto p_age = (age[i] += dt);
-        auto stiffness = glm::min(1.0f, params.stiffness + p_age / params.aging_rate);
+        /*
+        if (pos.y < 0) {
+            external_forces += 4.0f * Vec3(0, -pos.y, 0);
+        }
+        */
 
-        auto a = Vec3();
-        auto const a_g = Vec3(0, -1, 0);
-        auto const goal_dir = (goal_position[i] - position[i]);
-        auto const a_goal = goal_dir * dt;
-        a += a_g;
-        a += 64.0f * stiffness * a_goal;
-        auto const v = velocity[i] + dt * a;
-        velocity[i] = v;
-        Vec3 const x_p = position[i] + dt * velocity[i] + (dt * dt / 2) * a;
+        auto a = dt * external_forces / mass_of_particle(i);
+        auto v = alpha * (goal - pos) / dt;
+        velocity[i] = velocity[i] + alpha * (goal - pos) / dt + dt * external_forces / mass_of_particle(i);
+        predicted_position[i] = position[i] + dt * velocity[i];
 
-        // TODO: set an upper bound for density
-        // TODO: density rate of change parameter
-        density[i] = glm::min(8.0f, density[i] += dt * params.aging_rate);
-
-        // HACKHACKHACK: try to keep the particle within a r=4096 sphere
-        // otherwise the simulation would eventually become unstable
-        auto dist = glm::length(x_p);
-        auto dir = x_p / dist;
-        if (dist < 4096) {
-            predicted_position[i] = x_p;
+        if (goal.x - pos.x != 0) {
+            auto t = (predicted_position[i].x - pos.x) / (goal.x - pos.x);
+            if (t > 1) {
+                printf("PARTICLE %u OVERSHOOT t=%f\n", i, t);
+            }
         } else {
-            predicted_position[i] = 4096.0f * dir;
+            auto t = glm::length(predicted_position[i] - pos);
+            if (t > 1) {
+                printf("PARTICLE %u OVERSHOOT t=%f\n", i, t);
+            }
         }
+    }
+}
 
-#ifndef DISABLE_PHOTOTROPISM
-        // Phototropism
-        auto v_forward = glm::normalize(orientation[i] * Vec3(0, 1, 0) * glm::inverse(orientation[i]));
-        auto v_light = glm::normalize(light_source - position[i]);
-        auto v_light_axis = glm::cross(v_light, v_forward);
-        auto O = 0.0f; // TODO: detect occlusion, probably by shadow mapping
-        auto angle_light = (1 - O) * params.phototropism_response_strength * dt;
-        auto Q_light = glm::normalize(Quat(angle_light, v_light_axis));
-        angular_velocity[i] = Q_light * angular_velocity[i] * glm::inverse(Q_light);
-        orientation[i] = Q_light * orientation[i];
-#endif /* !defined(DISABLE_PHOTOTROPISM) */
+void Softbody_Simulation::commit_predicted_positions() {
+    for (unsigned i = 0; i < position.size(); i++) {
+        position[i] = predicted_position[i];
+    }
 
-        auto ang_vel = angular_velocity[i];
-        auto orient = orientation[i];
-        auto len_ang_vel = glm::length(ang_vel);
-        Quat orient_temp = orient;
-        if (len_ang_vel >= glm::epsilon<float>()) {
-            auto comp = (len_ang_vel * dt) / 2;
-            orient_temp = Quat(glm::cos(comp), (ang_vel / len_ang_vel) * glm::sin(comp));
-        }
-
-        auto delta_orient_angle = glm::angle(orient_temp * glm::inverse(orient));
-        auto delta_orient_axis = glm::axis(orient_temp * glm::inverse(orient));
-
-        if (glm::abs(delta_orient_angle) >= 0.05f) {
-            angular_velocity[i] = (delta_orient_angle / dt) * delta_orient_axis;
-        }
-
-        orientation[i] = orient_temp;
-
-        // TODO: update the rest position
-    });
+    predicted_position.clear();
 }
 
 void Softbody_Simulation::simulate_group(unsigned pidx, float dt) {
-    auto const& neighbors = edges[pidx];
-    auto owner_pos = predicted_position[pidx];
-    auto& owner_rest_pos = rest_position[pidx];
+    // Shape Matching
+    // Mueller, et al 2005; 3.3
 
-    auto const [owner_mass, masses] = [&]() {
-        Vector<float> masses;
-        for (auto i : neighbors) {
-            masses.push_back(mass_of_particle(i));
+    Cache_Table<3, float> particle_mass_cache;
+
+    auto get_mass = [&](unsigned idx) -> float {
+        return particle_mass_cache.fetch_or_insert(idx, [this](unsigned idx) { return mass_of_particle(idx); });
+    };
+
+    // sum of masses
+    auto& neighbors = edges[pidx];
+    auto total_mass = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        // mass_of_particle(pidx),
+        get_mass(pidx),
+        [&](float acc, unsigned idx) -> float {
+            // return acc + mass_of_particle(idx);
+            return acc + get_mass(idx);
         }
-        auto owner_mass = mass_of_particle(pidx);
-        return std::make_tuple(owner_mass, masses);
-    }();
-
-    auto const W = [owner_mass = owner_mass, masses = masses]() {
-        float sum = 0;
-        for (auto m : masses) {
-            sum += m;
+    );
+    // center of mass of the original configuration
+    auto com0 = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        // mass_of_particle(pidx) * position[pidx],
+        get_mass(pidx) * position[pidx],
+        [&](Vec3 const& acc, unsigned idx) -> Vec3 {
+            // return acc + mass_of_particle(idx) * position[idx];
+            return acc + get_mass(idx) * position[idx];
         }
-        sum += owner_mass;
-        return sum;
-    }();
-
-    auto const [c, c_rest] = [&]() {
-        auto c = Vec3();
-        auto c_rest = Vec3();
-
-        for (auto i : neighbors) {
-            auto const m_i = mass_of_particle(i);
-            c += (m_i / W) * predicted_position[i];
-            c_rest += (m_i / W) * rest_position[i];
+    ) / total_mass;
+    
+    // CoM of the current configuration
+    auto com1 = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        // mass_of_particle(pidx) * predicted_position[pidx],
+        get_mass(pidx) * predicted_position[pidx],
+        [&](Vec3 const& acc, unsigned idx) -> Vec3 {
+            // return acc + mass_of_particle(idx) * predicted_position[idx];
+            return acc + get_mass(idx) * predicted_position[idx];
         }
-        auto const m_c = mass_of_particle(pidx);
-        c += (m_c / W) * owner_pos;
-        c_rest += (m_c / W) * owner_rest_pos;
+    ) / total_mass;
 
-        return std::make_tuple(c, c_rest);
-    }();
+    auto calc_p = [=](unsigned idx) {
+        return position[idx] - com0;
+    };
 
-    auto group = Particle_Group{ pidx, owner_mass, neighbors, masses, W, c, c_rest, Mat3() };
-    calculate_orientation_matrix(&group);
-    auto const x_t = group.orient * (owner_rest_pos - group.c_rest) + group.c;
-    auto const& owner_predicted = predicted_position[pidx];
+    auto calc_q = [=](unsigned idx) {
+        return predicted_position[idx] - com1;
+    };
 
-    position[pidx] = owner_predicted;
-
-    center_of_mass[pidx] = c;
-    rest_center_of_mass[pidx] = c_rest;
-
-    goal_position[pidx] = x_t;
-
-#ifndef DISABLE_GROWTH
-    // TODO(danielm): novekedesi rata
-    // Novesztjuk az agat
-    auto g = 1.0f; // 1/sec
-    auto prob_branching = 0.25f;
-    auto& r = size[pidx].x;
-    if (r < 1.5f) {
-        size[pidx] += Vec3(g * dt, g * dt, 0);
-
-        // Ha tulleptuk a meret-limitet, novesszunk uj agat
-        if (r >= 1.5f && position.size() < params.particle_count_limit) {
-            auto lateral_chance = randf();
-            constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
-            auto longest_axis = longest_axis_normalized(size[pidx]);
-            auto new_longest_axis = longest_axis_normalized(new_size);
-            if (lateral_chance < params.branching_probability) {
-                // Oldalagat novesszuk
-                auto angle = (2 * randf() - 1) * params.branch_angle_variance;
-                auto x = 2 * randf() - 1;
-                auto y = 2 * randf() - 1;
-                auto z = 2 * randf() - 1;
-                auto axis = glm::normalize(Vec3(x, y, z));
-                auto bud_rot_offset = glm::angleAxis(angle, axis);
-                auto lateral_orientation = bud_rot_offset * orientation[pidx];
-                auto l_pos = position[pidx]
-                    + orientation[pidx] * (longest_axis / 2.0f) * glm::inverse(orientation[pidx])
-                    + lateral_orientation * (new_longest_axis / 2.0f) * glm::inverse(lateral_orientation);
-
-                auto func_add = [&, l_pos, new_size, pidx, lateral_orientation]() {
-                    auto l_idx = add_particle(l_pos, new_size, 1.0f);
-                    lateral_bud[pidx] = l_idx;
-                    connect_particles(pidx, l_idx);
-                    orientation[l_idx] = lateral_orientation;
-                };
-
-                DEFER_LAMBDA(func_add);
-            }
-
-            // Csucsot novesszuk
-            auto pos = position[pidx]
-                + orientation[pidx] * (longest_axis / 2.0f) * glm::inverse(orientation[pidx])
-                + orientation[pidx] * (new_longest_axis / 2.0f) * glm::inverse(orientation[pidx]);
-            auto func_add = [&, pos, new_size, pidx]() {
-                auto a_idx = add_particle(pos, new_size, 1.0f);
-                apical_child[pidx] = a_idx;
-                connect_particles(pidx, a_idx);
-            };
-
-            DEFER_LAMBDA(func_add);
+    auto A_pq = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        get_mass(pidx) * glm::outerProduct(calc_p(pidx), calc_q(pidx)),
+        [=](Mat3 const& acc, unsigned idx) -> Mat3 {
+            return acc + get_mass(idx) * glm::outerProduct(calc_p(idx), calc_q(idx));
         }
-    }
-#endif /* !defined(DISABLE_GROWTH) */
+    );
+
+    auto A_qq = glm::inverse(std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        get_mass(pidx) * glm::outerProduct(calc_q(pidx), calc_q(pidx)),
+        [=](Mat3 const& acc, unsigned idx) -> Mat3 {
+            return acc + get_mass(idx) * glm::outerProduct(calc_q(idx), calc_q(idx));
+        }
+    ));
+
+    // auto R = polar_decompose_r(A_pq);
+    auto At_pq__A_pq = glm::transpose(A_pq) * A_pq;
+    auto R = polar_decompose_r(At_pq__A_pq);
+    
+
+    goal_position[pidx] = R * (position[pidx] - com0) + com1;
 }
 
 unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
@@ -266,48 +252,6 @@ float Softbody_Simulation::mass_of_particle(unsigned i) {
 }
 
 void Softbody_Simulation::calculate_orientation_matrix(Particle_Group* group) {
-    auto calculate_particle_matrix = [this](unsigned pidx) -> Mat3 {
-        auto mass_i = this->mass_of_particle(pidx);
-        auto const size = this->size[pidx];
-        auto const a = size[0];
-        auto const b = size[1];
-        auto const c = size[2];
-        auto const A_i = Mat3(a * a, 0, 0, 0, b * b, 0, 0, 0, c * c);
-        return mass_i * (1 / 5.0f) * A_i;
-    };
-
-    auto calculate_group_matrix = [this, group, calculate_particle_matrix]() -> Mat3 {
-        // sum (particle matrix + particle mass * (particle pos * particle rest pos)) - total group mass * (center * rest center)
-
-        float const sum_masses = group->owner_mass + sum<float>(group->masses.begin(), group->masses.end());
-
-        auto moment_sum =
-            calculate_particle_matrix(group->owner)
-            + this->mass_of_particle(group->owner) * glm::outerProduct(predicted_position[group->owner], rest_position[group->owner]);
-
-        for (auto neighbor : group->neighbors) {
-            moment_sum +=
-                calculate_particle_matrix(neighbor)
-                + this->mass_of_particle(neighbor) * glm::outerProduct(predicted_position[neighbor], rest_position[neighbor]);
-        }
-
-        return moment_sum - sum_masses * glm::outerProduct(group->c, group->c_rest);
-    };
-
-    auto is_null_matrix = [](Mat3 const& m) -> bool {
-        float sum = 0;
-        for (int i = 0; i < 3; i++) {
-            sum += m[i].length();
-        }
-
-        return sum < glm::epsilon<float>();
-    };
-
-    auto const& owner_size = size[group->owner];
-
-    auto const R = polar_decompose_r(calculate_group_matrix());
-
-    group->orient = R;
 }
 
 
@@ -346,17 +290,16 @@ void sb::step(Softbody_Simulation* s, float delta_time) {
             auto p0 = s->position[0];
 
             s->predict_positions(phdt);
+            for (auto i : range(0, s->position.size())) {
+                s->simulate_group(i, phdt);
+            }
+            s->commit_predicted_positions();
+
+            // s->position[0] = p0;
 
             if (s->time_accumulator > 8 * PHYSICS_STEP) {
                 fprintf(stderr, "EXTREME LAG, ACC = %f\n", s->time_accumulator);
             }
-
-            auto R = range(0, s->predicted_position.size());
-            s->assert_parallel = true;
-            std::for_each(std::execution::par, R.begin(), R.end(), [&](unsigned i) {
-                s->simulate_group(i, phdt);
-            });
-            s->assert_parallel = false;
 
             // The creation of new particles is deferred until after all the
             // groups have been simulated
@@ -364,8 +307,6 @@ void sb::step(Softbody_Simulation* s, float delta_time) {
                 def_func();
             }
             s->deferred.clear();
-
-            s->position[0] = p0;
 
             s->time_accumulator -= PHYSICS_STEP;
         }

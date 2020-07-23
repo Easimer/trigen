@@ -51,6 +51,7 @@ struct Softbody_Simulation {
     void initialize(sb::Config const& configuration);
     void predict_positions(float dt);
     void simulate_group(unsigned pidx, float dt);
+    void commit_predicted_positions();
 
 private:
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);

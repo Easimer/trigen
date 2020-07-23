@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <functional>
 #include <glm/vec3.hpp>
 
 struct Softbody_Simulation;
@@ -69,4 +70,6 @@ namespace sb {
     Relation_Iterator* get_apical_relations(Softbody_Simulation*);
     Relation_Iterator* get_lateral_relations(Softbody_Simulation*);
     Relation_Iterator* get_connections(Softbody_Simulation*);
+
+    void add_collider(Softbody_Simulation*, std::function<float(glm::vec3)> sdf);
 }
