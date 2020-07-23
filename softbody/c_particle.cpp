@@ -28,9 +28,8 @@ namespace coll {
         Vec3 const& p0, Quat const& r0, Vec3 const& s0,
         Vec3 const& p1, Quat const& r1, Vec3 const& s1
     ) {
-        // Assume that the particle are intersecting if the distance between
-        // the centers of the two particles is less than the sum of the length
-        // of their longest axes
+        // If the two particles' circumscribed spheres don't intersect, then
+        // the ellipsoid themselves can't possibly intersect
         auto [axis0, axis1] = max(s0, s1);
         auto axis_sum = axis0 + axis1;
         auto axis_sum_sq = axis_sum * axis_sum;
@@ -42,7 +41,7 @@ namespace coll {
         }
 
         // Expand normal to vec4 so that it can be multiplied by mat4's
-        auto n = glm::vec4(normal, 1.0f);
+        auto n = glm::vec4(normal, 0.0f);
         auto R_0 = glm::mat4(r0);
         auto R_1 = glm::mat4(r1);
         auto A_0 = R_0 * glm::scale(1.0f / s0) * glm::transpose(R_0);
@@ -50,9 +49,12 @@ namespace coll {
         auto A_0_inv = R_0 * glm::scale(s0) * glm::transpose(R_0);
         auto A_1_inv = R_1 * glm::scale(s1) * glm::transpose(R_1);
 
-        auto lambda = glm::sqrt(glm::dot(n, A_0 * A_1_inv * n));
+        auto lambda0 = glm::sqrt(glm::dot(n, A_0 * A_1_inv * n));
+        auto lambda1 = -lambda0;
 
-        if (lambda < 0) {
+        auto lambda = (lambda0 < 0) ? lambda0 : lambda1;
+
+        if (glm::epsilonEqual(lambda, 0.0f, glm::epsilon<float>())) {
             return std::nullopt;
         }
 
