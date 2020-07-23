@@ -37,10 +37,12 @@ Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t c
     auto const& pPenultimate = tree.GetNode(uiPrev);
     points.push_back(pEnd.vPosition + (pEnd.vPosition - pPenultimate.vPosition));
 
+    /*
     printf("(%f, %f, %f) -> (%f, %f, %f)\n",
         pStart.vPosition[0], pStart.vPosition[1], pStart.vPosition[2],
         pEnd.vPosition[0], pEnd.vPosition[1], pEnd.vPosition[2]
         );
+    */
 
     Catmull_Rom_Composite<lm::Vector4> cr(points.size(), points.data());
     return MeshFromSpline(cr, [](auto i, auto const& p) { return 4.0f; });

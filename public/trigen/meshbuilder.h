@@ -94,7 +94,7 @@ public:
         auto res = ret.vertices.size();
 
         auto reduction = res / (float)orig;
-        printf("Mesh_Builder::Optimize: reduction: %fx\n", reduction);
+        // printf("Mesh_Builder::Optimize: reduction: %fx\n", reduction);
 
         return ret;
     }

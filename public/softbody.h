@@ -35,6 +35,8 @@ namespace sb {
     struct Particle {
         size_t id;
         glm::vec3 position;
+        glm::quat orientation;
+        glm::vec3 size;
 
         glm::vec3 start, end;
     };
