@@ -8,6 +8,7 @@
 #include <ctime>
 #include <type_traits>
 #include <array>
+#include <string>
 #include <trigen/sdl_helper.h>
 #include <SDL_ttf.h>
 
