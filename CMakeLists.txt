@@ -103,6 +103,8 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/public")
 # Use folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+enable_testing()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 find_package(SDL2 REQUIRED)
