@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include "softbody.h"
 #include "m_utils.h"
+#include "l_iterators.h"
 #include "s_simulation.h"
 #include <cstdlib>
 #include <array>
