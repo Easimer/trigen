@@ -21,6 +21,7 @@ set(SRC_IMPL
 set(SRC_TESTS
     tests.main.cpp
     c_particle.tests.cpp
+    m_utils.tests.cpp
 )
 
 add_library(softbody STATIC ${SRC_PUBLIC} ${SRC_IMPL})
