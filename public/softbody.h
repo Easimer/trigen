@@ -67,6 +67,8 @@ namespace sb {
     void step(Softbody_Simulation*, float delta_time);
 
     Particle_Iterator* get_particles(Softbody_Simulation*);
+    Particle_Iterator* get_particles_with_goal_position(Softbody_Simulation*);
+    Particle_Iterator* get_centers_of_masses(Softbody_Simulation*);
     Relation_Iterator* get_apical_relations(Softbody_Simulation*);
     Relation_Iterator* get_lateral_relations(Softbody_Simulation*);
     Relation_Iterator* get_connections(Softbody_Simulation*);

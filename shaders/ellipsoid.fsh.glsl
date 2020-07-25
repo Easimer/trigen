@@ -33,7 +33,7 @@ uniform mat3 matRotation;
 // Particle size
 uniform vec3 vSize;
 // Particle color
-const vec4 vColor = vec4(0.6, 0.6, 0.6, 1.0);
+uniform vec3 vColor;
 
 // View-projection matrix and it's inverse
 uniform mat4 matVP;
@@ -62,7 +62,8 @@ float sdEllipsoid(vec3 p, vec3 r) {
  */
 float scene(vec3 p) {
 	// Transform the sample point into model space
-	vec3 sp = matRotation * (p - vTranslation);
+	//vec3 sp = matRotation * (p - vTranslation);
+	vec3 sp = inverse(matRotation) * (p - vTranslation);
 	return sdEllipsoid(sp, vSize);
 }
 
@@ -142,7 +143,7 @@ void main() {
 	vec3 sunDir = normalize(vSun - vTranslation);
 	vec3 normal = normal(intersect, 1);
 	float illum = min(max(0.2, dot(normal, sunDir)), 1.0);
-	vFrag = illum * vColor;
+	vFrag = vec4(illum * vColor, 1.0f);
 
 	if(!(NEAR_CLIPPING_PLANE < dist && dist < FAR_CLIPPING_PLANE)) {
 		// Ray went beyond the far plane

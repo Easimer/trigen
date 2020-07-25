@@ -8,4 +8,4 @@
 #include "r_queue.h"
 #include "softbody.h"
 
-bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim);
+bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Vec3 const& sun_position);

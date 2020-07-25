@@ -108,7 +108,7 @@ void app_main_loop() {
         128, // particle_count_limit
     };
     auto sim = sb::create_simulation(sim_cfg);
-    bool bDoTick = true;
+    bool bDoTick = false, bTickOnce = false;
 
     // Sun
     float sun_angle = 0.0f;
@@ -160,21 +160,22 @@ void app_main_loop() {
             cam->set_screen_size(r_width, r_height);
         }
 
-        sun_angle = glm::mod(sun_angle + delta / 16.0f, glm::pi<double>());
+        auto steps = (g_sim_speed > 0) ? g_sim_speed : 1;
+
+        sun_angle = glm::mod(sun_angle + steps * delta / 16.0f, glm::pi<double>());
         auto sun_pos = Vec3(1000 * glm::cos(sun_angle), 1000 * glm::sin(sun_angle), 0.0f);
         sb::set_light_source_position(sim, sun_pos);
 
-        if (bDoTick) {
-            auto steps = (g_sim_speed > 0) ? g_sim_speed : 1;
+        if (bDoTick || bTickOnce) {
             for (unsigned i = 0; i < steps; i++) {
                 sb::step(sim, delta);
             }
+
+            bTickOnce = false;
         }
-        render_softbody_simulation(&rq, sim);
+        render_softbody_simulation(&rq, sim, sun_pos);
 
         rq.execute(renderer);
-
-        // renderer->draw_ellipsoid(Vec3(0, 0, 0), Vec3(2, 1, 1), glm::identity<glm::quat>());
 
         if (ImGui::Begin("Sun")) {
             ImGui::Text("Angle:    %f\n", sun_angle);
@@ -188,6 +189,9 @@ void app_main_loop() {
                 sim = sb::create_simulation(sim_cfg);
             }
             ImGui::Checkbox("Tick", &bDoTick);
+            if (ImGui::Button("Tick once")) {
+                bTickOnce = true;
+            }
         }
         ImGui::End();
 

@@ -54,3 +54,30 @@ Mat3 polar_decompose_r(Mat3 const& A) {
     }
 }
 
+#include <glm/gtc/matrix_access.hpp>
+#define MUELLER2016_MAX_ITERATIONS (32)
+
+void mueller_rotation_extraction(Mat3 const& A, Quat& q) {
+    for (unsigned iter = 0; iter < MUELLER2016_MAX_ITERATIONS; iter++) {
+        Mat3 R = Mat3(q);
+        auto omega_v =
+            glm::cross(glm::column(R, 0), glm::column(A, 0)) +
+            glm::cross(glm::column(R, 1), glm::column(A, 1)) +
+            glm::cross(glm::column(R, 2), glm::column(A, 2));
+        auto omega_s =
+            (1.0f / glm::abs(
+                glm::dot(glm::column(R, 0), glm::column(A, 0)) +
+                glm::dot(glm::column(R, 1), glm::column(A, 1)) +
+                glm::dot(glm::column(R, 2), glm::column(A, 2))
+            ) + 1.0e-9);
+
+        auto omega = (float)omega_s * omega_v;
+
+        auto w = glm::length(omega);
+        if (w < 1.0e-9) {
+            break;
+        }
+
+        q = glm::normalize(glm::angleAxis(w, (1.0f / w) * omega) * q);
+    }
+}

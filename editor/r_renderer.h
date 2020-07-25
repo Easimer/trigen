@@ -42,7 +42,8 @@ namespace gfx {
             size_t count,
             Vec3 const* centers,
             Vec3 const* sizes,
-            Quat const* rotations
+            Quat const* rotations,
+            Vec3 const& color = Vec3(0.6, 0.6, 0.6)
         ) = 0;
 
         virtual bool pump_event_queue(SDL_Event& ev) = 0;

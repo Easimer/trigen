@@ -8,6 +8,9 @@
 #include "common.h"
 #include <numeric>
 
+#include <type_traits>
+#include <iterator>
+
 template<typename T, typename Iterator>
 T sum(Iterator begin, Iterator end) {
     return std::accumulate(begin, end, (T)0);
@@ -45,7 +48,21 @@ void get_head_and_tail_of_particle(
  * @param A A square matrix
  * @return The rotation matrix
 */
+[[deprecated]]
 Mat3 polar_decompose_r(Mat3 const& A);
+
+/**
+ * Extract the rotational part of an arbitrary matrix A.
+ *
+ * Implementation of "Matthias Mueller and Jan Bender and Nuttapong Chentanez
+ * and Miles Macklin: A Robust Method to Extract the Rotational Part of
+ * Deformations"
+ * https://animation.rwth-aachen.de/publication/0548/
+ *
+ * @param A An arbitrary 3x3 transformation matrix
+ * @param q A quaternion that approximates `A`
+ */
+void mueller_rotation_extraction(Mat3 const& A, Quat& q);
 
 /**
  * Integer range
@@ -85,4 +102,85 @@ struct std::iterator_traits<range::iterator> {
     using pointer = range::iterator*;
     using reference = range::iterator&;
     using iterator_category = std::forward_iterator_tag;
+};
+
+template<typename It1, typename It2>
+class iterator_union {
+public:
+    static_assert(std::is_same_v<typename It1::value_type, typename It2::value_type>, "Types must be the same!");
+    static_assert(std::is_copy_assignable_v<It1>, "Iterator types must be copy assignable!");
+    static_assert(std::is_copy_assignable_v<It2>, "Iterator types must be copy assignable!");
+    class iterator {
+    private:
+        friend class iterator_union;
+        It1 begin1, end1;
+        It2 begin2, end2;
+        bool first; // are we iterator the first iterator
+    public:
+        using difference_type = long int;
+        using value_type = typename It1::value_type;
+        using pointer = typename std::add_pointer<typename It1::value_type>::type;
+        using reference = typename std::add_lvalue_reference<typename It1::value_type>::type;
+        using iterator_category = std::forward_iterator_tag;
+
+        reference operator*() {
+            if (first) {
+                return *begin1;
+            } else {
+                return *begin2;
+            }
+        }
+
+        const iterator& operator++() {
+            step();
+            return *this;
+        }
+
+        iterator operator++(int) {
+            iterator copy(*this);
+            step();
+            return copy;
+        }
+
+        bool operator==(iterator const& other) const {
+            return first ? begin1 == other.begin1 : begin2 == other.begin2;
+        }
+
+        bool operator!=(iterator const& other) const {
+            return first ? begin1 != other.begin1 : begin2 != other.begin2;
+        }
+
+    protected:
+        iterator(It1 begin1, It1 end1, It2 begin2, It2 end2)
+            : begin1(begin1), end1(end1), begin2(begin2), end2(end2), first(true) {}
+
+        iterator(It1 begin1, It1 end1, It2 begin2, It2 end2, bool end)
+            : begin1(end1), end1(end1), begin2(end2), end2(end2), first(false) {}
+
+        void step() {
+            if (first) {
+                ++begin1;
+                if (begin1 == end1) {
+                    first = false;
+                }
+            } else {
+                ++begin2;
+            }
+        }
+    };
+
+    iterator_union(It1 begin1, It1 end1, It2 begin2, It2 end2)
+        : begin1(begin1), end1(end1), begin2(begin2), end2(end2) {}
+
+    iterator begin() {
+        return iterator(begin1, end1, begin2, end2);
+    }
+
+    iterator end() {
+        return iterator(begin1, end1, begin2, end2, true);
+    }
+
+private:
+    It1 begin1, end1;
+    It2 begin2, end2;
 };

@@ -126,6 +126,8 @@ public:
             LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
 
             glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+            glLineWidth(2.0f);
         }
     }
 
@@ -195,7 +197,8 @@ public:
         size_t count,
         Vec3 const* centers,
         Vec3 const* sizes,
-        Quat const* rotations
+        Quat const* rotations,
+        Vec3 const& color
     ) override {
         if (m_sdf_ellipsoid_shader) {
             // Setup screen quad
@@ -226,6 +229,7 @@ public:
             auto const locTranslation = gl::Uniform_Location<Vec3>(shader, "vTranslation");
             auto const locRotation = gl::Uniform_Location<Mat3>(shader, "matRotation");
             auto const locSun = gl::Uniform_Location<Vec3>(shader, "vSun");
+            auto const locColor = gl::Uniform_Location<Vec3>(shader, "vColor");
 
             // NOTE(danielm): translation and rotation are not part of the MVP, they are
             // supplied separately to the GPU
@@ -237,6 +241,7 @@ public:
 
             // Set the position of the Sun
             gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
+            gl::SetUniformLocation(locColor, color);
 
             // TODO(danielm): we should render multiple objects at a time,
             // like uploading a 4-tuple of these parameters and taking their

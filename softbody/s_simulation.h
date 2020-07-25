@@ -18,22 +18,37 @@ struct Particle_Group {
 };
 
 struct Softbody_Simulation {
+    Vector<Vec3> bind_pose;
+    // Position in the previous frame
     Vector<Vec3> position;
-    Vector<Vec3> velocity;
-    Vector<Vec3> angular_velocity;
-    Vector<Vec3> rest_position;
+    // Position in the current frame
+    Vector<Vec3> predicted_position;
     Vector<Vec3> goal_position;
-    Vector<Vec3> center_of_mass;
-    Vector<Vec3> rest_center_of_mass;
+
+    // Particle velocities
+    Vector<Vec3> velocity;
+    // Particle angular velocities
+    Vector<Vec3> angular_velocity;
+
+    // Particle sizes
     Vector<Vec3> size;
+
+    // Particle orientations in the last frame
     Vector<Quat> orientation;
+    // Particle orientations in the current frame
+    Vector<Quat> predicted_orientation;
+
+    // Particle densities
     Vector<float> density;
-    Vector<float> age;
+    // Particle ages
+    //Vector<float> age;
     Map<unsigned, Vector<unsigned>> edges;
     Map<unsigned, unsigned> apical_child;
     Map<unsigned, unsigned> lateral_bud;
 
-    Vector<Vec3> predicted_position;
+    // For debug visualization only
+    Vector<Vec3> center_of_mass;
+
 
     bool assert_parallel = false;
 
@@ -53,9 +68,14 @@ struct Softbody_Simulation {
     void simulate_group(unsigned pidx, float dt);
     void commit_predicted_positions();
 
+    void prediction(float dt);
+    void constraint_resolution(float dt);
+    void integration(float dt);
+
 private:
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
     void connect_particles(unsigned a, unsigned b);
     float mass_of_particle(unsigned i);
     void calculate_orientation_matrix(Particle_Group* group);
+    Mat3 calculate_shape_matching_matrix(unsigned pidx, Vec3& rest_com, Vec3& com);
 };

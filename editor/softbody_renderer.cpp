@@ -30,17 +30,21 @@ private:
 
 class Command_Render_Particles : public gfx::IRender_Command {
 public:
-    Command_Render_Particles(Softbody_Simulation* sim) : sim(sim) {}
+    Command_Render_Particles(Softbody_Simulation* sim, Vec3 const& sun_position) : sim(sim), sun_position(sun_position) {}
 private:
+    Vec3 sun_position;
     Softbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
         std::vector<Vec3> lines;
-        auto iter = sb::get_particles(sim);
-
         std::vector<Vec3> positions;
+        std::vector<Vec3> goal_positions;
+        std::vector<Vec3> centers_of_masses;
         std::vector<Vec3> sizes;
         std::vector<Quat> rotations;
 
+        std::vector<Vec3> sizes_virtual;
+
+        auto iter = sb::get_particles(sim);
         while(!iter->ended()) {
             auto particle = iter->get();
             lines.push_back(particle.start);
@@ -49,18 +53,37 @@ private:
             positions.push_back(particle.position);
             sizes.push_back(particle.size);
             rotations.push_back(particle.orientation);
+            sizes_virtual.push_back(Vec3(0.25, 0.25, 0.25));
 
             iter->step();
         }
-
         iter->release();
+
+        iter = sb::get_particles_with_goal_position(sim);
+        while (!iter->ended()) {
+            auto particle = iter->get();
+            goal_positions.push_back(particle.position);
+            iter->step();
+        }
+        iter->release();
+
+        for (iter = sb::get_centers_of_masses(sim); !iter->ended(); iter->step()) {
+            auto particle = iter->get();
+            centers_of_masses.push_back(particle.position);
+        }
+        iter->release();
+
+        assert(positions.size() == goal_positions.size());
 
         // TODO(danielm): we need a way to get back the sun position from
         // either the simulation or the application
         gfx::Render_Context_Supplement ctx;
+        ctx.sun = sun_position;
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));
         renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
+        renderer->draw_ellipsoids(ctx, positions.size(), goal_positions.data(), sizes_virtual.data(), rotations.data(), Vec3(0.1, 0.8, 0.1));
+        renderer->draw_ellipsoids(ctx, positions.size(), centers_of_masses.data(), sizes_virtual.data(), rotations.data(), Vec3(0.8, 0.1, 0.1));
     }
 };
 
@@ -115,9 +138,9 @@ private:
     }
 };
 
-class Render_Cube : public gfx::IRender_Command {
+class Render_Grid : public gfx::IRender_Command {
 public:
-    Render_Cube(Softbody_Simulation*) {}
+    Render_Grid(Softbody_Simulation*) {}
 private:
     virtual void execute(gfx::IRenderer* renderer) override {
         glm::vec3 lines[] = {
@@ -132,6 +155,18 @@ private:
         renderer->draw_lines(lines + 0, 1, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
         renderer->draw_lines(lines + 2, 1, Vec3(0, 0, 0), Vec3(0, .35, 0), Vec3(0, 1, 0));
         renderer->draw_lines(lines + 4, 1, Vec3(0, 0, 0), Vec3(0, 0, .35), Vec3(0, 0, 1));
+
+        // render grid
+        Vec3 grid[80];
+        for (int i = 0; i < 20; i++) {
+            auto base = 4 * i;
+            grid[base + 0] = Vec3(i - 10, 0, -10);
+            grid[base + 1] = Vec3(i - 10, 0, +10);
+            grid[base + 2] = Vec3(-10, 0, i - 10);
+            grid[base + 3] = Vec3(+10, 0, i - 10);
+        }
+
+        renderer->draw_lines(grid, 40, Vec3(0, 0, 0), Vec3(0.4, 0.4, 0.4), Vec3(0.4, 0.4, 0.4));
     }
 };
 
@@ -158,23 +193,23 @@ private:
 
 };
 
-template<typename T>
-static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Softbody_Simulation* sim) {
+template<typename T, class ... Arg>
+static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
     auto cmd = rq->allocate<T>();
-    new(cmd) T(sim);
+    new(cmd) T(args...);
     rq->push(cmd);
     return cmd;
 }
 
-bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim) {
+bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Vec3 const& sun_position) {
     assert(rq != NULL);
     assert(sim != NULL);
 
-    allocate_command_and_initialize<Render_Cube>(rq, sim);
+    allocate_command_and_initialize<Render_Grid>(rq, sim);
     auto render_points = allocate_command_and_initialize<Command_Render_Points>(rq, sim);
     // auto render_apical_branches = allocate_command_and_initialize<Command_Render_Apical_Relations>(rq, sim);
     // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
-    auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim);
+    auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim, sun_position);
     allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
     return true;

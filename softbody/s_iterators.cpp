@@ -9,6 +9,7 @@
 #include "m_utils.h"
 
 namespace sb {
+    template<typename Getter>
     struct Particle_Iterator_Impl : public sb::Particle_Iterator {
         Softbody_Simulation* sim;
         unsigned idx;
@@ -34,10 +35,12 @@ namespace sb {
         virtual sb::Particle get() const override {
             assert(idx < sim->position.size());
             Vec3 head, tail;
-            Vec3 const pos = sim->position[idx];
-            Vec3 const size = sim->size[idx];
-            auto const orientation = sim->orientation[idx];
-            get_head_and_tail_of_particle(pos, longest_axis_normalized(size), orientation, &head, &tail);
+            Getter G{ sim };
+            Vec3 const pos = G.position(idx);
+            Vec3 const size = G.size(idx);
+            auto const orientation = G.orientation(idx);
+            G.head_and_tail(pos, longest_axis_normalized(size), orientation, &head, &tail);
+            // get_head_and_tail_of_particle(pos, longest_axis_normalized(size), orientation, &head, &tail);
 
             return sb::Particle{
                 idx,
@@ -49,10 +52,64 @@ namespace sb {
         }
     };
 
+    // Used as the template argument of Particle_Iterator_Impl
+    struct Normal_Particle_Getter {
+        Softbody_Simulation* s;
+
+        Vec3 position(unsigned idx) {
+            return s->position[idx];
+        }
+
+        Vec3 size(unsigned idx) {
+            return s->size[idx];
+        }
+
+        Quat orientation(unsigned idx) {
+            return s->orientation[idx];
+        }
+
+        void head_and_tail(Vec3 const& pos, Vec3 const& axis, Quat const& orientation, Vec3* head, Vec3* tail) {
+            get_head_and_tail_of_particle(pos, axis, orientation, head, tail);
+        }
+    };
+
+    // Used as the template argument of Particle_Iterator_Impl
+    // Instead of the actual position, this will make the iterator return the
+    // goal position of the particle.
+    struct Goal_Position_Particle_Getter : public Normal_Particle_Getter {
+        Vec3 position(unsigned idx) {
+            return s->goal_position[idx];
+        }
+    };
+
+    struct Center_Of_Mass_Getter : public Normal_Particle_Getter {
+        Vec3 position(unsigned idx) {
+            return s->center_of_mass[idx];
+        }
+    };
+
     Particle_Iterator* get_particles(Softbody_Simulation* s) {
         assert(s != NULL);
         if (s != NULL) {
-            return new Particle_Iterator_Impl(s);
+            return new Particle_Iterator_Impl<Normal_Particle_Getter>(s);
+        } else {
+            return NULL;
+        }
+    }
+
+    Particle_Iterator* get_particles_with_goal_position(Softbody_Simulation* s) {
+        assert(s != NULL);
+        if (s != NULL) {
+            return new Particle_Iterator_Impl<Goal_Position_Particle_Getter>(s);
+        } else {
+            return NULL;
+        }
+    }
+
+    Particle_Iterator* get_centers_of_masses(Softbody_Simulation* s) {
+        assert(s != NULL);
+        if (s != NULL) {
+            return new Particle_Iterator_Impl<Center_Of_Mass_Getter>(s);
         } else {
             return NULL;
         }
@@ -182,6 +239,10 @@ namespace sb {
                 if (pidx != s->position.size()) {
                     iter = s->edges[pidx].begin();
                     end = s->edges[pidx].end();
+
+                    if (iter == end) {
+                        pidx++;
+                    }
                 }
             }
 
