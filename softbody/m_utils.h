@@ -36,14 +36,6 @@ void get_head_and_tail_of_particle(
 );
 
 /**
- * Perform a polar decomposition on a matrix and return the rotation matrix.
- * @param A A square matrix
- * @return The rotation matrix
-*/
-[[deprecated]]
-Mat3 polar_decompose_r(Mat3 const& A);
-
-/**
  * Extract the rotational part of an arbitrary matrix A.
  *
  * Implementation of "Matthias Mueller and Jan Bender and Nuttapong Chentanez

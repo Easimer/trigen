@@ -30,30 +30,6 @@ void get_head_and_tail_of_particle(
     *out_tail = pos + axis_rotated_half;
 }
 
-Mat3 polar_decompose_r(Mat3 const& A) {
-    glm::mat4 A4(A);
-    glm::vec3 scale;
-    glm::quat rotate;
-    glm::vec3 translate;
-    glm::vec3 skew;
-    glm::vec4 perspective;
-    auto v2 = A4[2];
-
-    if (v2.z == 0.0f) {
-        fprintf(stderr, "v2.z == 0.0f\n");
-        v2.z = 1;
-        A4[2] = v2;
-    }
-
-    A4[3] = glm::vec4(0, 0, 0, 1);
-    if (glm::decompose(A4, scale, rotate, translate, skew, perspective)) {
-        rotate = glm::conjugate(rotate);
-        return (Mat3)rotate;
-    } else {
-        assert(0);
-    }
-}
-
 #include <glm/gtc/matrix_access.hpp>
 #define MUELLER2016_MAX_ITERATIONS (32)
 
