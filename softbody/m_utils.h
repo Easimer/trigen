@@ -106,8 +106,11 @@ struct std::iterator_traits<range::iterator> {
 
 template<typename It1, typename It2>
 class iterator_union {
+private:
+    using value_type1 = typename std::iterator_traits<It1>::value_type;
+    using value_type2 = typename std::iterator_traits<It2>::value_type;
 public:
-    static_assert(std::is_same_v<typename It1::value_type, typename It2::value_type>, "Types must be the same!");
+    static_assert(std::is_same_v<value_type1, value_type2>, "Types must be the same!");
     static_assert(std::is_copy_assignable_v<It1>, "Iterator types must be copy assignable!");
     static_assert(std::is_copy_assignable_v<It2>, "Iterator types must be copy assignable!");
     class iterator {
