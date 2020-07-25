@@ -62,7 +62,6 @@ float sdEllipsoid(vec3 p, vec3 r) {
  */
 float scene(vec3 p) {
 	// Transform the sample point into model space
-	//vec3 sp = matRotation * (p - vTranslation);
 	vec3 sp = inverse(matRotation) * (p - vTranslation);
 	return sdEllipsoid(sp, vSize);
 }
