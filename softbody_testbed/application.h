@@ -3,8 +3,7 @@
 // Purpose: editor entry point
 //
 
-#include "stdafx.h"
-#include "application.h"
+#pragma once
 
-void app_main_loop() {
-}
+void app_main_loop();
+

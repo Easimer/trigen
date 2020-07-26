@@ -4,23 +4,6 @@ set(SRC
 
 	application.cpp
 	application.h
-
-	softbody_renderer.cpp
-	softbody_renderer.h
-
-	r_renderer.h
-	r_queue.h
-	r_gl.cpp
-
-	events.h
-
-	arcball_camera.cpp
-	arcball_camera.h
-)
-
-set(SRC_SHADERS
-	generic.vsh.glsl
-	generic.fsh.glsl
 )
 
 add_executable(editor ${SRC})

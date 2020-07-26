@@ -70,9 +70,9 @@ static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) 
 
 class GL_Renderer : public sdl::Renderer, public gfx::IRenderer {
 public:
-    GL_Renderer() :
+    GL_Renderer(char const* pszTitle) :
         m_width(1280), m_height(720),
-        Renderer("editor", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL),
+        Renderer(pszTitle, 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL),
         glctx(NULL),
         m_pImGuiCtx(NULL),
         m_view(glm::translate(Vec3(0.0f, 0.0f, -15.0f))),
@@ -408,9 +408,9 @@ private:
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_shader;
 };
 
-gfx::IRenderer* gfx::make_renderer(gfx::Renderer_Config const&) {
+gfx::IRenderer* gfx::make_renderer(gfx::Renderer_Config const& cfg) {
     SDL_Init(SDL_INIT_EVERYTHING);
-    return new GL_Renderer();
+    return new GL_Renderer(cfg.title);
 }
 
 void gfx::destroy_renderer(gfx::IRenderer* r) {

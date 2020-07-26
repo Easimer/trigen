@@ -30,13 +30,14 @@ private:
 
 class Command_Render_Particles : public gfx::IRender_Command {
 public:
-    Command_Render_Particles(Softbody_Simulation* sim, Vec3 const& sun_position) : sim(sim), sun_position(sun_position) {}
+    Command_Render_Particles(Softbody_Simulation* sim, Softbody_Render_Parameters const* params) : sim(sim), params(params) {}
 private:
-    Vec3 sun_position;
+    Softbody_Render_Parameters const* params;
     Softbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
         std::vector<Vec3> lines;
         std::vector<Vec3> positions;
+        std::vector<Vec3> predicted_positions;
         std::vector<Vec3> goal_positions;
         std::vector<Vec3> centers_of_masses;
         std::vector<Vec3> sizes;
@@ -73,15 +74,26 @@ private:
         }
         iter->release();
 
+        for (iter = sb::get_particles_with_predicted_position(sim); !iter->ended(); iter->step()) {
+            auto particle = iter->get();
+            predicted_positions.push_back(particle.position);
+        }
+        iter->release();
+
         assert(positions.size() == goal_positions.size());
 
         // TODO(danielm): we need a way to get back the sun position from
         // either the simulation or the application
         gfx::Render_Context_Supplement ctx;
-        ctx.sun = sun_position;
+        ctx.sun = params->sun_position;
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));
-        renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
+        if (params->show_positions) {
+            renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
+        }
+        if (params->show_positions) {
+            renderer->draw_ellipsoids(ctx, predicted_positions.size(), positions.data(), sizes.data(), rotations.data());
+        }
         renderer->draw_ellipsoids(ctx, positions.size(), goal_positions.data(), sizes_virtual.data(), rotations.data(), Vec3(0.1, 0.8, 0.1));
         renderer->draw_ellipsoids(ctx, positions.size(), centers_of_masses.data(), sizes_virtual.data(), rotations.data(), Vec3(0.8, 0.1, 0.1));
     }
@@ -176,16 +188,22 @@ public:
 private:
     Softbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
-        auto iter = sb::get_connections(sim);
+        sb::Relation_Iterator* iter;
         std::vector<glm::vec3> lines;
 
-        while(!iter->ended()) {
+        for (iter = sb::get_connections(sim); !iter->ended(); iter->step()) {
             auto rel = iter->get();
             lines.push_back(rel.parent_position);
             lines.push_back(rel.child_position);
-
-            iter->step();
         }
+        iter->release();
+
+        for (iter = sb::get_predicted_connections(sim); !iter->ended(); iter->step()) {
+            auto rel = iter->get();
+            lines.push_back(rel.parent_position);
+            lines.push_back(rel.child_position);
+        }
+        iter->release();
 
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
@@ -201,7 +219,7 @@ static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
     return cmd;
 }
 
-bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Vec3 const& sun_position) {
+bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Softbody_Render_Parameters const& params) {
     assert(rq != NULL);
     assert(sim != NULL);
 
@@ -209,7 +227,7 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim,
     auto render_points = allocate_command_and_initialize<Command_Render_Points>(rq, sim);
     // auto render_apical_branches = allocate_command_and_initialize<Command_Render_Apical_Relations>(rq, sim);
     // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
-    auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim, sun_position);
+    auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
     allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
     return true;

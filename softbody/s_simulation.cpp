@@ -10,10 +10,12 @@
 #include "s_simulation.h"
 #include <cstdlib>
 #include <array>
+#include <glm/gtx/matrix_operation.hpp>
 
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
+#define SOLVER_ITERATIONS (5)
 
 #define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
@@ -74,7 +76,7 @@ static float randf() {
 void Softbody_Simulation::initialize(sb::Config const& configuration) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
-#if 1
+#if 0
     auto siz = Vec3(1, 1, 2);
     auto idx_root = add_particle(o, siz, 1);
     auto idx_t0 = add_particle(o + Vec3(-4,  8,  4), siz, 1);
@@ -88,20 +90,17 @@ void Softbody_Simulation::initialize(sb::Config const& configuration) {
     connect_particles(idx_t1, idx_t2);
     connect_particles(idx_t0, idx_t2);
 #else
-    auto siz = Vec3(0.5, 0.5, 1);
-    auto idx_root = add_particle(o, siz, 1);
-    auto idx_t0 = add_particle(o + Vec3(0, 1.0, 0), siz, 1);
-    auto idx_t1 = add_particle(o + Vec3(0, 2.0, 0), siz, 1);
-    auto idx_t2 = add_particle(o + Vec3(0, 3.0, 0), siz, 1);
+    auto siz = Vec3(0.25, 0.25, 0.5);
     auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
+    auto idx_root = add_particle(o, siz, 1);
     orientation[idx_root] = x90;
-    orientation[idx_t0] = x90;
-    orientation[idx_t1] = x90;
-    orientation[idx_t2] = x90;
-
-    connect_particles(idx_root, idx_t0);
-    connect_particles(idx_t0, idx_t1);
-    connect_particles(idx_t1, idx_t2);
+    auto prev = idx_root;
+    for (int i = 0; i < 10; i++) {
+        auto cur = add_particle(o + Vec3(0, (i + 1) * 1.0f, 0), siz, 1);
+        orientation[cur] = x90;
+        connect_particles(prev, cur);
+        prev = cur;
+    }
 #endif
 #endif /* DEBUG_TETRAHEDRON */
 
@@ -121,7 +120,7 @@ void Softbody_Simulation::prediction(float dt) {
     for (unsigned i = 0; i < position.size(); i++) {
         // prediction step
 #if 1
-        auto external_forces = Vec3(0, -1, 0);
+        auto external_forces = Vec3(0, -10, 0);
 #else
         auto external_forces = Vec3(0, 0, 0);
 #endif
@@ -145,131 +144,178 @@ void Softbody_Simulation::prediction(float dt) {
 
 #define NUMBER_OF_CLUSTERS(idx) (edges[(idx)].size() + 1)
 
+float Softbody_Simulation::get_phdt() {
+    return PHYSICS_STEP;
+}
+
+void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resolution(float phdt) {
+    // shape matching constraint
+    for (unsigned i = 0; i < position.size(); i++) {
+        std::array<unsigned, 1> me{ i };
+        auto& neighbors = edges[i];
+        auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
+
+        auto M = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            mass_of_particle(i),
+            [&](float acc, unsigned idx) {
+                return acc + mass_of_particle(idx);
+            }
+        );
+
+        assert(M != 0);
+
+        // bind pose center of mass
+        auto com0 = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            mass_of_particle(i) * bind_pose[i],
+            [&](Vec3 const& acc, unsigned idx) {
+                return acc + mass_of_particle(idx) * bind_pose[idx];
+            }
+        ) / M;
+
+#if 1
+        auto calc_A_0_i = [&](unsigned i) -> Mat3 {
+            auto q_i = bind_pose[i] - com0;
+            auto m_i = mass_of_particle(i);
+
+            return m_i * glm::outerProduct(q_i, q_i);
+            /*
+            auto x2 = m_i * q_i.x * q_i.x;
+            auto y2 = m_i * q_i.y * q_i.y;
+            auto z2 = m_i * q_i.z * q_i.z;
+            auto xy = m_i * q_i.x * q_i.y;
+            auto xz = m_i * q_i.x * q_i.z;
+            auto yz = m_i * q_i.y * q_i.z;
+            auto col0 = Vec3(x2, xy, xz);
+            auto col1 = Vec3(xy, y2, yz);
+            auto col2 = Vec3(xz, yz, z2);
+
+            return Mat3(col0, col1, col2);
+            */
+        };
+
+        // A_qq
+        Mat3 A_0 = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            calc_A_0_i(i),
+            [&](auto acc, auto idx) { return acc + calc_A_0_i(idx); }
+        );
+
+        Mat3 invRest;
+
+        if (glm::abs(glm::determinant(A_0)) > glm::epsilon<float>()) {
+            invRest = glm::inverse(A_0);
+        } else {
+            invRest = Mat3(1.0f);
+        }
+#endif
+
+        auto com_cur = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            mass_of_particle(i) * predicted_position[i],
+            [&](Vec3 const& acc, unsigned idx) {
+                return acc + mass_of_particle(idx) * predicted_position[idx];
+            }
+        ) / M;
+
+        center_of_mass[i] = com_cur;
+
+#if 1
+
+        auto calc_A_i = [&](unsigned i) -> Mat3 {
+            auto m_i = mass_of_particle(i);
+            auto q_i = bind_pose[i] - com0;
+            auto p_i = m_i * (predicted_position[i] - com_cur);
+
+            return glm::outerProduct(p_i, q_i);
+
+            /*
+            auto col0 = p_i * Vec3(q_i.x, q_i.x, q_i.x);
+            auto col1 = p_i * Vec3(q_i.y, q_i.y, q_i.y);
+            auto col2 = p_i * Vec3(q_i.z, q_i.z, q_i.z);
+
+            return Mat3(col0, col1, col2);
+            */
+        };
+
+        // A_pq
+        Mat3 A = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            calc_A_i(i),
+            [&](auto acc, auto idx) { return acc + calc_A_i(idx); }
+        ) * invRest;
+#else
+
+        auto calc_A_i = [&](unsigned i) -> Mat3 {
+            auto m_i = mass_of_particle(i);
+            auto A_i = 1.0f / 5.0f * glm::diagonal3x3(size[i] * size[i]) * Mat3(orientation[i]);
+
+            return m_i * (A_i + glm::outerProduct(predicted_position[i], bind_pose[i]) - glm::outerProduct(com_cur, com0));
+        };
+
+        auto A = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            calc_A_i(i),
+            [&](Mat3 const& acc, unsigned idx) -> Mat3 {
+                return acc + calc_A_i(idx);
+            }
+        ) * invRest;
+#endif
+
+        Quat R = predicted_orientation[i];
+        mueller_rotation_extraction(A, R);
+
+        float const stiffness = 1;
+
+        for (auto idx : neighbors_and_me) {
+            auto pos_bind = bind_pose[idx] - com0;
+            auto d = predicted_position[idx] - com_cur;
+            auto pos_bind_rot = R * pos_bind;
+            auto goal = com_cur + pos_bind_rot;
+            auto numClusters = NUMBER_OF_CLUSTERS(idx);
+            auto correction = (goal - predicted_position[idx]) * stiffness;
+            predicted_position[idx] += (1.0f / (float)numClusters) * correction;
+            goal_position[idx] = goal;
+        }
+
+        predicted_orientation[i] = R;
+    }
+}
+
+void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
+    // distance constraint
+    for (unsigned i = 0; i < position.size(); i++) {
+        auto& neighbors = edges[i];
+
+        auto w1 = 1 / mass_of_particle(i);
+        for (auto j : neighbors) {
+            auto w2 = 1 / mass_of_particle(j);
+            auto w = w1 + w2;
+
+            auto n = predicted_position[j] - predicted_position[i];
+            auto d = glm::length(n);
+            n = glm::normalize(n);
+            auto restLength = glm::length(bind_pose[j] - bind_pose[i]);
+
+            auto stiffness = 1.0f;
+            auto corr = stiffness * n * (d - restLength) / w;
+
+            predicted_position[i] += w1 * corr;
+            predicted_position[j] += -w2 * corr;
+        }
+    }
+}
+
 void Softbody_Simulation::constraint_resolution(float dt) {
-    constexpr unsigned SOLVER_ITERATIONS = 5;
+    // =======================
+    // TODO: if 0'd code works nicely, but it doesn't use the orientation information on the particles
+    // so things like the particle chain/rope doesn't work correctly
+    // pls fix somehow
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
-        // shape matching constraint
-        for (unsigned i = 0; i < position.size(); i++) {
-            std::array<unsigned, 1> me{ i };
-            auto& neighbors = edges[i];
-            auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
-
-            auto M = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(i),
-                [&](float acc, unsigned idx) {
-                    return acc + mass_of_particle(idx);
-                }
-            );
-
-            assert(M != 0);
-
-            // bind pose center of mass
-            auto com0 = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                bind_pose[i],
-                [&](Vec3 const& acc, unsigned idx) {
-                    return acc + bind_pose[idx];
-                }
-            ) / M;
-
-            auto calc_A_0_i = [&](unsigned i) -> Mat3 {
-                auto q_i = bind_pose[i] - com0;
-                auto m_i = mass_of_particle(i);
-                auto x2 = m_i * q_i.x * q_i.x;
-                auto y2 = m_i * q_i.y * q_i.y;
-                auto z2 = m_i * q_i.z * q_i.z;
-                auto xy = m_i * q_i.x * q_i.y;
-                auto xz = m_i * q_i.x * q_i.z;
-                auto yz = m_i * q_i.y * q_i.z;
-                auto col0 = Vec3(x2, xy, xz);
-                auto col1 = Vec3(xy, y2, yz);
-                auto col2 = Vec3(xz, yz, z2);
-
-                return Mat3(col0, col1, col2);
-            };
-
-            Mat3 A_0 = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                calc_A_0_i(i),
-                [&](auto acc, auto idx) { return acc + calc_A_0_i(idx); }
-            );
-
-            Mat3 invRest;
-
-            if (glm::abs(glm::determinant(A_0)) > glm::epsilon<float>()) {
-                invRest = glm::inverse(A_0);
-            } else {
-                invRest = Mat3(1.0f);
-            }
-            
-            auto com_cur = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                predicted_position[i],
-                [&](Vec3 const& acc, unsigned idx) {
-                    return acc + predicted_position[idx];
-                }
-            ) / M;
-
-            center_of_mass[i] = com_cur;
-
-            auto calc_A_i = [&](unsigned i) -> Mat3 {
-                auto m_i = mass_of_particle(i);
-                auto q_i = bind_pose[i] - com0;
-                auto p_i = m_i * (predicted_position[i] - com_cur);
-
-                auto col0 = p_i * Vec3(q_i.x, q_i.x, q_i.x);
-                auto col1 = p_i * Vec3(q_i.y, q_i.y, q_i.y);
-                auto col2 = p_i * Vec3(q_i.z, q_i.z, q_i.z);
-
-                return Mat3(col0, col1, col2);
-            };
-
-
-            Mat3 A = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                calc_A_i(i),
-                [&](auto acc, auto idx) { return acc + calc_A_i(idx); }
-            ) * invRest;
-
-            Quat R = predicted_orientation[i];
-            mueller_rotation_extraction(A, R);
-
-            float const stiffness = 1;
-
-            for (auto idx : neighbors_and_me) {
-                auto goal = com_cur + R * (bind_pose[i] - com0);
-                auto numClusters = NUMBER_OF_CLUSTERS(idx);
-                auto correction = (goal - predicted_position[i]) * stiffness;
-                predicted_position[idx] += (1.0f / (float)numClusters) * correction;
-                goal_position[idx] = goal;
-            }
-
-            predicted_orientation[i] = R;
-        }
-
-        // distance constraint
-        for (unsigned i = 0; i < position.size(); i++) {
-            auto& neighbors = edges[i];
-
-            auto w1 = 1 / mass_of_particle(i);
-            for (auto j : neighbors) {
-                auto w2 = 1 / mass_of_particle(j);
-                auto w = w1 + w2;
-
-                auto n = predicted_position[j] - predicted_position[i];
-                auto d = glm::length(n);
-                n = glm::normalize(n);
-                auto restLength = glm::length(bind_pose[j] - bind_pose[i]);
-
-                auto stiffness = 1.0f;
-                auto corr = stiffness * n * (d - restLength) / w;
-
-                predicted_position[i] +=  w1 * corr;
-                predicted_position[j] += -w2 * corr;
-            }
-        }
+        do_one_iteration_of_shape_matching_constraint_resolution(dt);
+        do_one_iteration_of_distance_constraint_resolution(dt);
     }
 }
 
@@ -378,6 +424,124 @@ void sb::step(Softbody_Simulation* s, float delta_time) {
             s->deferred.clear();
 
             s->time_accumulator -= PHYSICS_STEP;
+        }
+    }
+}
+
+namespace sb {
+    struct Single_Step_State {
+        Softbody_Simulation* s;
+        int constraint_iteration;
+        enum State {
+            INITIAL, PREDICTED,
+            CONSTRAINT_SHAPE_MATCH,
+            CONSTRAINT_DISTANCE,
+        } state;
+    };
+
+    void begin_single_step(Softbody_Simulation* sim, Single_Step_State** state_handle) {
+        assert(sim != NULL);
+        assert(state_handle != NULL);
+
+        if (state_handle == NULL) {
+            return;
+        }
+
+        *state_handle = NULL;
+
+        if (sim != NULL) {
+            auto p = new Single_Step_State;
+            p->s = sim;
+            p->constraint_iteration = 0;
+            p->state = Single_Step_State::INITIAL;
+
+            *state_handle = p;
+        }
+    }
+
+    void finish_single_step(Single_Step_State* s) {
+        assert(s != NULL);
+
+        if (s == NULL) {
+            return;
+        }
+
+        // we must bring the simulation into a valid state first
+        while (s->state != Single_Step_State::INITIAL) {
+            step(s);
+        }
+
+        delete s;
+    }
+
+    void step(Single_Step_State* s) {
+        assert(s != NULL);
+
+        if (s == NULL) {
+            return;
+        }
+
+        switch (s->state) {
+        case Single_Step_State::INITIAL:
+        {
+            s->s->prediction(PHYSICS_STEP);
+            s->state = Single_Step_State::PREDICTED;
+            break;
+        }
+        case Single_Step_State::PREDICTED:
+        {
+            s->s->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
+            s->state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
+            break;
+        }
+        case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
+        {
+            s->s->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
+            if (s->constraint_iteration < SOLVER_ITERATIONS) {
+                s->state = Single_Step_State::PREDICTED;
+                s->constraint_iteration++;
+            } else {
+                s->state = Single_Step_State::CONSTRAINT_DISTANCE;
+                s->constraint_iteration = 0;
+            }
+            break;
+        }
+        case Single_Step_State::CONSTRAINT_DISTANCE:
+        {
+            s->s->integration(PHYSICS_STEP);
+            s->state = Single_Step_State::INITIAL;
+            break;
+        }
+        }
+    }
+
+    void get_state_description(unsigned length, char* buffer, Single_Step_State* s) {
+        assert(s != NULL);
+        if (s != NULL && buffer != NULL && length > 0) {
+            length = length - 1;
+            switch (s->state) {
+            case Single_Step_State::INITIAL:
+            {
+                snprintf(buffer, length, "Before prediction step");
+                break;
+            }
+            case Single_Step_State::PREDICTED:
+            {
+                snprintf(buffer, length, "Before shape matching constraint resolution (iter=%d)", s->constraint_iteration);
+                break;
+            }
+            case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
+            {
+                snprintf(buffer, length, "Before distance constraint resolution (iter=%d)", s->constraint_iteration);
+                break;
+            }
+            case Single_Step_State::CONSTRAINT_DISTANCE:
+            {
+                snprintf(buffer, length, "Pre-integration");
+                break;
+            }
+            }
+            buffer[length] = '\0';
         }
     }
 }

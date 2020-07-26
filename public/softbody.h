@@ -68,10 +68,19 @@ namespace sb {
 
     Particle_Iterator* get_particles(Softbody_Simulation*);
     Particle_Iterator* get_particles_with_goal_position(Softbody_Simulation*);
+    Particle_Iterator* get_particles_with_predicted_position(Softbody_Simulation*);
     Particle_Iterator* get_centers_of_masses(Softbody_Simulation*);
     Relation_Iterator* get_apical_relations(Softbody_Simulation*);
     Relation_Iterator* get_lateral_relations(Softbody_Simulation*);
     Relation_Iterator* get_connections(Softbody_Simulation*);
+    Relation_Iterator* get_predicted_connections(Softbody_Simulation*);
 
     void add_collider(Softbody_Simulation*, std::function<float(glm::vec3)> sdf);
+
+    // Single-step simulation controls
+    struct Single_Step_State;
+    void begin_single_step(Softbody_Simulation* sim, Single_Step_State** state_handle);
+    void finish_single_step(Single_Step_State*);
+    void step(Single_Step_State*);
+    void get_state_description(unsigned length, char* buffer, Single_Step_State*);
 }

@@ -13,6 +13,7 @@
 namespace gfx {
     struct Renderer_Config {
         unsigned width, height;
+        char const* title;
     };
 
     struct Render_Context_Supplement {

@@ -82,6 +82,16 @@ namespace sb {
         }
     };
 
+    struct Predicted_Position_Particle_Getter : public Normal_Particle_Getter {
+        Vec3 position(unsigned idx) {
+            if (idx < s->predicted_position.size()) {
+                return s->predicted_position[idx];
+            } else {
+                return Vec3();
+            }
+        }
+    };
+
     struct Center_Of_Mass_Getter : public Normal_Particle_Getter {
         Vec3 position(unsigned idx) {
             return s->center_of_mass[idx];
@@ -104,6 +114,16 @@ namespace sb {
         } else {
             return NULL;
         }
+    }
+
+    Particle_Iterator* get_particles_with_predicted_position(Softbody_Simulation* s) {
+        assert(s != NULL);
+        if (s != NULL) {
+            return new Particle_Iterator_Impl<Predicted_Position_Particle_Getter>(s);
+        } else {
+            return NULL;
+        }
+
     }
 
     Particle_Iterator* get_centers_of_masses(Softbody_Simulation* s) {
@@ -197,70 +217,78 @@ namespace sb {
         return new Lateral_Relation_Iterator(s);
     }
 
-    Relation_Iterator* get_connections(Softbody_Simulation* s) {
-        assert(s != NULL);
+    template<typename Getter>
+    class Connection_Iterator : public Iterator<Relation> {
+    public:
+        Connection_Iterator(Softbody_Simulation* s) : s(s), pidx(0) {
+            iter = s->edges[0].begin();
+            end = s->edges[0].end();
 
-        class Connection_Iterator : public Iterator<Relation> {
-        public:
-            Connection_Iterator(Softbody_Simulation* s) : s(s), pidx(0) {
-                iter = s->edges[0].begin();
-                end = s->edges[0].end();
+            if (iter == end) {
+                pidx++;
+            }
+        }
+    private:
+        Softbody_Simulation* s;
+        unsigned pidx;
+        typename Vector<unsigned>::const_iterator iter;
+        typename Vector<unsigned>::const_iterator end;
+
+        virtual void release() override {
+            delete this;
+        }
+
+        virtual void step() override {
+            if (pidx != s->position.size()) {
+                if (iter != end) {
+                    iter++;
+
+                    if (iter == end) {
+                        next_key();
+                    }
+                } else {
+                    next_key();
+                }
+            }
+        }
+
+        void next_key() {
+            pidx++;
+            if (pidx != s->position.size()) {
+                iter = s->edges[pidx].begin();
+                end = s->edges[pidx].end();
 
                 if (iter == end) {
                     pidx++;
                 }
             }
-        private:
-            Softbody_Simulation* s;
-            unsigned pidx;
-            typename Vector<unsigned>::const_iterator iter;
-            typename Vector<unsigned>::const_iterator end;
+        }
 
-            virtual void release() override {
-                delete this;
-            }
+        virtual bool ended() const override {
+            return pidx == s->position.size();
+        }
 
-            virtual void step() override {
-                if (pidx != s->position.size()) {
-                    if (iter != end) {
-                        iter++;
+        virtual Relation get() const override {
+            Getter g = { s };
+            assert(!ended());
+            return Relation{
+                pidx,
+                g.position(pidx),
+                *iter,
+                g.position(*iter),
+            };
+        }
+    };
 
-                        if (iter == end) {
-                            next_key();
-                        }
-                    } else {
-                        next_key();
-                    }
-                }
-            }
+    Relation_Iterator* get_connections(Softbody_Simulation* s) {
+        assert(s != NULL);
 
-            void next_key() {
-                pidx++;
-                if (pidx != s->position.size()) {
-                    iter = s->edges[pidx].begin();
-                    end = s->edges[pidx].end();
+        return new Connection_Iterator<Normal_Particle_Getter>(s);
+    }
 
-                    if (iter == end) {
-                        pidx++;
-                    }
-                }
-            }
+    Relation_Iterator* get_predicted_connections(Softbody_Simulation* s) {
+        assert(s != NULL);
 
-            virtual bool ended() const override {
-                return pidx == s->position.size();
-            }
-
-            virtual Relation get() const override {
-                assert(!ended());
-                return Relation{
-                    pidx,
-                    s->position[pidx],
-                    *iter,
-                    s->position[*iter],
-                };
-            }
-        };
-
-        return new Connection_Iterator(s);
+        return new Connection_Iterator<Predicted_Position_Particle_Getter>(s);
     }
 }

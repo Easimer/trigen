@@ -64,18 +64,18 @@ struct Softbody_Simulation {
     Vector<Fun<void()>> deferred;
 
     void initialize(sb::Config const& configuration);
-    void predict_positions(float dt);
-    void simulate_group(unsigned pidx, float dt);
-    void commit_predicted_positions();
 
     void prediction(float dt);
     void constraint_resolution(float dt);
     void integration(float dt);
 
+    // manual control
+    float get_phdt();
+    void do_one_iteration_of_shape_matching_constraint_resolution(float phdt);
+    void do_one_iteration_of_distance_constraint_resolution(float phdt);
+
 private:
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
     void connect_particles(unsigned a, unsigned b);
     float mass_of_particle(unsigned i);
-    void calculate_orientation_matrix(Particle_Group* group);
-    Mat3 calculate_shape_matching_matrix(unsigned pidx, Vec3& rest_com, Vec3& com);
 };
