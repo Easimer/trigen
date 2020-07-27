@@ -221,7 +221,7 @@ public:
             auto const locInvVP = gl::Uniform_Location<Mat4>(shader, "matInvVP");
             auto const locSiz = gl::Uniform_Location<Vec3>(shader, "vSize");
             auto const locTranslation = gl::Uniform_Location<Vec3>(shader, "vTranslation");
-            auto const locRotation = gl::Uniform_Location<Mat3>(shader, "matRotation");
+            auto const locInvRotation = gl::Uniform_Location<Mat3>(shader, "matInvRotation");
             auto const locSun = gl::Uniform_Location<Vec3>(shader, "vSun");
             auto const locColor = gl::Uniform_Location<Vec3>(shader, "vColor");
 
@@ -242,7 +242,7 @@ public:
             // union
             for (size_t i = 0; i < count; i++) {
                 gl::SetUniformLocation(locTranslation, centers[i]);
-                gl::SetUniformLocation(locRotation, Mat3(rotations[i]));
+                gl::SetUniformLocation(locInvRotation, Mat3(glm::conjugate(rotations[i])));
                 gl::SetUniformLocation(locSiz, sizes[i]);
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
@@ -254,7 +254,7 @@ public:
 
     virtual void new_frame() override {
         // Hotload shader every frame
-        // LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
+        LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

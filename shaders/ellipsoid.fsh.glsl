@@ -28,8 +28,8 @@ out vec4 vFrag;
 
 // Particle position
 uniform vec3 vTranslation;
-// Particle rotation
-uniform mat3 matRotation;
+// Particle inverse rotation
+uniform mat3 matInvRotation;
 // Particle size
 uniform vec3 vSize;
 // Particle color
@@ -62,7 +62,7 @@ float sdEllipsoid(vec3 p, vec3 r) {
  */
 float scene(vec3 p) {
 	// Transform the sample point into model space
-	vec3 sp = inverse(matRotation) * (p - vTranslation);
+	vec3 sp = matInvRotation * (p - vTranslation);
 	return sdEllipsoid(sp, vSize);
 }
 
