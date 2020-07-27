@@ -18,6 +18,9 @@
 #include <sstream>
 #include <queue>
 
+#define SDF_BATCH_SIZE_ORDER (5)
+#define SDF_BATCH_SIZE (1 << SDF_BATCH_SIZE_ORDER)
+
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
     if (length == 0) return;
@@ -36,37 +39,74 @@ static void GLMessageCallback
 #endif
 }
 
+struct Shader_Define {
+    std::string key;
+    std::string value;
+};
+
+using Shader_Define_List = std::vector<Shader_Define>;
+
 template<typename Shader>
-static bool CompileShaderFromString(Shader const& shader, char const* pszSource) {
+static bool CompileShaderFromString(Shader const& shader, char const* pszSource, char const* pszPath, Shader_Define_List const& defines) {
     GLint bSuccess;
-    char const* aSources[1] = { pszSource };
-    glShaderSource(shader, 1, aSources, NULL);
+    std::vector<std::string> defines_fmt;
+    std::vector<char const*> sources;
+
+    char const* pszVersion = "#version 330 core\n";
+    char const* pszLineReset = "#line -1\n";
+
+    sources.push_back(pszVersion);
+    for (auto& def : defines) {
+        char buf[64];
+        snprintf(buf, 63, "#define %s %s\n", def.key.c_str(), def.value.c_str());
+        defines_fmt.push_back(std::string((char const*)buf));
+        sources.push_back(defines_fmt.back().c_str());
+    }
+    sources.push_back(pszLineReset);
+    sources.push_back(pszSource);
+
+    glShaderSource(shader, sources.size(), sources.data(), NULL);
     glCompileShader(shader);
     glGetShaderiv(shader, GL_COMPILE_STATUS, &bSuccess);
 
     if (bSuccess == 0) {
-        char pchMsgBuf[128];
-        glGetShaderInfoLog(shader, 128, NULL, pchMsgBuf);
-        printf("CompileShaderFromString failed: %s\n", pchMsgBuf);
+        char pchMsgBuf[256];
+        glGetShaderInfoLog(shader, 256, NULL, pchMsgBuf);
+        if (defines.size() > 0) {
+            printf("Compilation of shader '%s', with defines:\n", pszPath);
+            for (auto& def : defines) {
+                printf("\t%s = %s\n", def.key.c_str(), def.value.c_str());
+            }
+            printf("has failed:\n%s\n", pchMsgBuf);
+        } else {
+            printf("Compilation of shader '%s' has failed:\n%s\n", pszPath, pchMsgBuf);
+        }
     }
 
     return bSuccess != 0;
 }
 
 template<GLenum kType>
-static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) {
+static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath, Shader_Define_List const& defines) {
     gl::Shader<kType> shader; 
 
     std::ifstream f(pszPath);
     if (f) {
         std::stringstream ss;
         ss << f.rdbuf();
-        if (CompileShaderFromString(shader, ss.str().c_str())) {
+        if (CompileShaderFromString(shader, ss.str().c_str(), pszPath, defines)) {
             return shader;
         }
     }
 
     return {};
+}
+
+template<GLenum kType>
+static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) {
+    Shader_Define_List x;
+
+    return FromFileLoadShader<kType>(pszPath, x);
 }
 
 class GL_Renderer : public sdl::Renderer, public gfx::IRenderer {
@@ -117,7 +157,14 @@ public:
                 auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
                 m_line_shader = std::move(program.value());
             }
-            LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
+
+            Shader_Define_List defines = { {"BATCH_SIZE", ""} };
+            for (int order = 0; order < SDF_BATCH_SIZE_ORDER + 1; order++) {
+                char buf[64];
+                snprintf(buf, 63, "%d", 1 << order);
+                defines[0].value = (char const*)buf;
+                LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", defines, m_sdf_ellipsoid_batch[order]);
+            }
 
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
@@ -133,9 +180,9 @@ public:
         }
     }
 
-    void LoadShader(char const* pathVsh, char const* pathFsh, std::optional<gl::Shader_Program>& out) {
-        auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>(pathVsh);
-        auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>(pathFsh);
+    void LoadShader(char const* pathVsh, char const* pathFsh, Shader_Define_List const& defines, std::optional<gl::Shader_Program>& out) {
+        auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>(pathVsh, defines);
+        auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>(pathFsh, defines);
         if (vsh && fsh) {
             auto builder = gl::Shader_Program_Builder();
             auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
@@ -186,6 +233,20 @@ public:
         }
     }
 
+    void push_debug_group(char const* pszFormat, ...) {
+        char buffer[256];
+        va_list args;
+        va_start(args, pszFormat);
+        auto len = vsnprintf(buffer, 255, pszFormat, args);
+        buffer[255] = 0;
+        glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, len, buffer);
+        va_end(args);
+    }
+
+    void pop_debug_group() {
+        glPopDebugGroup();
+    }
+
     void draw_ellipsoids(
         gfx::Render_Context_Supplement const& ctx,
         size_t count,
@@ -194,7 +255,7 @@ public:
         Quat const* rotations,
         Vec3 const& color
     ) override {
-        if (m_sdf_ellipsoid_shader) {
+        if (m_sdf_ellipsoid_batch[0]) {
             // Setup screen quad
             float quad[] = {
                 -1,  1,
@@ -213,38 +274,71 @@ public:
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
 
-            // Setup shader
-            auto& shader = *m_sdf_ellipsoid_shader;
-            glUseProgram(shader);
+            auto const matVP = m_proj * m_view;
+            auto const matInvVP = glm::inverse(matVP);
 
-            auto const locVP = gl::Uniform_Location<Mat4>(shader, "matVP");
-            auto const locInvVP = gl::Uniform_Location<Mat4>(shader, "matInvVP");
-            auto const locSiz = gl::Uniform_Location<Vec3>(shader, "vSize");
-            auto const locTranslation = gl::Uniform_Location<Vec3>(shader, "vTranslation");
-            auto const locInvRotation = gl::Uniform_Location<Mat3>(shader, "matInvRotation");
-            auto const locSun = gl::Uniform_Location<Vec3>(shader, "vSun");
-            auto const locColor = gl::Uniform_Location<Vec3>(shader, "vColor");
+            auto batch_size = SDF_BATCH_SIZE;
+            auto order = SDF_BATCH_SIZE_ORDER;
+            auto remain = count;
+            auto shader = &m_sdf_ellipsoid_batch[order].value();
+            glUseProgram(*shader);
 
-            // NOTE(danielm): translation and rotation are not part of the MVP, they are
-            // supplied separately to the GPU
-            // TODO(danielm): do we really need to tho?
-            auto matVP = m_proj * m_view;
-            auto matInvVP = glm::inverse(matVP);
+            auto locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
+            auto locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
+            auto locSiz = gl::Uniform_Location<Vec3*>(*shader, "vSize");
+            auto locTranslation = gl::Uniform_Location<Vec3*>(*shader, "vTranslation");
+            auto locInvRotation = gl::Uniform_Location<Mat3*>(*shader, "matInvRotation");
+            auto locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
+            auto locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
+
             gl::SetUniformLocation(locVP, matVP);
             gl::SetUniformLocation(locInvVP, matInvVP);
 
-            // Set the position of the Sun
             gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
             gl::SetUniformLocation(locColor, color);
 
-            // TODO(danielm): we should render multiple objects at a time,
-            // like uploading a 4-tuple of these parameters and taking their
-            // union
-            for (size_t i = 0; i < count; i++) {
-                gl::SetUniformLocation(locTranslation, centers[i]);
-                gl::SetUniformLocation(locInvRotation, Mat3(glm::conjugate(rotations[i])));
-                gl::SetUniformLocation(locSiz, sizes[i]);
+            Vec3 vTranslationArray[SDF_BATCH_SIZE];
+            Mat3 matInvRotationArray[SDF_BATCH_SIZE];
+            Vec3 vSizeArray[SDF_BATCH_SIZE];
+
+            for (unsigned off = 0; off < count; off += batch_size) {
+                while (remain < batch_size) {
+                    batch_size >>= 1;
+                    order--;
+                    if (remain >= batch_size) {
+                        shader = &m_sdf_ellipsoid_batch[order].value();
+                        glUseProgram(*shader);
+
+                        locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
+                        locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
+                        locSiz = gl::Uniform_Location<Vec3*>(*shader, "vSize");
+                        locTranslation = gl::Uniform_Location<Vec3*>(*shader, "vTranslation");
+                        locInvRotation = gl::Uniform_Location<Mat3*>(*shader, "matInvRotation");
+                        locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
+                        locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
+
+                        gl::SetUniformLocation(locVP, matVP);
+                        gl::SetUniformLocation(locInvVP, matInvVP);
+
+                        gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
+                        gl::SetUniformLocation(locColor, color);
+                    }
+                }
+
+                for (int i = 0; i < batch_size; i++) {
+                    auto idx = off + i;
+                    vTranslationArray[i] = centers[idx];
+                    matInvRotationArray[i] = Mat3(glm::conjugate(rotations[idx]));
+                    vSizeArray[i] = sizes[idx];
+                }
+
+                gl::SetUniformLocationArray(locTranslation, vTranslationArray, batch_size);
+                gl::SetUniformLocationArray(locSiz, vSizeArray, batch_size);
+                gl::SetUniformLocationArray(locInvRotation, matInvRotationArray, batch_size);
+
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+                remain -= batch_size;
             }
 
             glDeleteBuffers(1, &vbo);
@@ -253,9 +347,6 @@ public:
     }
 
     virtual void new_frame() override {
-        // Hotload shader every frame
-        LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", m_sdf_ellipsoid_shader);
-
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -460,7 +551,8 @@ private:
     decltype(SDL_GetPerformanceCounter()) m_uiTimeStart;
     std::optional<gl::Shader_Program> m_point_cloud_shader;
     std::optional<gl::Shader_Program> m_line_shader;
-    std::optional<gl::Shader_Program> m_sdf_ellipsoid_shader;
+
+    std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 };
 
 gfx::IRenderer* gfx::make_renderer(gfx::Renderer_Config const& cfg) {

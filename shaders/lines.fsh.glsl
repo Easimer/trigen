@@ -1,4 +1,3 @@
-#version 330 core
 in float t;
 out vec4 vFrag;
 

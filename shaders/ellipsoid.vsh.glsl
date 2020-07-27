@@ -3,7 +3,6 @@
 // Purpose: Ellipsoid raymarching vertex shader
 //
 
-#version 330 core
 layout (location = 0) in vec2 aPosition;
 
 out vec2 vUV;

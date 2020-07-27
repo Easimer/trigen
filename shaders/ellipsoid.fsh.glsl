@@ -3,35 +3,36 @@
 // Purpose: Ellipsoid raymarching pixel shader
 //
 
-#version 330 core
+// NOTE: BATCH_SIZED will be inserted at runtime by the renderer
+// #define BATCH_SIZE (N)
 
 // Distance to the near clipping plane
 #define NEAR_CLIPPING_PLANE 0.1
 // Distance to the far clipping plane
-#define FAR_CLIPPING_PLANE 1000.0
+#define FAR_CLIPPING_PLANE 256.0
 // Number of raymarching steps
-#define STEPS_N 64
+#define STEPS_N 32
 // Epsilon value
 #define EPSILON 0.01
 // Distance bias
-#define DISTANCE_BIAS 0.7
+#define DISTANCE_BIAS 1.0
 // Set this to 1 to return early during raymarching steps if the
 // ray gets too far from or too near to the camera
 // TODO(danielm): not sure which value is better, need to
 // profile this somehow.
-#define RETURN_EARLY 0
+#define RETURN_EARLY 1
 
 // Screen coordinates, x,y in [-1, 1]
 in vec2 vUV;
 // Fragment color
 out vec4 vFrag;
 
-// Particle position
-uniform vec3 vTranslation;
-// Particle inverse rotation
-uniform mat3 matInvRotation;
-// Particle size
-uniform vec3 vSize;
+// Particle positions
+uniform vec3 vTranslation[BATCH_SIZE];
+// Particle inverse rotations
+uniform mat3 matInvRotation[BATCH_SIZE];
+// Particle sizes
+uniform vec3 vSize[BATCH_SIZE];
 // Particle color
 uniform vec3 vColor;
 
@@ -61,10 +62,17 @@ float sdEllipsoid(vec3 p, vec3 r) {
  * @return Distance from the surface of the scene
  */
 float scene(vec3 p) {
-	// Transform the sample point into model space
-	vec3 sp = matInvRotation * (p - vTranslation);
-	return sdEllipsoid(sp, vSize);
+    float ret = FAR_CLIPPING_PLANE;
+
+    for(int i = 0; i < BATCH_SIZE; i++) {
+        // Transform the sample point into model space
+        vec3 sp = matInvRotation[i] * (p - vTranslation[i]);
+        ret = min(ret, sdEllipsoid(sp, vSize[i]));
+    }
+	
+	return ret;
 }
+
 
 /**
  * Calculate the normal at a given intersection point.
@@ -80,6 +88,7 @@ vec3 normal(vec3 ray_hit_position, float smoothness) {
 	n.z	= scene(ray_hit_position + dn.yyx) - scene(ray_hit_position - dn.yyx);
 	return normalize(n);
 }
+
 
 // Ray descriptor
 struct Ray {
@@ -139,7 +148,7 @@ void main() {
 
 	gl_FragDepth = getFragmentDepth(intersect);
 
-	vec3 sunDir = normalize(vSun - vTranslation);
+	vec3 sunDir = normalize(vSun - intersect);
 	vec3 normal = normal(intersect, 1);
 	float illum = min(max(0.2, dot(normal, sunDir)), 1.0);
 	vFrag = vec4(illum * vColor, 1.0f);
