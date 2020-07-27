@@ -21,9 +21,8 @@ namespace sdl {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
             SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+            SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
             SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-            SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
             window = SDL_CreateWindow(
                 pszTitle,
@@ -36,6 +35,8 @@ namespace sdl {
                     window, -1,
                     SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
                 );
+            } else {
+                printf("Failed to open window: %s\n", SDL_GetError());
             }
         }
 
