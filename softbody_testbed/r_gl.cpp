@@ -382,7 +382,10 @@ public:
 
         m_uiTimeStart = SDL_GetPerformanceCounter();
 
-        SDL_Delay(0);
+        auto t = 16 - 1000 * flFrameTime;
+        if (t > 1) {
+            SDL_Delay(t);
+        }
 
         return flFrameTime;
     }
