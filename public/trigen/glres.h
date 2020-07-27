@@ -66,7 +66,7 @@ namespace gl {
 
     struct VBO_Allocator {
         static void Allocate(GLuint* pHandle) {
-            glCreateBuffers(1, pHandle);
+            glGenBuffers(1, pHandle);
         }
 
         static void Deallocate(GLuint* pHandle) {

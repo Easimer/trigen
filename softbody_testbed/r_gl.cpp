@@ -203,8 +203,8 @@ public:
     virtual void draw_points(Vec3 const* pPoints, size_t nCount, Vec3 const& vWorldPosition) override {
         if (m_point_cloud_shader.has_value()) {
             GLuint vao, vbo;
-            glCreateVertexArrays(1, &vao);
-            glCreateBuffers(1, &vbo);
+            glGenVertexArrays(1, &vao);
+            glGenBuffers(1, &vbo);
             glBindVertexArray(vao);
 
             auto const size = nCount * 3 * sizeof(float);
@@ -268,8 +268,8 @@ public:
                  1, -1,
             };
             GLuint vao, vbo;
-            glCreateVertexArrays(1, &vao);
-            glCreateBuffers(1, &vbo);
+            glGenVertexArrays(1, &vao);
+            glGenBuffers(1, &vbo);
             glBindVertexArray(vao);
 
             glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -328,7 +328,7 @@ public:
                 }
 
                 GLuint ubo;
-                glCreateBuffers(1, &ubo);
+                glGenBuffers(1, &ubo);
                 ubos.push_back(ubo);
                 glBindBuffer(GL_UNIFORM_BUFFER, ubo);
                 glBufferData(GL_UNIFORM_BUFFER, batch_size * sizeof(glm::mat4) * 2 * sizeof(glm::vec4), NULL, GL_STREAM_DRAW);
