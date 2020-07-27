@@ -16,6 +16,7 @@
 #include <optional>
 #include <fstream>
 #include <sstream>
+#include <queue>
 
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
@@ -261,6 +262,7 @@ public:
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
 
+        line_recycler.flip();
     }
 
     virtual double present() override {
@@ -315,6 +317,71 @@ public:
         return true;
     }
 
+    struct Line {
+        gl::VAO arr;
+        gl::VBO buf[2];
+    };
+
+    /**
+     * VAO and VBO recycler for stream drawing.
+     */
+    template<typename Tuple>
+    struct Array_Recycler {
+    public:
+        /**
+         * Get an unused instance of `Tuple`.
+         * @param out Where the pointer to the tuple will be placed.
+         * @return Handle to the instance.
+         */
+        size_t get(Tuple** out) {
+            *out = NULL;
+            if (ready_queue.empty()) {
+                return make_new(out);
+            } else {
+                auto ret = ready_queue.front();
+                ready_queue.pop();
+                *out = &arrays[ret];
+                return ret;
+            }
+        }
+
+        /**
+         * Mark a tuple instance as used and retire it.
+         * @param handle An instance handle returned from get(Tuple**).
+         */
+        void put_back(size_t handle) {
+            assert(handle < arrays.size());
+            retired_queue.push(handle);
+        }
+
+        /**
+         * Called after a frame ends.
+         */
+        void flip() {
+            while (!retired_queue.empty()) {
+                auto h = retired_queue.front();
+                retired_queue.pop();
+                ready_queue.push(h);
+            }
+
+            assert(retired_queue.size() == 0);
+            assert(ready_queue.size() == arrays.size());
+        }
+    protected:
+        size_t make_new(Tuple** out) {
+            auto ret = arrays.size();
+            arrays.push_back(Tuple());
+            *out = &arrays.back();
+            return ret;
+        }
+    private:
+        std::queue<size_t> ready_queue;
+        std::queue<size_t> retired_queue;
+        std::vector<Tuple> arrays;
+    };
+
+    Array_Recycler<Line> line_recycler;
+
     virtual void draw_lines(
         Vec3 const* pEndpoints,
         size_t nLineCount,
@@ -324,11 +391,10 @@ public:
     ) override {
         if (nLineCount == 0) return;
 
-        GLuint vao;
-        GLuint vbo[2];
-        glCreateVertexArrays(1, &vao);
-        glCreateBuffers(2, vbo);
-        glBindVertexArray(vao);
+        Line* l;
+        auto l_h = line_recycler.get(&l);
+
+        glBindVertexArray(l->arr);
 
         auto zero_one = std::make_unique<float[]>(nLineCount * 2);
         auto zero_one_p = zero_one.get();
@@ -339,12 +405,12 @@ public:
         auto const size = nLineCount * 2 * 3 * sizeof(float);
         auto const data = pEndpoints;
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+        glBindBuffer(GL_ARRAY_BUFFER, l->buf[0]);
         glBufferData(GL_ARRAY_BUFFER, size, data, GL_STREAM_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        glBindBuffer(GL_ARRAY_BUFFER, l->buf[1]);
         glBufferData(GL_ARRAY_BUFFER, nLineCount * 2 * sizeof(float), zero_one_p, GL_STREAM_DRAW);
         glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 1 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(1);
@@ -352,22 +418,18 @@ public:
         if (m_line_shader.has_value()) {
             auto& shader = m_line_shader.value();
             glUseProgram(shader);
-            auto locView = gl::Uniform_Location<Mat4>(shader, "matView");
-            auto locProj = gl::Uniform_Location<Mat4>(shader, "matProj");
-            auto locModel = gl::Uniform_Location<Mat4>(shader, "matModel");
+            auto locMVP = gl::Uniform_Location<Mat4>(shader, "matMVP");
             auto locColor0 = gl::Uniform_Location<Vec3>(shader, "vColor0");
             auto locColor1 = gl::Uniform_Location<Vec3>(shader, "vColor1");
             auto matModel = glm::translate(vWorldPosition);
-            gl::SetUniformLocation(locModel , matModel);
-            gl::SetUniformLocation(locView, m_view);
-            gl::SetUniformLocation(locProj, m_proj);
+            auto matMVP = m_proj * m_view * matModel;
+            gl::SetUniformLocation(locMVP, matMVP);
             gl::SetUniformLocation(locColor0, vStartColor);
             gl::SetUniformLocation(locColor1, vEndColor);
 
             glDrawArrays(GL_LINES, 0, 2 * nLineCount);
 
-            glDeleteBuffers(2, vbo);
-            glDeleteVertexArrays(1, &vao);
+            line_recycler.put_back(l_h);
         } else {
             printf("Can't draw: no shader!\n");
         }
