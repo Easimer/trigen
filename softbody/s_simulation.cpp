@@ -76,7 +76,7 @@ static float randf() {
 void Softbody_Simulation::initialize(sb::Config const& configuration) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
-#if 1
+#if 0
     auto siz = Vec3(1, 1, 2);
     auto idx_root = add_particle(o, siz, 1);
     auto idx_t0 = add_particle(o + Vec3(-4,  8,  4), siz, 1);
@@ -95,7 +95,7 @@ void Softbody_Simulation::initialize(sb::Config const& configuration) {
     auto idx_root = add_particle(o, siz, 1);
     orientation[idx_root] = x90;
     auto prev = idx_root;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 64; i++) {
         auto cur = add_particle(o + Vec3(0, (i + 1) * 1.0f, 0), siz, 1);
         orientation[cur] = x90;
         connect_particles(prev, cur);

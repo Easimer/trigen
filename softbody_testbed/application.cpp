@@ -196,7 +196,9 @@ void app_main_loop() {
         if (ImGui::Begin("Controls")) {
             ImGui::Checkbox("Tick", &bDoTick);
             bStep = ImGui::Button("Step");
-            ImGui::Checkbox("Draw positions", &render_params.show_positions);
+            ImGui::Checkbox("Draw positions", &render_params.draw_positions);
+            ImGui::Checkbox("Draw centers of masses", &render_params.draw_center_of_mass);
+            ImGui::Checkbox("Draw goal positions", &render_params.draw_goal_position);
             ImGui::Text(stateDescription);
         }
         ImGui::End();

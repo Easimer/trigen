@@ -82,20 +82,20 @@ private:
 
         assert(positions.size() == goal_positions.size());
 
-        // TODO(danielm): we need a way to get back the sun position from
-        // either the simulation or the application
         gfx::Render_Context_Supplement ctx;
         ctx.sun = params->sun_position;
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));
-        if (params->show_positions) {
+        if (params->draw_positions) {
             renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
-        }
-        if (params->show_positions) {
             renderer->draw_ellipsoids(ctx, predicted_positions.size(), positions.data(), sizes.data(), rotations.data());
         }
-        renderer->draw_ellipsoids(ctx, positions.size(), goal_positions.data(), sizes_virtual.data(), rotations.data(), Vec3(0.1, 0.8, 0.1));
-        renderer->draw_ellipsoids(ctx, positions.size(), centers_of_masses.data(), sizes_virtual.data(), rotations.data(), Vec3(0.8, 0.1, 0.1));
+        if (params->draw_goal_position) {
+            renderer->draw_ellipsoids(ctx, positions.size(), goal_positions.data(), sizes_virtual.data(), rotations.data(), Vec3(0.1, 0.8, 0.1));
+        }
+        if (params->draw_center_of_mass) {
+            renderer->draw_ellipsoids(ctx, positions.size(), centers_of_masses.data(), sizes_virtual.data(), rotations.data(), Vec3(0.8, 0.1, 0.1));
+        }
     }
 };
 

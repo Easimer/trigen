@@ -10,7 +10,9 @@
 
 struct Softbody_Render_Parameters {
     Vec3 sun_position;
-    bool show_positions;
+    bool draw_positions;
+    bool draw_center_of_mass;
+    bool draw_goal_position;
 };
 
 bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Softbody_Render_Parameters const& params);
