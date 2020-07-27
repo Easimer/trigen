@@ -76,7 +76,7 @@ static float randf() {
 void Softbody_Simulation::initialize(sb::Config const& configuration) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
-#if 0
+#if 1
     auto siz = Vec3(1, 1, 2);
     auto idx_root = add_particle(o, siz, 1);
     auto idx_t0 = add_particle(o + Vec3(-4,  8,  4), siz, 1);
@@ -150,6 +150,7 @@ float Softbody_Simulation::get_phdt() {
 
 void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resolution(float phdt) {
     // shape matching constraint
+    predicted_position[0] = Vec3();
     for (unsigned i = 0; i < position.size(); i++) {
         std::array<unsigned, 1> me{ i };
         auto& neighbors = edges[i];
@@ -221,7 +222,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 
         center_of_mass[i] = com_cur;
 
-#if 1
+#if 0
 
         auto calc_A_i = [&](unsigned i) -> Mat3 {
             auto m_i = mass_of_particle(i);
@@ -281,10 +282,12 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 
         predicted_orientation[i] = R;
     }
+    predicted_position[0] = Vec3();
 }
 
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
     // distance constraint
+    predicted_position[0] = Vec3();
     for (unsigned i = 0; i < position.size(); i++) {
         auto& neighbors = edges[i];
 
@@ -298,12 +301,22 @@ void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(flo
             n = glm::normalize(n);
             auto restLength = glm::length(bind_pose[j] - bind_pose[i]);
 
-            auto stiffness = 1.0f;
+            auto stiffness = params.stiffness;
             auto corr = stiffness * n * (d - restLength) / w;
 
             predicted_position[i] += w1 * corr;
             predicted_position[j] += -w2 * corr;
         }
+    }
+    predicted_position[0] = Vec3();
+}
+
+void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
+    // force particles to stay in their bind pose
+    auto particles = { 0 };
+
+    for (auto i : particles) {
+        predicted_position[i] = Vec3();
     }
 }
 
@@ -433,9 +446,11 @@ namespace sb {
         Softbody_Simulation* s;
         int constraint_iteration;
         enum State {
-            INITIAL, PREDICTED,
+            PREDICTION,
+            CONSTRAINT_FIXED,
             CONSTRAINT_SHAPE_MATCH,
             CONSTRAINT_DISTANCE,
+            INTEGRATION,
         } state;
     };
 
@@ -453,7 +468,7 @@ namespace sb {
             auto p = new Single_Step_State;
             p->s = sim;
             p->constraint_iteration = 0;
-            p->state = Single_Step_State::INITIAL;
+            p->state = Single_Step_State::PREDICTION;
 
             *state_handle = p;
         }
@@ -467,7 +482,7 @@ namespace sb {
         }
 
         // we must bring the simulation into a valid state first
-        while (s->state != Single_Step_State::INITIAL) {
+        while (s->state != Single_Step_State::PREDICTION) {
             step(s);
         }
 
@@ -482,34 +497,40 @@ namespace sb {
         }
 
         switch (s->state) {
-        case Single_Step_State::INITIAL:
+        case Single_Step_State::PREDICTION:
         {
             s->s->prediction(PHYSICS_STEP);
-            s->state = Single_Step_State::PREDICTED;
-            break;
-        }
-        case Single_Step_State::PREDICTED:
-        {
-            s->s->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
             s->state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
             break;
         }
         case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
         {
-            s->s->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
-            if (s->constraint_iteration < SOLVER_ITERATIONS) {
-                s->state = Single_Step_State::PREDICTED;
-                s->constraint_iteration++;
-            } else {
-                s->state = Single_Step_State::CONSTRAINT_DISTANCE;
-                s->constraint_iteration = 0;
-            }
+            s->s->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
+            s->state = Single_Step_State::CONSTRAINT_FIXED;
             break;
         }
         case Single_Step_State::CONSTRAINT_DISTANCE:
         {
+            s->s->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
+            if (s->constraint_iteration < SOLVER_ITERATIONS) {
+                s->state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
+                s->constraint_iteration++;
+            } else {
+                s->state = Single_Step_State::INTEGRATION;
+                s->constraint_iteration = 0;
+            }
+            break;
+        }
+        case Single_Step_State::CONSTRAINT_FIXED:
+        {
+            s->s->do_one_iteration_of_fixed_constraint_resolution(PHYSICS_STEP);
+            s->state = Single_Step_State::CONSTRAINT_DISTANCE;
+            break;
+        }
+        case Single_Step_State::INTEGRATION:
+        {
             s->s->integration(PHYSICS_STEP);
-            s->state = Single_Step_State::INITIAL;
+            s->state = Single_Step_State::PREDICTION;
             break;
         }
         }
@@ -520,22 +541,27 @@ namespace sb {
         if (s != NULL && buffer != NULL && length > 0) {
             length = length - 1;
             switch (s->state) {
-            case Single_Step_State::INITIAL:
+            case Single_Step_State::PREDICTION:
             {
                 snprintf(buffer, length, "Before prediction step");
                 break;
             }
-            case Single_Step_State::PREDICTED:
+            case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
             {
                 snprintf(buffer, length, "Before shape matching constraint resolution (iter=%d)", s->constraint_iteration);
                 break;
             }
-            case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
+            case Single_Step_State::CONSTRAINT_DISTANCE:
             {
                 snprintf(buffer, length, "Before distance constraint resolution (iter=%d)", s->constraint_iteration);
                 break;
             }
-            case Single_Step_State::CONSTRAINT_DISTANCE:
+            case Single_Step_State::CONSTRAINT_FIXED:
+            {
+                snprintf(buffer, length, "Before fixed position constraint resolution (iter=%d)", s->constraint_iteration);
+                break;
+            }
+            case Single_Step_State::INTEGRATION:
             {
                 snprintf(buffer, length, "Pre-integration");
                 break;

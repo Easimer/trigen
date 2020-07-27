@@ -73,6 +73,7 @@ struct Softbody_Simulation {
     float get_phdt();
     void do_one_iteration_of_shape_matching_constraint_resolution(float phdt);
     void do_one_iteration_of_distance_constraint_resolution(float phdt);
+    void do_one_iteration_of_fixed_constraint_resolution(float phdt);
 
 private:
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
