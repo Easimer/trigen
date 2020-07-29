@@ -220,17 +220,29 @@ namespace sb {
     template<typename Getter>
     class Connection_Iterator : public Iterator<Relation> {
     public:
-        Connection_Iterator(Softbody_Simulation* s) : s(s), pidx(0) {
-            iter = s->edges[0].begin();
-            end = s->edges[0].end();
+        Connection_Iterator(Softbody_Simulation* s) : s(s) {
+            particle_iter = s->edges.begin();
+            particle_end = s->edges.end();
 
-            if (iter == end) {
-                pidx++;
+            if (particle_iter != particle_end) {
+                iter = particle_iter->second.begin();
+                end = particle_iter->second.end();
+
+                while (particle_iter != particle_end && iter == end) {
+                    ++particle_iter;
+
+                    if (particle_iter != particle_end) {
+                        iter = particle_iter->second.begin();
+                        end = particle_iter->second.end();
+                    }
+                }
             }
         }
     private:
         Softbody_Simulation* s;
-        unsigned pidx;
+        using particle_iter_t = Map<unsigned, Vector<unsigned>>::const_iterator;
+        particle_iter_t particle_iter;
+        particle_iter_t particle_end;
         typename Vector<unsigned>::const_iterator iter;
         typename Vector<unsigned>::const_iterator end;
 
@@ -239,41 +251,30 @@ namespace sb {
         }
 
         virtual void step() override {
-            if (pidx != s->position.size()) {
-                if (iter != end) {
-                    iter++;
+            if (particle_iter != particle_end && iter != end) {
+                ++iter;
 
-                    if (iter == end) {
-                        next_key();
+                while (particle_iter != particle_end && iter == end) {
+                    ++particle_iter;
+
+                    if (particle_iter != particle_end) {
+                        iter = particle_iter->second.begin();
+                        end = particle_iter->second.end();
                     }
-                } else {
-                    next_key();
-                }
-            }
-        }
-
-        void next_key() {
-            pidx++;
-            if (pidx != s->position.size()) {
-                iter = s->edges[pidx].begin();
-                end = s->edges[pidx].end();
-
-                if (iter == end) {
-                    pidx++;
                 }
             }
         }
 
         virtual bool ended() const override {
-            return pidx == s->position.size();
+            return particle_iter == particle_end;
         }
 
         virtual Relation get() const override {
             Getter g = { s };
             assert(!ended());
             return Relation{
-                pidx,
-                g.position(pidx),
+                particle_iter->first,
+                g.position(particle_iter->first),
                 *iter,
                 g.position(*iter),
             };

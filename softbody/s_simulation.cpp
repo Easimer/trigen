@@ -288,6 +288,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
     // distance constraint
     predicted_position[0] = Vec3();
+
     for (unsigned i = 0; i < position.size(); i++) {
         auto& neighbors = edges[i];
 
@@ -321,11 +322,6 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 }
 
 void Softbody_Simulation::constraint_resolution(float dt) {
-    // =======================
-    // TODO: if 0'd code works nicely, but it doesn't use the orientation information on the particles
-    // so things like the particle chain/rope doesn't work correctly
-    // pls fix somehow
-
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
         do_one_iteration_of_shape_matching_constraint_resolution(dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
