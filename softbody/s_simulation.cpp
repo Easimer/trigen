@@ -176,25 +176,11 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
             }
         ) / M;
 
-#if 1
         auto calc_A_0_i = [&](unsigned i) -> Mat3 {
             auto q_i = bind_pose[i] - com0;
             auto m_i = mass_of_particle(i);
 
             return m_i * glm::outerProduct(q_i, q_i);
-            /*
-            auto x2 = m_i * q_i.x * q_i.x;
-            auto y2 = m_i * q_i.y * q_i.y;
-            auto z2 = m_i * q_i.z * q_i.z;
-            auto xy = m_i * q_i.x * q_i.y;
-            auto xz = m_i * q_i.x * q_i.z;
-            auto yz = m_i * q_i.y * q_i.z;
-            auto col0 = Vec3(x2, xy, xz);
-            auto col1 = Vec3(xy, y2, yz);
-            auto col2 = Vec3(xz, yz, z2);
-
-            return Mat3(col0, col1, col2);
-            */
         };
 
         // A_qq
@@ -211,7 +197,6 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         } else {
             invRest = Mat3(1.0f);
         }
-#endif
 
         auto com_cur = std::accumulate(
             neighbors.begin(), neighbors.end(),
@@ -222,32 +207,6 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         ) / M;
 
         center_of_mass[i] = com_cur;
-
-#if 0
-
-        auto calc_A_i = [&](unsigned i) -> Mat3 {
-            auto m_i = mass_of_particle(i);
-            auto q_i = bind_pose[i] - com0;
-            auto p_i = m_i * (predicted_position[i] - com_cur);
-
-            return glm::outerProduct(p_i, q_i);
-
-            /*
-            auto col0 = p_i * Vec3(q_i.x, q_i.x, q_i.x);
-            auto col1 = p_i * Vec3(q_i.y, q_i.y, q_i.y);
-            auto col2 = p_i * Vec3(q_i.z, q_i.z, q_i.z);
-
-            return Mat3(col0, col1, col2);
-            */
-        };
-
-        // A_pq
-        Mat3 A = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            calc_A_i(i),
-            [&](auto acc, auto idx) { return acc + calc_A_i(idx); }
-        ) * invRest;
-#else
 
         auto calc_A_i = [&](unsigned i) -> Mat3 {
             auto m_i = mass_of_particle(i);
@@ -263,7 +222,6 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
                 return acc + calc_A_i(idx);
             }
         ) * invRest;
-#endif
 
         Quat R = predicted_orientation[i];
         mueller_rotation_extraction(A, R);
