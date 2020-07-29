@@ -39,6 +39,8 @@ public:
     void connect_particles(unsigned a, unsigned b);
     float mass_of_particle(unsigned i);
 
+    void invalidate_particle_cache(unsigned pidx);
+
     Vector<Vec3> bind_pose;
     // Position in the previous frame
     Vector<Vec3> position;
@@ -65,6 +67,9 @@ public:
     Map<unsigned, Vector<unsigned>> edges;
     Map<unsigned, unsigned> apical_child;
     Map<unsigned, unsigned> lateral_bud;
+
+    Vector<Vec3> bind_pose_center_of_mass;
+    Vector<Mat3> bind_pose_inverse_bind_pose;
 
     // For debug visualization only
     Vector<Vec3> center_of_mass;

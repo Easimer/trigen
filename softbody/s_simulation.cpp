@@ -96,8 +96,8 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     auto idx_root = add_particle(o, siz, 1);
     orientation[idx_root] = x90;
     auto prev = idx_root;
-    for (int i = 0; i < 64; i++) {
-        auto cur = add_particle(o + Vec3(0, (i + 1) * 1.0f, 0), siz, 1);
+    for (int i = 0; i < 1024; i++) {
+        auto cur = add_particle(o + Vec3((i + 1) * 0.5f, 0, 0), siz, 1);
         orientation[cur] = x90;
         connect_particles(prev, cur);
         prev = cur;
@@ -167,6 +167,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 
         assert(M != 0);
 
+        /*
         // bind pose center of mass
         auto com0 = std::accumulate(
             neighbors.begin(), neighbors.end(),
@@ -197,6 +198,10 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         } else {
             invRest = Mat3(1.0f);
         }
+        */
+
+        auto invRest = bind_pose_inverse_bind_pose[i];
+        auto com0 = bind_pose_center_of_mass[i];
 
         auto com_cur = std::accumulate(
             neighbors.begin(), neighbors.end(),
@@ -228,7 +233,13 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 
         float const stiffness = 1;
 
-        for (auto idx : neighbors_and_me) {
+        // NOTE(danielm): not sure if we need to correct every particle in the
+        // current cluster/group other than the group owner.
+        // Works either way, but the commented out way would make parallelization
+        // painful.
+        // for (auto idx : neighbors_and_me) {
+        {
+            auto idx = i;
             auto pos_bind = bind_pose[idx] - com0;
             auto d = predicted_position[idx] - com_cur;
             auto pos_bind_rot = R * pos_bind;
@@ -323,6 +334,8 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     //age.push_back(0);
     edges[index] = {};
 
+    invalidate_particle_cache(index);
+
     return index;
 }
 
@@ -333,6 +346,9 @@ void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
 
     edges[a].push_back(b);
     edges[b].push_back(a);
+
+    invalidate_particle_cache(a);
+    invalidate_particle_cache(b);
 }
 
 float Softbody_Simulation::mass_of_particle(unsigned i) {
@@ -340,6 +356,60 @@ float Softbody_Simulation::mass_of_particle(unsigned i) {
     auto const s_i = size[i];
     auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
     return m_i;
+}
+
+void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
+    auto& neighbors = edges[pidx];
+
+    auto M = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        mass_of_particle(pidx),
+        [&](float acc, unsigned idx) {
+            return acc + mass_of_particle(idx);
+        }
+    );
+
+    auto com0 = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        mass_of_particle(pidx) * bind_pose[pidx],
+        [&](Vec3 const& acc, unsigned idx) {
+            return acc + mass_of_particle(idx) * bind_pose[idx];
+        }
+    ) / M;
+
+    auto calc_A_0_i = [&](unsigned i) -> Mat3 {
+        auto q_i = bind_pose[i] - com0;
+        auto m_i = mass_of_particle(i);
+
+        return m_i * glm::outerProduct(q_i, q_i);
+    };
+
+    // A_qq
+    Mat3 A_0 = std::accumulate(
+        neighbors.begin(), neighbors.end(),
+        calc_A_0_i(pidx),
+        [&](auto acc, auto idx) { return acc + calc_A_0_i(idx); }
+    );
+
+    Mat3 invRest;
+
+    if (glm::abs(glm::determinant(A_0)) > glm::epsilon<float>()) {
+        invRest = glm::inverse(A_0);
+    } else {
+        invRest = Mat3(1.0f);
+    }
+
+    size_t i = pidx;
+    if (bind_pose_center_of_mass.size() <= i) {
+        bind_pose_center_of_mass.resize(i + 1);
+    }
+
+    if (bind_pose_inverse_bind_pose.size() <= i) {
+        bind_pose_inverse_bind_pose.resize(i + 1);
+    }
+
+    bind_pose_center_of_mass[i] = com0;
+    bind_pose_inverse_bind_pose[i] = invRest;
 }
 
 sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {
