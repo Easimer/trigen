@@ -7,23 +7,43 @@
 
 #include "common.h"
 
-struct Particle_Group {
-    unsigned owner;
-    float owner_mass;
-    Vector<unsigned> neighbors;
-    Vector<float> masses;
-    float W;
-    Vec3 c, c_rest;
-    Mat3 orient;
-};
+class Softbody_Simulation : public sb::ISoftbody_Simulation {
+public:
+    Softbody_Simulation(sb::Config const& configuration);
 
-struct Softbody_Simulation {
+    void set_light_source_position(glm::vec3 const& pos) override;
+
+    void step(float delta_time) override;
+
+    sb::Unique_Ptr<sb::ISingle_Step_State> begin_single_step() override;
+    sb::Unique_Ptr<sb::Particle_Iterator> get_particles() override;
+    sb::Unique_Ptr<sb::Particle_Iterator> get_particles_with_goal_positions() override;
+    sb::Unique_Ptr<sb::Particle_Iterator> get_particles_with_predicted_positions() override;
+    sb::Unique_Ptr<sb::Particle_Iterator> get_centers_of_masses() override;
+    sb::Unique_Ptr<sb::Relation_Iterator> get_apical_relations() override;
+    sb::Unique_Ptr<sb::Relation_Iterator> get_lateral_relations() override;
+    sb::Unique_Ptr<sb::Relation_Iterator> get_connections() override;
+    sb::Unique_Ptr<sb::Relation_Iterator> get_predicted_connections() override;
+
+    void prediction(float dt);
+    void constraint_resolution(float dt);
+    void integration(float dt);
+
+    // manual control
+    float get_phdt();
+    void do_one_iteration_of_shape_matching_constraint_resolution(float phdt);
+    void do_one_iteration_of_distance_constraint_resolution(float phdt);
+    void do_one_iteration_of_fixed_constraint_resolution(float phdt);
+
+    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
+    void connect_particles(unsigned a, unsigned b);
+    float mass_of_particle(unsigned i);
+
     Vector<Vec3> bind_pose;
     // Position in the previous frame
     Vector<Vec3> position;
     // Position in the current frame
     Vector<Vec3> predicted_position;
-    Vector<Vec3> goal_position;
 
     // Particle velocities
     Vector<Vec3> velocity;
@@ -48,35 +68,16 @@ struct Softbody_Simulation {
 
     // For debug visualization only
     Vector<Vec3> center_of_mass;
-
-
-    bool assert_parallel = false;
+    Vector<Vec3> goal_position;
 
     float time_accumulator = 0.0f;
 
+    bool assert_parallel;
     Vec3 light_source = Vec3(0, 0, 0);
-
     sb::Config params;
 
     // Stores functions whose execution has been deferred until after the parallelized
     // part
     Mutex deferred_lock;
     Vector<Fun<void()>> deferred;
-
-    void initialize(sb::Config const& configuration);
-
-    void prediction(float dt);
-    void constraint_resolution(float dt);
-    void integration(float dt);
-
-    // manual control
-    float get_phdt();
-    void do_one_iteration_of_shape_matching_constraint_resolution(float phdt);
-    void do_one_iteration_of_distance_constraint_resolution(float phdt);
-    void do_one_iteration_of_fixed_constraint_resolution(float phdt);
-
-private:
-    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
-    void connect_particles(unsigned a, unsigned b);
-    float mass_of_particle(unsigned i);
 };

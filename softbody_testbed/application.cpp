@@ -133,7 +133,7 @@ void app_main_loop() {
     auto sim = sb::create_simulation(sim_cfg);
     bool bDoTick = false;
     Falling_Edge bStep;
-    sb::Single_Step_State* pSingleStep = NULL;
+    sb::Unique_Ptr<sb::ISingle_Step_State> pSingleStep;
     char stateDescription[128] = { '\0' };
     Softbody_Render_Parameters render_params = {};
 
@@ -168,7 +168,7 @@ void app_main_loop() {
                     {
                         switch (ev.key.keysym.sym) {
                         case SDLK_r:
-                            sb::destroy_simulation(sim);
+                            sim.reset();
                             sim = sb::create_simulation(sim_cfg);
                             break;
                         }
@@ -191,7 +191,7 @@ void app_main_loop() {
 
         sun_angle = glm::mod(sun_angle + steps * delta / 16.0f, glm::pi<double>());
         auto sun_pos = Vec3(1000 * glm::cos(sun_angle), 1000 * glm::sin(sun_angle), 0.0f);
-        sb::set_light_source_position(sim, sun_pos);
+        sim->set_light_source_position(sun_pos);
 
         if (ImGui::Begin("Controls")) {
             ImGui::Checkbox("Tick", &bDoTick);
@@ -205,27 +205,26 @@ void app_main_loop() {
 
         if (bStep) {
             if (pSingleStep == NULL) {
-                sb::begin_single_step(sim, &pSingleStep);
+                pSingleStep = sim->begin_single_step();
             }
 
-            sb::step(pSingleStep);
-            sb::get_state_description(128, stateDescription, pSingleStep);
+            pSingleStep->step();
+            pSingleStep->get_state_description(128, stateDescription);
         }
 
         if (bDoTick) {
             if (pSingleStep != NULL) {
-                sb::finish_single_step(pSingleStep);
+                pSingleStep.reset();
                 snprintf(stateDescription, 127, "(not single stepping)");
-                pSingleStep = NULL;
             }
 
             for (unsigned i = 0; i < steps; i++) {
-                sb::step(sim, delta);
+                sim->step(delta);
             }
         }
 
         render_params.sun_position = sun_pos;
-        render_softbody_simulation(&rq, sim, render_params);
+        render_softbody_simulation(&rq, sim.get(), render_params);
 
         rq.execute(renderer);
 
@@ -238,7 +237,6 @@ void app_main_loop() {
 
         if (ImGui::Begin("Configuration")) {
             if (display_simulation_config(sim_cfg)) {
-                sb::destroy_simulation(sim);
                 sim = sb::create_simulation(sim_cfg);
             }
         }
@@ -248,8 +246,6 @@ void app_main_loop() {
     }
 
     cam->release();
-
-    sb::destroy_simulation(sim);
 
     gfx::destroy_renderer(renderer);
 }

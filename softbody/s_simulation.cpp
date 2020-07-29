@@ -73,7 +73,8 @@ static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
 
-void Softbody_Simulation::initialize(sb::Config const& configuration) {
+Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
+    : assert_parallel(false) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
 #if 0
@@ -383,160 +384,94 @@ float Softbody_Simulation::mass_of_particle(unsigned i) {
     return m_i;
 }
 
-Softbody_Simulation* sb::create_simulation(Config const& configuration) {
-    auto ret = new Softbody_Simulation;
-
-    ret->initialize(configuration);
-
-    return ret;
+sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {
+    return std::make_unique<Softbody_Simulation>(configuration);
 }
 
-void sb::destroy_simulation(Softbody_Simulation* s) {
-    assert(s != NULL);
+void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
+    light_source = pos;
+}
 
-    if (s != NULL) {
-        delete s;
+void Softbody_Simulation::step(float delta_time) {
+    time_accumulator += delta_time;
+
+    if (time_accumulator > PHYSICS_STEP) {
+        auto phdt = PHYSICS_STEP;
+
+        prediction(phdt);
+        constraint_resolution(phdt);
+        integration(phdt);
+
+        if (time_accumulator > 8 * PHYSICS_STEP) {
+            fprintf(stderr, "sb: warning: extreme lag, acc = %f\n", time_accumulator);
+        }
+
+        for (auto& def_func : deferred) {
+            def_func();
+        }
+        deferred.clear();
+
+        time_accumulator -= phdt;
     }
 }
 
-void sb::set_light_source_position(Softbody_Simulation* s, Vec3 const& pos) {
-    assert(s != NULL);
-    if (s != NULL) {
-        s->light_source = pos;
-    }
-}
+class Single_Step_State : public sb::ISingle_Step_State {
+public:
+    Single_Step_State(Softbody_Simulation* sim)
+        : sim(sim), constraint_iteration(0), state(PREDICTION) {}
 
-void sb::step(Softbody_Simulation* s, float delta_time) {
-    assert(s != NULL);
-    if (s != NULL) {
-        s->time_accumulator += delta_time;
-
-        // Nem per-frame szimulalunk, hanem fix idokozonkent, hogy ne valjon
-        // instabilla a szimulacio
-        while (s->time_accumulator > PHYSICS_STEP) {
-            auto phdt = PHYSICS_STEP;
-            auto p0 = s->position[0];
-
-            s->prediction(phdt);
-            s->constraint_resolution(phdt);
-            s->integration(phdt);
-
-            if (s->time_accumulator > 8 * PHYSICS_STEP) {
-                fprintf(stderr, "EXTREME LAG, ACC = %f\n", s->time_accumulator);
-            }
-
-            // The creation of new particles is deferred until after all the
-            // groups have been simulated
-            for (auto& def_func : s->deferred) {
-                def_func();
-            }
-            s->deferred.clear();
-
-            s->time_accumulator -= PHYSICS_STEP;
-        }
-    }
-}
-
-namespace sb {
-    struct Single_Step_State {
-        Softbody_Simulation* s;
-        int constraint_iteration;
-        enum State {
-            PREDICTION,
-            CONSTRAINT_FIXED,
-            CONSTRAINT_SHAPE_MATCH,
-            CONSTRAINT_DISTANCE,
-            INTEGRATION,
-        } state;
-    };
-
-    void begin_single_step(Softbody_Simulation* sim, Single_Step_State** state_handle) {
-        assert(sim != NULL);
-        assert(state_handle != NULL);
-
-        if (state_handle == NULL) {
-            return;
-        }
-
-        *state_handle = NULL;
-
-        if (sim != NULL) {
-            auto p = new Single_Step_State;
-            p->s = sim;
-            p->constraint_iteration = 0;
-            p->state = Single_Step_State::PREDICTION;
-
-            *state_handle = p;
-        }
-    }
-
-    void finish_single_step(Single_Step_State* s) {
-        assert(s != NULL);
-
-        if (s == NULL) {
-            return;
-        }
-
+    ~Single_Step_State() {
         // we must bring the simulation into a valid state first
-        while (s->state != Single_Step_State::PREDICTION) {
-            step(s);
+        while (state != Single_Step_State::PREDICTION) {
+            step();
         }
-
-        delete s;
     }
 
-    void step(Single_Step_State* s) {
-        assert(s != NULL);
-
-        if (s == NULL) {
-            return;
-        }
-
-        switch (s->state) {
+    void step() override {
+        switch (state) {
         case Single_Step_State::PREDICTION:
         {
-            s->s->prediction(PHYSICS_STEP);
-            s->state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
+            sim->prediction(PHYSICS_STEP);
+            state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
             break;
         }
         case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
         {
-            s->s->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
-            s->state = Single_Step_State::CONSTRAINT_FIXED;
+            sim->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
+            state = Single_Step_State::CONSTRAINT_FIXED;
             break;
         }
         case Single_Step_State::CONSTRAINT_DISTANCE:
         {
-            s->s->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
-            if (s->constraint_iteration < SOLVER_ITERATIONS) {
-                s->state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
-                s->constraint_iteration++;
+            sim->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
+            if (constraint_iteration < SOLVER_ITERATIONS) {
+                state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
+                constraint_iteration++;
             } else {
-                s->state = Single_Step_State::INTEGRATION;
-                s->constraint_iteration = 0;
+                state = Single_Step_State::INTEGRATION;
+                constraint_iteration = 0;
             }
             break;
         }
         case Single_Step_State::CONSTRAINT_FIXED:
         {
-            s->s->do_one_iteration_of_fixed_constraint_resolution(PHYSICS_STEP);
-            s->state = Single_Step_State::CONSTRAINT_DISTANCE;
+            sim->do_one_iteration_of_fixed_constraint_resolution(PHYSICS_STEP);
+            state = Single_Step_State::CONSTRAINT_DISTANCE;
             break;
         }
         case Single_Step_State::INTEGRATION:
         {
-            s->s->integration(PHYSICS_STEP);
-            s->state = Single_Step_State::PREDICTION;
+            sim->integration(PHYSICS_STEP);
+            state = Single_Step_State::PREDICTION;
             break;
         }
         }
     }
 
-    void get_state_description(unsigned length, char* buffer, Single_Step_State* s) {
-        assert(s != NULL);
-        if (s != NULL && buffer != NULL && length > 0) {
+    void get_state_description(unsigned length, char* buffer) override {
+        if (buffer != NULL && length > 0) {
             length = length - 1;
-            switch (s->state) {
+            switch (state) {
             case Single_Step_State::PREDICTION:
             {
                 snprintf(buffer, length, "Before prediction step");
@@ -544,17 +479,17 @@ namespace sb {
             }
             case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
             {
-                snprintf(buffer, length, "Before shape matching constraint resolution (iter=%d)", s->constraint_iteration);
+                snprintf(buffer, length, "Before shape matching constraint resolution (iter=%d)", constraint_iteration);
                 break;
             }
             case Single_Step_State::CONSTRAINT_DISTANCE:
             {
-                snprintf(buffer, length, "Before distance constraint resolution (iter=%d)", s->constraint_iteration);
+                snprintf(buffer, length, "Before distance constraint resolution (iter=%d)", constraint_iteration);
                 break;
             }
             case Single_Step_State::CONSTRAINT_FIXED:
             {
-                snprintf(buffer, length, "Before fixed position constraint resolution (iter=%d)", s->constraint_iteration);
+                snprintf(buffer, length, "Before fixed position constraint resolution (iter=%d)", constraint_iteration);
                 break;
             }
             case Single_Step_State::INTEGRATION:
@@ -566,4 +501,20 @@ namespace sb {
             buffer[length] = '\0';
         }
     }
+
+private:
+    Softbody_Simulation* sim;
+    int constraint_iteration;
+
+    enum State {
+        PREDICTION,
+        CONSTRAINT_FIXED,
+        CONSTRAINT_SHAPE_MATCH,
+        CONSTRAINT_DISTANCE,
+        INTEGRATION,
+    } state;
+};
+
+sb::Unique_Ptr<sb::ISingle_Step_State> Softbody_Simulation::begin_single_step() {
+    return std::make_unique<Single_Step_State>(this);
 }

@@ -8,288 +8,279 @@
 #include "s_simulation.h"
 #include "m_utils.h"
 
-namespace sb {
-    template<typename Getter>
-    struct Particle_Iterator_Impl : public sb::Particle_Iterator {
-        Softbody_Simulation* sim;
-        unsigned idx;
+/**
+ * A base class for iterating over one-to-many maps like a Map<K, Vector<V>>.
+ *
+ * TODO(danielm): this is currently hard-coded for Map<unsigned, Vector<unsigned>>
+ */
+class One_To_Many_Relation_Iterator : public sb::Relation_Iterator {
+public:
+    using Map_Getter = std::function<Map<unsigned, Vector<unsigned>>&()>;
+    using Relation_Factory = std::function<sb::Relation(unsigned lhs, unsigned rhs)>;
+    One_To_Many_Relation_Iterator(Map_Getter mg, Relation_Factory rf)
+        : get_map(mg), make_relation(rf) {
+        p_iter = get_map().cbegin();
+        p_end = get_map().cend();
 
-        Particle_Iterator_Impl(Softbody_Simulation* sim) : sim(sim), idx(0) {}
+        if (p_iter != p_end) {
+            pv_iter = p_iter->second.cbegin();
+            pv_end = p_iter->second.cend();
 
-        virtual void release() override {
-            delete this;
-        }
+            while (p_iter != p_end && pv_iter == pv_end) {
+                ++p_iter;
 
-        virtual void step() override {
-            auto const N = sim->position.size();
-            auto end_state = (idx >= sim->position.size());
-            if (!end_state) {
-                idx++;
+                if (p_iter != p_end) {
+                    pv_iter = p_iter->second.cbegin();
+                    pv_end = p_iter->second.cend();
+                }
             }
         }
-
-        virtual bool ended() const override {
-            return idx >= sim->position.size();
-        }
-
-        virtual sb::Particle get() const override {
-            assert(idx < sim->position.size());
-            Vec3 head, tail;
-            Getter G{ sim };
-            Vec3 const pos = G.position(idx);
-            Vec3 const size = G.size(idx);
-            auto const orientation = G.orientation(idx);
-            G.head_and_tail(pos, longest_axis_normalized(size), orientation, &head, &tail);
-            // get_head_and_tail_of_particle(pos, longest_axis_normalized(size), orientation, &head, &tail);
-
-            return sb::Particle{
-                idx,
-                pos,
-                orientation,
-                size,
-                head, tail,
-            };
-        }
-    };
-
-    // Used as the template argument of Particle_Iterator_Impl
-    struct Normal_Particle_Getter {
-        Softbody_Simulation* s;
-
-        Vec3 position(unsigned idx) {
-            return s->position[idx];
-        }
-
-        Vec3 size(unsigned idx) {
-            return s->size[idx];
-        }
-
-        Quat orientation(unsigned idx) {
-            return s->orientation[idx];
-        }
-
-        void head_and_tail(Vec3 const& pos, Vec3 const& axis, Quat const& orientation, Vec3* head, Vec3* tail) {
-            get_head_and_tail_of_particle(pos, axis, orientation, head, tail);
-        }
-    };
-
-    // Used as the template argument of Particle_Iterator_Impl
-    // Instead of the actual position, this will make the iterator return the
-    // goal position of the particle.
-    struct Goal_Position_Particle_Getter : public Normal_Particle_Getter {
-        Vec3 position(unsigned idx) {
-            return s->goal_position[idx];
-        }
-    };
-
-    struct Predicted_Position_Particle_Getter : public Normal_Particle_Getter {
-        Vec3 position(unsigned idx) {
-            if (idx < s->predicted_position.size()) {
-                return s->predicted_position[idx];
-            } else {
-                return Vec3();
-            }
-        }
-    };
-
-    struct Center_Of_Mass_Getter : public Normal_Particle_Getter {
-        Vec3 position(unsigned idx) {
-            return s->center_of_mass[idx];
-        }
-    };
-
-    Particle_Iterator* get_particles(Softbody_Simulation* s) {
-        assert(s != NULL);
-        if (s != NULL) {
-            return new Particle_Iterator_Impl<Normal_Particle_Getter>(s);
-        } else {
-            return NULL;
-        }
     }
 
-    Particle_Iterator* get_particles_with_goal_position(Softbody_Simulation* s) {
-        assert(s != NULL);
-        if (s != NULL) {
-            return new Particle_Iterator_Impl<Goal_Position_Particle_Getter>(s);
-        } else {
-            return NULL;
-        }
-    }
+private:
+    void step() override {
+        if (p_iter != p_end) {
+            if (pv_iter != pv_end) {
+                ++pv_iter;
 
-    Particle_Iterator* get_particles_with_predicted_position(Softbody_Simulation* s) {
-        assert(s != NULL);
-        if (s != NULL) {
-            return new Particle_Iterator_Impl<Predicted_Position_Particle_Getter>(s);
-        } else {
-            return NULL;
-        }
+                while (p_iter != p_end && pv_iter == pv_end) {
+                    ++p_iter;
 
-    }
-
-    Particle_Iterator* get_centers_of_masses(Softbody_Simulation* s) {
-        assert(s != NULL);
-        if (s != NULL) {
-            return new Particle_Iterator_Impl<Center_Of_Mass_Getter>(s);
-        } else {
-            return NULL;
-        }
-    }
-
-    class Apical_Relation_Iterator : public Relation_Iterator {
-    public:
-        Apical_Relation_Iterator(Softbody_Simulation* s) : s(s) {
-            iter = s->apical_child.begin();
-            end = s->apical_child.end();
-        }
-    private:
-        Softbody_Simulation* s;
-        typename decltype(s->apical_child)::const_iterator iter;
-        typename decltype(s->apical_child)::const_iterator end;
-
-        virtual void release() override {
-            delete this;
-        }
-
-        virtual void step() override {
-            if (iter != end) {
-                iter++;
-            }
-        }
-
-        virtual bool ended() const override {
-            return iter == end;
-        }
-
-        virtual Relation get() const override {
-            assert(!ended());
-            return Relation{
-                iter->first,
-                s->position[iter->first],
-                iter->second,
-                s->position[iter->second],
-            };
-        }
-    };
-
-    class Lateral_Relation_Iterator : public Relation_Iterator {
-    public:
-        Lateral_Relation_Iterator(Softbody_Simulation* s) : s(s) {
-            iter = s->lateral_bud.begin();
-            end = s->lateral_bud.end();
-        }
-    private:
-        Softbody_Simulation* s;
-        typename decltype(s->lateral_bud)::const_iterator iter;
-        typename decltype(s->lateral_bud)::const_iterator end;
-
-        virtual void release() override {
-            delete this;
-        }
-
-        virtual void step() override {
-            if (iter != end) {
-                iter++;
-            }
-        }
-
-        virtual bool ended() const override {
-            return iter == end;
-        }
-
-        virtual Relation get() const override {
-            assert(!ended());
-            return Relation{
-                iter->first,
-                s->position[iter->first],
-                iter->second,
-                s->position[iter->second],
-            };
-        }
-    };
-
-    Relation_Iterator* get_apical_relations(Softbody_Simulation* s) {
-        assert(s != NULL);
-        return new Apical_Relation_Iterator(s);
-    }
-
-    Relation_Iterator* get_lateral_relations(Softbody_Simulation* s) {
-        assert(s != NULL);
-        return new Lateral_Relation_Iterator(s);
-    }
-
-    template<typename Getter>
-    class Connection_Iterator : public Iterator<Relation> {
-    public:
-        Connection_Iterator(Softbody_Simulation* s) : s(s) {
-            particle_iter = s->edges.begin();
-            particle_end = s->edges.end();
-
-            if (particle_iter != particle_end) {
-                iter = particle_iter->second.begin();
-                end = particle_iter->second.end();
-
-                while (particle_iter != particle_end && iter == end) {
-                    ++particle_iter;
-
-                    if (particle_iter != particle_end) {
-                        iter = particle_iter->second.begin();
-                        end = particle_iter->second.end();
+                    if (p_iter != p_end) {
+                        pv_iter = p_iter->second.cbegin();
+                        pv_end = p_iter->second.cend();
                     }
                 }
             }
         }
-    private:
-        Softbody_Simulation* s;
-        using particle_iter_t = Map<unsigned, Vector<unsigned>>::const_iterator;
-        particle_iter_t particle_iter;
-        particle_iter_t particle_end;
-        typename Vector<unsigned>::const_iterator iter;
-        typename Vector<unsigned>::const_iterator end;
+    }
 
-        virtual void release() override {
-            delete this;
+    bool ended() const override {
+        return p_iter == p_end;
+    }
+
+    sb::Relation get() const override {
+        assert(!ended());
+
+        return make_relation(p_iter->first, *pv_iter);
+    }
+
+    using Particle_Iter = Map<unsigned, Vector<unsigned>>::const_iterator;
+    using Particle_Vector_Iter = Vector<unsigned>::const_iterator;
+
+    Map_Getter get_map;
+    Relation_Factory make_relation;
+
+    Particle_Iter p_iter, p_end;
+    Particle_Vector_Iter pv_iter, pv_end;
+};
+
+/**
+ * A base class for iterating over one-to-one maps like a Map<K, V>.
+ *
+ * TODO(danielm): this is currently hard-coded for Map<unsigned, unsigned>
+ */
+class One_To_One_Relation_Iterator : public sb::Relation_Iterator {
+public:
+    using Map_Getter = std::function<Map<unsigned, unsigned>& ()>;
+    using Relation_Factory = std::function<sb::Relation(unsigned, unsigned)>;
+    One_To_One_Relation_Iterator(Map_Getter mg, Relation_Factory rf) : make_relation(rf) {
+        iter = mg().cbegin();
+        end = mg().cend();
+    }
+
+private:
+    virtual void step() override {
+        if (iter != end) {
+            ++iter;
         }
+    }
 
-        virtual void step() override {
-            if (particle_iter != particle_end && iter != end) {
-                ++iter;
+    virtual bool ended() const override {
+        return iter == end;
+    }
 
-                while (particle_iter != particle_end && iter == end) {
-                    ++particle_iter;
+    virtual sb::Relation get() const override {
+        return make_relation(iter->first, iter->second);
+    }
 
-                    if (particle_iter != particle_end) {
-                        iter = particle_iter->second.begin();
-                        end = particle_iter->second.end();
-                    }
-                }
-            }
+    using Iterator = Map<unsigned, unsigned>::const_iterator;
+    Iterator iter, end;
+    Relation_Factory make_relation;
+};
+
+/**
+ * A base class for iterating over particles.
+ */
+class Particle_Iterator : public sb::Particle_Iterator {
+public:
+    using Particle_Count_Getter = std::function<size_t()>;
+    using Particle_Factory = std::function<sb::Particle(size_t pidx)>;
+
+    /**
+     * @param pcg A callback through which this iterator will query the number
+     * of particles in the system.
+     * @param pf A function that provided with a particle index will return an
+     * sb::Particle struct describing the particle.
+     */
+    Particle_Iterator(Particle_Count_Getter pcg, Particle_Factory pf)
+        : idx(0), get_count(pcg), make_particle(pf) {
+    }
+private:
+    void step() override {
+        if (!ended()) {
+            idx++;
         }
+    }
 
-        virtual bool ended() const override {
-            return particle_iter == particle_end;
-        }
+    bool ended() const override {
+        auto const N = get_count();
+        return idx >= N;
+    }
 
-        virtual Relation get() const override {
-            Getter g = { s };
-            assert(!ended());
-            return Relation{
-                particle_iter->first,
-                g.position(particle_iter->first),
-                *iter,
-                g.position(*iter),
-            };
-        }
+    sb::Particle get() const override {
+        assert(!ended());
+
+        return make_particle(idx);
+    }
+
+    size_t idx;
+    Particle_Count_Getter get_count;
+    Particle_Factory make_particle;
+};
+
+sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations() {
+    auto get_map = [&]() -> decltype(apical_child)& { return apical_child; };
+    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+        return sb::Relation {
+            lhs,
+            position[lhs],
+            rhs,
+            position[rhs],
+        };
     };
 
-    Relation_Iterator* get_connections(Softbody_Simulation* s) {
-        assert(s != NULL);
+    return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
+}
 
-        return new Connection_Iterator<Normal_Particle_Getter>(s);
-    }
+sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles() {
+    auto pcg = [&]() { return position.size(); };
 
-    Relation_Iterator* get_predicted_connections(Softbody_Simulation* s) {
-        assert(s != NULL);
+    auto pf = [&](size_t pidx) {
+        sb::Particle ret;
+        ret.id = pidx;
+        ret.position = position[pidx];
+        ret.orientation = orientation[pidx];
+        ret.size = size[pidx];
+        get_head_and_tail_of_particle(
+            ret.position, longest_axis_normalized(ret.size), ret.orientation,
+            &ret.start, &ret.end
+        );
 
-        return new Connection_Iterator<Predicted_Position_Particle_Getter>(s);
-    }
+        return ret;
+    };
+
+    return std::make_unique<Particle_Iterator>(pcg, pf);
+}
+
+sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_goal_positions() {
+    auto pcg = [&]() { return position.size(); };
+
+    auto pf = [&](size_t pidx) {
+        sb::Particle ret;
+        ret.id = pidx;
+        ret.position = goal_position[pidx];
+        ret.orientation = orientation[pidx];
+        ret.size = size[pidx];
+        get_head_and_tail_of_particle(
+            ret.position, longest_axis_normalized(ret.size), ret.orientation,
+            &ret.start, &ret.end
+        );
+
+        return ret;
+    };
+
+    return std::make_unique<Particle_Iterator>(pcg, pf);
+}
+
+sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_predicted_positions() {
+    auto pcg = [&]() { return position.size(); };
+
+    auto pf = [&](size_t pidx) {
+        sb::Particle ret;
+        ret.id = pidx;
+        ret.position = predicted_position[pidx];
+        ret.orientation = orientation[pidx];
+        ret.size = size[pidx];
+        get_head_and_tail_of_particle(
+            ret.position, longest_axis_normalized(ret.size), ret.orientation,
+            &ret.start, &ret.end
+        );
+
+        return ret;
+    };
+
+    return std::make_unique<Particle_Iterator>(pcg, pf);
+}
+
+sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_centers_of_masses() {
+    auto pcg = [&]() { return position.size(); };
+
+    auto pf = [&](size_t pidx) {
+        sb::Particle ret;
+        ret.id = pidx;
+        ret.position = center_of_mass[pidx];
+        ret.orientation = orientation[pidx];
+        ret.size = size[pidx];
+        get_head_and_tail_of_particle(
+            ret.position, longest_axis_normalized(ret.size), ret.orientation,
+            &ret.start, &ret.end
+        );
+
+        return ret;
+    };
+
+    return std::make_unique<Particle_Iterator>(pcg, pf);
+}
+
+sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_lateral_relations() {
+    auto get_map = [&]() -> decltype(lateral_bud)& { return lateral_bud; };
+    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+        return sb::Relation {
+            lhs,
+            position[lhs],
+            rhs,
+            position[rhs],
+        };
+    };
+
+    return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
+}
+
+sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {
+    auto get_map = [&]() -> decltype(edges)& { return edges; };
+    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+        return sb::Relation {
+            lhs,
+            position[lhs],
+            rhs,
+            position[rhs],
+        };
+    };
+
+    return std::make_unique<One_To_Many_Relation_Iterator>(get_map, make_relation);
+}
+
+sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_predicted_connections() {
+    auto get_map = [&]() -> decltype(edges)& { return edges; };
+    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+        return sb::Relation {
+            lhs,
+            predicted_position[lhs],
+            rhs,
+            predicted_position[rhs],
+        };
+    };
+
+    return std::make_unique<One_To_Many_Relation_Iterator>(get_map, make_relation);
 }

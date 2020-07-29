@@ -6,11 +6,13 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <glm/vec3.hpp>
 
-struct Softbody_Simulation;
-
 namespace sb {
+    template<typename T, typename Deleter = std::default_delete<T>>
+    using Unique_Ptr = std::unique_ptr<T, Deleter>;
+
     struct Config {
         glm::vec3 seed_position;
 
@@ -49,7 +51,7 @@ namespace sb {
     template<typename T>
     class Iterator {
     public:
-        virtual void release() = 0;
+        virtual ~Iterator() {}
 
         virtual void step() = 0;
         virtual bool ended() const = 0;
@@ -59,28 +61,32 @@ namespace sb {
     using Relation_Iterator = Iterator<Relation>;
     using Particle_Iterator = Iterator<Particle>;
 
-    Softbody_Simulation* create_simulation(Config const& configuration);
-    void destroy_simulation(Softbody_Simulation*);
+    class ISingle_Step_State {
+    public:
+        virtual ~ISingle_Step_State() {}
 
-    void set_light_source_position(Softbody_Simulation*, glm::vec3 const& pos);
+        virtual void step() = 0;
+        virtual void get_state_description(unsigned length, char* buffer) = 0;
+    };
 
-    void step(Softbody_Simulation*, float delta_time);
+    class ISoftbody_Simulation {
+    public:
+        virtual ~ISoftbody_Simulation() {}
 
-    Particle_Iterator* get_particles(Softbody_Simulation*);
-    Particle_Iterator* get_particles_with_goal_position(Softbody_Simulation*);
-    Particle_Iterator* get_particles_with_predicted_position(Softbody_Simulation*);
-    Particle_Iterator* get_centers_of_masses(Softbody_Simulation*);
-    Relation_Iterator* get_apical_relations(Softbody_Simulation*);
-    Relation_Iterator* get_lateral_relations(Softbody_Simulation*);
-    Relation_Iterator* get_connections(Softbody_Simulation*);
-    Relation_Iterator* get_predicted_connections(Softbody_Simulation*);
+        virtual void set_light_source_position(glm::vec3 const& pos) = 0;
+        virtual void step(float delta_time) = 0;
 
-    void add_collider(Softbody_Simulation*, std::function<float(glm::vec3)> sdf);
+        virtual Unique_Ptr<ISingle_Step_State> begin_single_step() = 0;
 
-    // Single-step simulation controls
-    struct Single_Step_State;
-    void begin_single_step(Softbody_Simulation* sim, Single_Step_State** state_handle);
-    void finish_single_step(Single_Step_State*);
-    void step(Single_Step_State*);
-    void get_state_description(unsigned length, char* buffer, Single_Step_State*);
+        virtual Unique_Ptr<Particle_Iterator> get_particles() = 0;
+        virtual Unique_Ptr<Particle_Iterator> get_particles_with_goal_positions() = 0;
+        virtual Unique_Ptr<Particle_Iterator> get_particles_with_predicted_positions() = 0;
+        virtual Unique_Ptr<Particle_Iterator> get_centers_of_masses() = 0;
+        virtual Unique_Ptr<Relation_Iterator> get_apical_relations() = 0;
+        virtual Unique_Ptr<Relation_Iterator> get_lateral_relations() = 0;
+        virtual Unique_Ptr<Relation_Iterator> get_connections() = 0;
+        virtual Unique_Ptr<Relation_Iterator> get_predicted_connections() = 0;
+    };
+
+    Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);
 }

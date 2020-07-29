@@ -8,12 +8,12 @@
 
 class Command_Render_Points : public gfx::IRender_Command {
 public:
-    Command_Render_Points(Softbody_Simulation* sim) : sim(sim) {}
+    Command_Render_Points(sb::ISoftbody_Simulation* sim) : sim(sim) {}
 private:
-    Softbody_Simulation* sim;
+    sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
         std::vector<Vec3> particles;
-        auto iter = sb::get_particles(sim);
+        auto iter = sim->get_particles();
 
         while(!iter->ended()) {
             auto particle = iter->get();
@@ -22,18 +22,16 @@ private:
             iter->step();
         }
 
-        iter->release();
-
         renderer->draw_points(particles.data(), particles.size(), Vec3(0, 0, 0));
     }
 };
 
 class Command_Render_Particles : public gfx::IRender_Command {
 public:
-    Command_Render_Particles(Softbody_Simulation* sim, Softbody_Render_Parameters const* params) : sim(sim), params(params) {}
+    Command_Render_Particles(sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const* params) : sim(sim), params(params) {}
 private:
     Softbody_Render_Parameters const* params;
-    Softbody_Simulation* sim;
+    sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
         std::vector<Vec3> lines;
         std::vector<Vec3> positions;
@@ -45,7 +43,7 @@ private:
 
         std::vector<Vec3> sizes_virtual;
 
-        auto iter = sb::get_particles(sim);
+        auto iter = sim->get_particles();
         while(!iter->ended()) {
             auto particle = iter->get();
             lines.push_back(particle.start);
@@ -58,27 +56,21 @@ private:
 
             iter->step();
         }
-        iter->release();
 
-        iter = sb::get_particles_with_goal_position(sim);
-        while (!iter->ended()) {
+        for(iter = sim->get_particles_with_goal_positions(); !iter->ended(); iter->step()) {
             auto particle = iter->get();
             goal_positions.push_back(particle.position);
-            iter->step();
         }
-        iter->release();
 
-        for (iter = sb::get_centers_of_masses(sim); !iter->ended(); iter->step()) {
+        for (iter = sim->get_centers_of_masses(); !iter->ended(); iter->step()) {
             auto particle = iter->get();
             centers_of_masses.push_back(particle.position);
         }
-        iter->release();
 
-        for (iter = sb::get_particles_with_predicted_position(sim); !iter->ended(); iter->step()) {
+        for (iter = sim->get_particles_with_predicted_positions(); !iter->ended(); iter->step()) {
             auto particle = iter->get();
             predicted_positions.push_back(particle.position);
         }
-        iter->release();
 
         assert(positions.size() == goal_positions.size());
 
@@ -101,48 +93,37 @@ private:
 
 class Command_Render_Apical_Relations : public gfx::IRender_Command {
 public:
-    Command_Render_Apical_Relations(Softbody_Simulation* sim) : sim(sim) {}
+    Command_Render_Apical_Relations(sb::ISoftbody_Simulation* sim) : sim(sim) {}
 private:
-    Softbody_Simulation* sim;
+    sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
-        auto iter = sb::get_apical_relations(sim);
         std::vector<glm::vec3> lines;
 
-        while(!iter->ended()) {
+        for (auto iter = sim->get_apical_relations(); !iter->ended(); iter->step()) {
             auto rel = iter->get();
             lines.push_back(rel.parent_position);
             lines.push_back(rel.child_position);
-
-            iter->step();
         }
-
-        iter->release();
 
         auto col0 = Vec3(0, 0.5, 0);
         auto col1 = Vec3(0, 1.0, 0);
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), col0, col1);
-
     }
 };
 
 class Command_Render_Lateral_Relations : public gfx::IRender_Command {
 public:
-    Command_Render_Lateral_Relations(Softbody_Simulation* sim) : sim(sim) {}
+    Command_Render_Lateral_Relations(sb::ISoftbody_Simulation* sim) : sim(sim) {}
 private:
-    Softbody_Simulation* sim;
+    sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
-        auto iter = sb::get_lateral_relations(sim);
         std::vector<glm::vec3> lines;
 
-        while(!iter->ended()) {
+        for (auto iter = sim->get_lateral_relations(); !iter->ended(); iter->step()) {
             auto rel = iter->get();
             lines.push_back(rel.parent_position);
             lines.push_back(rel.child_position);
-
-            iter->step();
         }
-
-        iter->release();
 
         auto col0 = Vec3(0.5, 0, 0);
         auto col1 = Vec3(1.0, 0, 0);
@@ -151,8 +132,6 @@ private:
 };
 
 class Render_Grid : public gfx::IRender_Command {
-public:
-    Render_Grid(Softbody_Simulation*) {}
 private:
     virtual void execute(gfx::IRenderer* renderer) override {
         glm::vec3 lines[] = {
@@ -184,27 +163,24 @@ private:
 
 class Visualize_Connections : public gfx::IRender_Command {
 public:
-    Visualize_Connections(Softbody_Simulation* s) : sim(s) {}
+    Visualize_Connections(sb::ISoftbody_Simulation* s) : sim(s) {}
 private:
-    Softbody_Simulation* sim;
+    sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
-        sb::Relation_Iterator* iter;
         std::vector<glm::vec3> lines;
+        sb::Unique_Ptr<sb::Relation_Iterator> iter;
 
-        for (iter = sb::get_connections(sim); !iter->ended(); iter->step()) {
+        for (iter = sim->get_connections(); !iter->ended(); iter->step()) {
             auto rel = iter->get();
             lines.push_back(rel.parent_position);
             lines.push_back(rel.child_position);
         }
-        iter->release();
 
-        for (iter = sb::get_predicted_connections(sim); !iter->ended(); iter->step()) {
+        for (iter = sim->get_predicted_connections(); !iter->ended(); iter->step()) {
             auto rel = iter->get();
             lines.push_back(rel.parent_position);
             lines.push_back(rel.child_position);
         }
-        iter->release();
-
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
     }
@@ -219,11 +195,11 @@ static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
     return cmd;
 }
 
-bool render_softbody_simulation(gfx::Render_Queue* rq, Softbody_Simulation* sim, Softbody_Render_Parameters const& params) {
+bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params) {
     assert(rq != NULL);
     assert(sim != NULL);
 
-    allocate_command_and_initialize<Render_Grid>(rq, sim);
+    allocate_command_and_initialize<Render_Grid>(rq);
     auto render_points = allocate_command_and_initialize<Command_Render_Points>(rq, sim);
     // auto render_apical_branches = allocate_command_and_initialize<Command_Render_Apical_Relations>(rq, sim);
     // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
