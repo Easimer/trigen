@@ -163,82 +163,45 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations(
     return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
 }
 
+#define MAKE_PARTICLE_FACTORY(position_source) \
+    [&](size_t pidx) {                                                          \
+        sb::Particle ret;                                                       \
+        ret.id = pidx;                                                          \
+        ret.position = position_source[pidx];                                   \
+        ret.orientation = orientation[pidx];                                    \
+        ret.size = size[pidx];                                                  \
+        get_head_and_tail_of_particle(                                          \
+            ret.position, longest_axis_normalized(ret.size), ret.orientation,   \
+            &ret.start, &ret.end                                                \
+        );                                                                      \
+                                                                                \
+        return ret;                                                             \
+    };
+
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles() {
     auto pcg = [&]() { return position.size(); };
-
-    auto pf = [&](size_t pidx) {
-        sb::Particle ret;
-        ret.id = pidx;
-        ret.position = position[pidx];
-        ret.orientation = orientation[pidx];
-        ret.size = size[pidx];
-        get_head_and_tail_of_particle(
-            ret.position, longest_axis_normalized(ret.size), ret.orientation,
-            &ret.start, &ret.end
-        );
-
-        return ret;
-    };
+    auto pf = MAKE_PARTICLE_FACTORY(position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_goal_positions() {
     auto pcg = [&]() { return position.size(); };
-
-    auto pf = [&](size_t pidx) {
-        sb::Particle ret;
-        ret.id = pidx;
-        ret.position = goal_position[pidx];
-        ret.orientation = orientation[pidx];
-        ret.size = size[pidx];
-        get_head_and_tail_of_particle(
-            ret.position, longest_axis_normalized(ret.size), ret.orientation,
-            &ret.start, &ret.end
-        );
-
-        return ret;
-    };
+    auto pf = MAKE_PARTICLE_FACTORY(goal_position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_predicted_positions() {
     auto pcg = [&]() { return position.size(); };
-
-    auto pf = [&](size_t pidx) {
-        sb::Particle ret;
-        ret.id = pidx;
-        ret.position = predicted_position[pidx];
-        ret.orientation = orientation[pidx];
-        ret.size = size[pidx];
-        get_head_and_tail_of_particle(
-            ret.position, longest_axis_normalized(ret.size), ret.orientation,
-            &ret.start, &ret.end
-        );
-
-        return ret;
-    };
+    auto pf = MAKE_PARTICLE_FACTORY(predicted_position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_centers_of_masses() {
     auto pcg = [&]() { return position.size(); };
-
-    auto pf = [&](size_t pidx) {
-        sb::Particle ret;
-        ret.id = pidx;
-        ret.position = center_of_mass[pidx];
-        ret.orientation = orientation[pidx];
-        ret.size = size[pidx];
-        get_head_and_tail_of_particle(
-            ret.position, longest_axis_normalized(ret.size), ret.orientation,
-            &ret.start, &ret.end
-        );
-
-        return ret;
-    };
+    auto pf = MAKE_PARTICLE_FACTORY(center_of_mass);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
