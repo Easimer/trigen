@@ -151,12 +151,12 @@ float Softbody_Simulation::get_phdt() {
 
 void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resolution(float phdt) {
     // shape matching constraint
-    predicted_position[0] = Vec3();
     for (unsigned i = 0; i < position.size(); i++) {
         std::array<unsigned, 1> me{ i };
         auto& neighbors = edges[i];
         auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
 
+        // Sum particle weights in the current cluster
         auto M = std::accumulate(
             neighbors.begin(), neighbors.end(),
             mass_of_particle(i),
@@ -203,6 +203,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         auto invRest = bind_pose_inverse_bind_pose[i];
         auto com0 = bind_pose_center_of_mass[i];
 
+        // Center of mass calculated using the predicted positions
         auto com_cur = std::accumulate(
             neighbors.begin(), neighbors.end(),
             mass_of_particle(i) * predicted_position[i],
@@ -213,6 +214,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
 
         center_of_mass[i] = com_cur;
 
+        // Calculates the moment matrix of a single particle
         auto calc_A_i = [&](unsigned i) -> Mat3 {
             auto m_i = mass_of_particle(i);
             auto A_i = 1.0f / 5.0f * glm::diagonal3x3(size[i] * size[i]) * Mat3(orientation[i]);
@@ -220,6 +222,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
             return m_i * (A_i + glm::outerProduct(predicted_position[i], bind_pose[i]) - glm::outerProduct(com_cur, com0));
         };
 
+        // Calculate the cluster moment matrix
         auto A = std::accumulate(
             neighbors.begin(), neighbors.end(),
             calc_A_i(i),
@@ -228,6 +231,9 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
             }
         ) * invRest;
 
+        // Extract the rotational part of A which is the least squares optimal
+        // rotation that transforms the original bind-pose configuration into
+        // the current configuration
         Quat R = predicted_orientation[i];
         mueller_rotation_extraction(A, R);
 
@@ -240,25 +246,27 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         // for (auto idx : neighbors_and_me) {
         {
             auto idx = i;
+            // Bind pose position relative to the center of mass
             auto pos_bind = bind_pose[idx] - com0;
+            // Current position relative to the center of mass
             auto d = predicted_position[idx] - com_cur;
+            // Rotate the bind pose position relative to the CoM
             auto pos_bind_rot = R * pos_bind;
+            // Our goal position
             auto goal = com_cur + pos_bind_rot;
+            // Number of clusters this particle is a member of
             auto numClusters = NUMBER_OF_CLUSTERS(idx);
             auto correction = (goal - predicted_position[idx]) * stiffness;
+            // The correction must be divided by the number of clusters this particle is a member of
             predicted_position[idx] += (1.0f / (float)numClusters) * correction;
             goal_position[idx] = goal;
         }
 
         predicted_orientation[i] = R;
     }
-    predicted_position[0] = Vec3();
 }
 
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
-    // distance constraint
-    predicted_position[0] = Vec3();
-
     for (unsigned i = 0; i < position.size(); i++) {
         auto& neighbors = edges[i];
 
@@ -279,7 +287,6 @@ void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(flo
             predicted_position[j] += -w2 * corr;
         }
     }
-    predicted_position[0] = Vec3();
 }
 
 void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
@@ -295,6 +302,7 @@ void Softbody_Simulation::constraint_resolution(float dt) {
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
         do_one_iteration_of_shape_matching_constraint_resolution(dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
+        do_one_iteration_of_fixed_constraint_resolution(dt);
     }
 }
 
