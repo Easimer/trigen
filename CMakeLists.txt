@@ -109,6 +109,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
+find_package(ComputeCpp REQUIRED)
 
 add_subdirectory(glad)
 add_subdirectory(imgui)

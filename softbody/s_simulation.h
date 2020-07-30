@@ -6,6 +6,7 @@
 #pragma once
 
 #include "common.h"
+#include "softbody.h"
 
 struct System_State {
     Vector<Vec3> bind_pose;
@@ -43,6 +44,8 @@ struct System_State {
     Vector<Vec3> goal_position;
 };
 
+class ICompute_Backend;
+
 class Softbody_Simulation : public sb::ISoftbody_Simulation {
 public:
     Softbody_Simulation(sb::Config const& configuration);
@@ -69,7 +72,6 @@ public:
 
     // manual control
     float get_phdt();
-    void do_one_iteration_of_shape_matching_constraint_resolution(float phdt);
     void do_one_iteration_of_distance_constraint_resolution(float phdt);
     void do_one_iteration_of_fixed_constraint_resolution(float phdt);
 
@@ -78,6 +80,8 @@ public:
     float mass_of_particle(unsigned i);
 
     void invalidate_particle_cache(unsigned pidx);
+
+    sb::Unique_Ptr<ICompute_Backend> compute;
 
     System_State s;
 

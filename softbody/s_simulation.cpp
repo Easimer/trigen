@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <array>
 #include <glm/gtx/matrix_operation.hpp>
+#include "s_compute_backend.h"
 
 // #include <CL/sycl.hpp>
 // namespace sycl = cl::sycl;
@@ -115,6 +116,8 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     }
 
     s.center_of_mass.resize(particle_count());
+
+    compute = Make_Compute_Backend();
 }
 
 void Softbody_Simulation::prediction(float dt) {
@@ -152,123 +155,6 @@ float Softbody_Simulation::get_phdt() {
     return PHYSICS_STEP;
 }
 
-void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resolution(float phdt) {
-    // shape matching constraint
-    for (unsigned i = 0; i < particle_count(); i++) {
-        std::array<unsigned, 1> me{ i };
-        auto& neighbors = s.edges[i];
-        auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
-
-        // Sum particle weights in the current cluster
-        auto M = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            mass_of_particle(i),
-            [&](float acc, unsigned idx) {
-                return acc + mass_of_particle(idx);
-            }
-        );
-
-        assert(M != 0);
-
-        /*
-        // bind pose center of mass
-        auto com0 = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            mass_of_particle(i) * bind_pose[i],
-            [&](Vec3 const& acc, unsigned idx) {
-                return acc + mass_of_particle(idx) * bind_pose[idx];
-            }
-        ) / M;
-
-        auto calc_A_0_i = [&](unsigned i) -> Mat3 {
-            auto q_i = bind_pose[i] - com0;
-            auto m_i = mass_of_particle(i);
-
-            return m_i * glm::outerProduct(q_i, q_i);
-        };
-
-        // A_qq
-        Mat3 A_0 = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            calc_A_0_i(i),
-            [&](auto acc, auto idx) { return acc + calc_A_0_i(idx); }
-        );
-
-        Mat3 invRest;
-
-        if (glm::abs(glm::determinant(A_0)) > glm::epsilon<float>()) {
-            invRest = glm::inverse(A_0);
-        } else {
-            invRest = Mat3(1.0f);
-        }
-        */
-
-        auto invRest = s.bind_pose_inverse_bind_pose[i];
-        auto com0 = s.bind_pose_center_of_mass[i];
-
-        // Center of mass calculated using the predicted positions
-        auto com_cur = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            mass_of_particle(i) * s.predicted_position[i],
-            [&](Vec3 const& acc, unsigned idx) {
-                return acc + mass_of_particle(idx) * s.predicted_position[idx];
-            }
-        ) / M;
-
-        s.center_of_mass[i] = com_cur;
-
-        // Calculates the moment matrix of a single particle
-        auto calc_A_i = [&](unsigned i) -> Mat3 {
-            auto m_i = mass_of_particle(i);
-            auto A_i = 1.0f / 5.0f * glm::diagonal3x3(s.size[i] * s.size[i]) * Mat3(s.orientation[i]);
-
-            return m_i * (A_i + glm::outerProduct(s.predicted_position[i], s.bind_pose[i]) - glm::outerProduct(com_cur, com0));
-        };
-
-        // Calculate the cluster moment matrix
-        auto A = std::accumulate(
-            neighbors.begin(), neighbors.end(),
-            calc_A_i(i),
-            [&](Mat3 const& acc, unsigned idx) -> Mat3 {
-                return acc + calc_A_i(idx);
-            }
-        ) * invRest;
-
-        // Extract the rotational part of A which is the least squares optimal
-        // rotation that transforms the original bind-pose configuration into
-        // the current configuration
-        Quat R = s.predicted_orientation[i];
-        mueller_rotation_extraction(A, R);
-
-        float const stiffness = 1;
-
-        // NOTE(danielm): not sure if we need to correct every particle in the
-        // current cluster/group other than the group owner.
-        // Works either way, but the commented out way would make parallelization
-        // painful.
-        // for (auto idx : neighbors_and_me) {
-        {
-            auto idx = i;
-            // Bind pose position relative to the center of mass
-            auto pos_bind = s.bind_pose[idx] - com0;
-            // Current position relative to the center of mass
-            auto d = s.predicted_position[idx] - com_cur;
-            // Rotate the bind pose position relative to the CoM
-            auto pos_bind_rot = R * pos_bind;
-            // Our goal position
-            auto goal = com_cur + pos_bind_rot;
-            // Number of clusters this particle is a member of
-            auto numClusters = NUMBER_OF_CLUSTERS(idx);
-            auto correction = (goal - s.predicted_position[idx]) * stiffness;
-            // The correction must be divided by the number of clusters this particle is a member of
-            s.predicted_position[idx] += (1.0f / (float)numClusters) * correction;
-            s.goal_position[idx] = goal;
-        }
-
-        s.predicted_orientation[i] = R;
-    }
-}
-
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
     for (unsigned i = 0; i < particle_count(); i++) {
         auto& neighbors = s.edges[i];
@@ -303,7 +189,7 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 
 void Softbody_Simulation::constraint_resolution(float dt) {
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
-        do_one_iteration_of_shape_matching_constraint_resolution(dt);
+        compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
@@ -476,7 +362,7 @@ public:
         }
         case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
         {
-            sim->do_one_iteration_of_shape_matching_constraint_resolution(PHYSICS_STEP);
+            sim->compute->do_one_iteration_of_shape_matching_constraint_resolution(sim->s, PHYSICS_STEP);
             state = Single_Step_State::CONSTRAINT_FIXED;
             break;
         }
