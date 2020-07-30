@@ -12,6 +12,9 @@
 #include <array>
 #include <glm/gtx/matrix_operation.hpp>
 
+// #include <CL/sycl.hpp>
+// namespace sycl = cl::sycl;
+
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
@@ -94,11 +97,11 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     auto siz = Vec3(0.25, 0.25, 0.5);
     auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
     auto idx_root = add_particle(o, siz, 1);
-    orientation[idx_root] = x90;
+    s.orientation[idx_root] = x90;
     auto prev = idx_root;
     for (int i = 0; i < 1024; i++) {
         auto cur = add_particle(o + Vec3((i + 1) * 0.5f, 0, 0), siz, 1);
-        orientation[cur] = x90;
+        s.orientation[cur] = x90;
         connect_particles(prev, cur);
         prev = cur;
     }
@@ -111,39 +114,39 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
         params.particle_count_limit = SIM_SIZE_LIMIT;
     }
 
-    center_of_mass.resize(position.size());
+    s.center_of_mass.resize(particle_count());
 }
 
 void Softbody_Simulation::prediction(float dt) {
-    predicted_position.resize(position.size());
-    predicted_orientation.resize(orientation.size());
-    center_of_mass.resize(position.size());
-    for (unsigned i = 0; i < position.size(); i++) {
+    s.predicted_position.resize(particle_count());
+    s.predicted_orientation.resize(s.orientation.size());
+    s.center_of_mass.resize(particle_count());
+    for (unsigned i = 0; i < particle_count(); i++) {
         // prediction step
 #if 1
         auto external_forces = Vec3(0, -10, 0);
 #else
         auto external_forces = Vec3(0, 0, 0);
 #endif
-        auto v = velocity[i] + dt * (1 / mass_of_particle(i)) * external_forces;
-        auto pos = position[i] + dt * v;
+        auto v = s.velocity[i] + dt * (1 / mass_of_particle(i)) * external_forces;
+        auto pos = s.position[i] + dt * v;
 
-        auto ang_v = glm::length(angular_velocity[i]);
+        auto ang_v = glm::length(s.angular_velocity[i]);
         Quat q;
         if (ang_v < 0.01) {
             // Angular velocity is too small; for stability reasons we keep
             // the old orientation
-            q = orientation[i];
+            q = s.orientation[i];
         } else {
-            q = Quat(glm::cos(ang_v * dt / 2.0f), angular_velocity[i] / ang_v * glm::sin(ang_v * dt / 2.0f));
+            q = Quat(glm::cos(ang_v * dt / 2.0f), s.angular_velocity[i] / ang_v * glm::sin(ang_v * dt / 2.0f));
         }
 
-        predicted_position[i] = pos;
-        predicted_orientation[i] = q;
+        s.predicted_position[i] = pos;
+        s.predicted_orientation[i] = q;
     }
 }
 
-#define NUMBER_OF_CLUSTERS(idx) (edges[(idx)].size() + 1)
+#define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
 float Softbody_Simulation::get_phdt() {
     return PHYSICS_STEP;
@@ -151,9 +154,9 @@ float Softbody_Simulation::get_phdt() {
 
 void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resolution(float phdt) {
     // shape matching constraint
-    for (unsigned i = 0; i < position.size(); i++) {
+    for (unsigned i = 0; i < particle_count(); i++) {
         std::array<unsigned, 1> me{ i };
-        auto& neighbors = edges[i];
+        auto& neighbors = s.edges[i];
         auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
 
         // Sum particle weights in the current cluster
@@ -200,26 +203,26 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         }
         */
 
-        auto invRest = bind_pose_inverse_bind_pose[i];
-        auto com0 = bind_pose_center_of_mass[i];
+        auto invRest = s.bind_pose_inverse_bind_pose[i];
+        auto com0 = s.bind_pose_center_of_mass[i];
 
         // Center of mass calculated using the predicted positions
         auto com_cur = std::accumulate(
             neighbors.begin(), neighbors.end(),
-            mass_of_particle(i) * predicted_position[i],
+            mass_of_particle(i) * s.predicted_position[i],
             [&](Vec3 const& acc, unsigned idx) {
-                return acc + mass_of_particle(idx) * predicted_position[idx];
+                return acc + mass_of_particle(idx) * s.predicted_position[idx];
             }
         ) / M;
 
-        center_of_mass[i] = com_cur;
+        s.center_of_mass[i] = com_cur;
 
         // Calculates the moment matrix of a single particle
         auto calc_A_i = [&](unsigned i) -> Mat3 {
             auto m_i = mass_of_particle(i);
-            auto A_i = 1.0f / 5.0f * glm::diagonal3x3(size[i] * size[i]) * Mat3(orientation[i]);
+            auto A_i = 1.0f / 5.0f * glm::diagonal3x3(s.size[i] * s.size[i]) * Mat3(s.orientation[i]);
 
-            return m_i * (A_i + glm::outerProduct(predicted_position[i], bind_pose[i]) - glm::outerProduct(com_cur, com0));
+            return m_i * (A_i + glm::outerProduct(s.predicted_position[i], s.bind_pose[i]) - glm::outerProduct(com_cur, com0));
         };
 
         // Calculate the cluster moment matrix
@@ -234,7 +237,7 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         // Extract the rotational part of A which is the least squares optimal
         // rotation that transforms the original bind-pose configuration into
         // the current configuration
-        Quat R = predicted_orientation[i];
+        Quat R = s.predicted_orientation[i];
         mueller_rotation_extraction(A, R);
 
         float const stiffness = 1;
@@ -247,44 +250,44 @@ void Softbody_Simulation::do_one_iteration_of_shape_matching_constraint_resoluti
         {
             auto idx = i;
             // Bind pose position relative to the center of mass
-            auto pos_bind = bind_pose[idx] - com0;
+            auto pos_bind = s.bind_pose[idx] - com0;
             // Current position relative to the center of mass
-            auto d = predicted_position[idx] - com_cur;
+            auto d = s.predicted_position[idx] - com_cur;
             // Rotate the bind pose position relative to the CoM
             auto pos_bind_rot = R * pos_bind;
             // Our goal position
             auto goal = com_cur + pos_bind_rot;
             // Number of clusters this particle is a member of
             auto numClusters = NUMBER_OF_CLUSTERS(idx);
-            auto correction = (goal - predicted_position[idx]) * stiffness;
+            auto correction = (goal - s.predicted_position[idx]) * stiffness;
             // The correction must be divided by the number of clusters this particle is a member of
-            predicted_position[idx] += (1.0f / (float)numClusters) * correction;
-            goal_position[idx] = goal;
+            s.predicted_position[idx] += (1.0f / (float)numClusters) * correction;
+            s.goal_position[idx] = goal;
         }
 
-        predicted_orientation[i] = R;
+        s.predicted_orientation[i] = R;
     }
 }
 
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
-    for (unsigned i = 0; i < position.size(); i++) {
-        auto& neighbors = edges[i];
+    for (unsigned i = 0; i < particle_count(); i++) {
+        auto& neighbors = s.edges[i];
 
         auto w1 = 1 / mass_of_particle(i);
         for (auto j : neighbors) {
             auto w2 = 1 / mass_of_particle(j);
             auto w = w1 + w2;
 
-            auto n = predicted_position[j] - predicted_position[i];
+            auto n = s.predicted_position[j] - s.predicted_position[i];
             auto d = glm::length(n);
             n = glm::normalize(n);
-            auto restLength = glm::length(bind_pose[j] - bind_pose[i]);
+            auto restLength = glm::length(s.bind_pose[j] - s.bind_pose[i]);
 
             auto stiffness = params.stiffness;
             auto corr = stiffness * n * (d - restLength) / w;
 
-            predicted_position[i] += w1 * corr;
-            predicted_position[j] += -w2 * corr;
+            s.predicted_position[i] += w1 * corr;
+            s.predicted_position[j] += -w2 * corr;
         }
     }
 }
@@ -294,7 +297,7 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
     auto particles = { 0 };
 
     for (auto i : particles) {
-        predicted_position[i] = Vec3();
+        s.predicted_position[i] = Vec3();
     }
 }
 
@@ -307,20 +310,20 @@ void Softbody_Simulation::constraint_resolution(float dt) {
 }
 
 void Softbody_Simulation::integration(float dt) {
-    for (unsigned i = 0; i < position.size(); i++) {
-        velocity[i] = (predicted_position[i] - position[i]) / dt;
-        position[i] = predicted_position[i];
+    for (unsigned i = 0; i < particle_count(); i++) {
+        s.velocity[i] = (s.predicted_position[i] - s.position[i]) / dt;
+        s.position[i] = s.predicted_position[i];
 
-        auto r_tmp = predicted_orientation[i] * glm::conjugate(orientation[i]);
+        auto r_tmp = s.predicted_orientation[i] * glm::conjugate(s.orientation[i]);
         auto r = (r_tmp.w < 0) ? -r_tmp : r_tmp;
         auto q_angle = glm::angle(r);
         if (glm::abs(q_angle) < 0.1) {
-            angular_velocity[i] = Vec3(0, 0, 0);
+            s.angular_velocity[i] = Vec3(0, 0, 0);
         } else {
-            angular_velocity[i] = glm::axis(r) * q_angle / dt;
+            s.angular_velocity[i] = glm::axis(r) * q_angle / dt;
         }
 
-        orientation[i] = predicted_orientation[i];
+        s.orientation[i] = s.predicted_orientation[i];
         // TODO(danielm): friction?
     }
 }
@@ -329,18 +332,18 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
     Vec3 zero(0, 0, 0);
-    unsigned const index = position.size();
-    bind_pose.push_back(p_pos);
-    position.push_back(p_pos);
-    predicted_position.push_back(p_pos);
-    velocity.push_back(zero);
-    angular_velocity.push_back(zero);
-    goal_position.push_back(p_pos);
-    size.push_back(p_size);
-    density.push_back(p_density);
-    orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    unsigned const index = particle_count();
+    s.bind_pose.push_back(p_pos);
+    s.position.push_back(p_pos);
+    s.predicted_position.push_back(p_pos);
+    s.velocity.push_back(zero);
+    s.angular_velocity.push_back(zero);
+    s.goal_position.push_back(p_pos);
+    s.size.push_back(p_size);
+    s.density.push_back(p_density);
+    s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     //age.push_back(0);
-    edges[index] = {};
+    s.edges[index] = {};
 
     invalidate_particle_cache(index);
 
@@ -349,25 +352,25 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
 
 void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
     assert(!assert_parallel);
-    assert(a < position.size());
-    assert(b < position.size());
+    assert(a < particle_count());
+    assert(b < particle_count());
 
-    edges[a].push_back(b);
-    edges[b].push_back(a);
+    s.edges[a].push_back(b);
+    s.edges[b].push_back(a);
 
     invalidate_particle_cache(a);
     invalidate_particle_cache(b);
 }
 
 float Softbody_Simulation::mass_of_particle(unsigned i) {
-    auto const d_i = density[i];
-    auto const s_i = size[i];
+    auto const d_i = s.density[i];
+    auto const s_i = s.size[i];
     auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
     return m_i;
 }
 
 void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
-    auto& neighbors = edges[pidx];
+    auto& neighbors = s.edges[pidx];
 
     auto M = std::accumulate(
         neighbors.begin(), neighbors.end(),
@@ -379,14 +382,14 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
 
     auto com0 = std::accumulate(
         neighbors.begin(), neighbors.end(),
-        mass_of_particle(pidx) * bind_pose[pidx],
+        mass_of_particle(pidx) * s.bind_pose[pidx],
         [&](Vec3 const& acc, unsigned idx) {
-            return acc + mass_of_particle(idx) * bind_pose[idx];
+            return acc + mass_of_particle(idx) * s.bind_pose[idx];
         }
     ) / M;
 
     auto calc_A_0_i = [&](unsigned i) -> Mat3 {
-        auto q_i = bind_pose[i] - com0;
+        auto q_i = s.bind_pose[i] - com0;
         auto m_i = mass_of_particle(i);
 
         return m_i * glm::outerProduct(q_i, q_i);
@@ -408,16 +411,16 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
     }
 
     size_t i = pidx;
-    if (bind_pose_center_of_mass.size() <= i) {
-        bind_pose_center_of_mass.resize(i + 1);
+    if (s.bind_pose_center_of_mass.size() <= i) {
+        s.bind_pose_center_of_mass.resize(i + 1);
     }
 
-    if (bind_pose_inverse_bind_pose.size() <= i) {
-        bind_pose_inverse_bind_pose.resize(i + 1);
+    if (s.bind_pose_inverse_bind_pose.size() <= i) {
+        s.bind_pose_inverse_bind_pose.resize(i + 1);
     }
 
-    bind_pose_center_of_mass[i] = com0;
-    bind_pose_inverse_bind_pose[i] = invRest;
+    s.bind_pose_center_of_mass[i] = com0;
+    s.bind_pose_inverse_bind_pose[i] = invRest;
 }
 
 sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {

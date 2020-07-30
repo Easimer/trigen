@@ -150,13 +150,13 @@ private:
 };
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations() {
-    auto get_map = [&]() -> decltype(apical_child)& { return apical_child; };
+    auto get_map = [&]() -> decltype(s.apical_child)& { return s.apical_child; };
     auto make_relation = [&](unsigned lhs, unsigned rhs) {
         return sb::Relation {
             lhs,
-            position[lhs],
+            s.position[lhs],
             rhs,
-            position[rhs],
+            s.position[rhs],
         };
     };
 
@@ -167,9 +167,9 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations(
     [&](size_t pidx) {                                                          \
         sb::Particle ret;                                                       \
         ret.id = pidx;                                                          \
-        ret.position = position_source[pidx];                                   \
-        ret.orientation = orientation[pidx];                                    \
-        ret.size = size[pidx];                                                  \
+        ret.position = s.position_source[pidx];                                 \
+        ret.orientation = s.orientation[pidx];                                  \
+        ret.size = s.size[pidx];                                                \
         get_head_and_tail_of_particle(                                          \
             ret.position, longest_axis_normalized(ret.size), ret.orientation,   \
             &ret.start, &ret.end                                                \
@@ -179,41 +179,41 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations(
     };
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles() {
-    auto pcg = [&]() { return position.size(); };
+    auto pcg = [&]() { return s.position.size(); };
     auto pf = MAKE_PARTICLE_FACTORY(position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_goal_positions() {
-    auto pcg = [&]() { return position.size(); };
+    auto pcg = [&]() { return s.position.size(); };
     auto pf = MAKE_PARTICLE_FACTORY(goal_position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_with_predicted_positions() {
-    auto pcg = [&]() { return position.size(); };
+    auto pcg = [&]() { return s.position.size(); };
     auto pf = MAKE_PARTICLE_FACTORY(predicted_position);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_centers_of_masses() {
-    auto pcg = [&]() { return position.size(); };
+    auto pcg = [&]() { return s.position.size(); };
     auto pf = MAKE_PARTICLE_FACTORY(center_of_mass);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
 }
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_lateral_relations() {
-    auto get_map = [&]() -> decltype(lateral_bud)& { return lateral_bud; };
+    auto get_map = [&]() -> decltype(s.lateral_bud)& { return s.lateral_bud; };
     auto make_relation = [&](unsigned lhs, unsigned rhs) {
         return sb::Relation {
             lhs,
-            position[lhs],
+            s.position[lhs],
             rhs,
-            position[rhs],
+            s.position[rhs],
         };
     };
 
@@ -221,13 +221,13 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_lateral_relations
 }
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {
-    auto get_map = [&]() -> decltype(edges)& { return edges; };
+    auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
     auto make_relation = [&](unsigned lhs, unsigned rhs) {
         return sb::Relation {
             lhs,
-            position[lhs],
+            s.position[lhs],
             rhs,
-            position[rhs],
+            s.position[rhs],
         };
     };
 
@@ -235,13 +235,13 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {
 }
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_predicted_connections() {
-    auto get_map = [&]() -> decltype(edges)& { return edges; };
+    auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
     auto make_relation = [&](unsigned lhs, unsigned rhs) {
         return sb::Relation {
             lhs,
-            predicted_position[lhs],
+            s.predicted_position[lhs],
             rhs,
-            predicted_position[rhs],
+            s.predicted_position[rhs],
         };
     };
 
