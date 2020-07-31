@@ -380,7 +380,14 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
             try {
                 platform.getDevices(CL_DEVICE_TYPE_GPU, &devices_buffer);
                 devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
-            } catch (std::exception&) {
+            } catch (std::exception& e1) {
+                printf("sb: couldn't enumerate OpenCL GPU devices: %s\n", e1.what());
+                try {
+                    platform.getDevices(CL_DEVICE_TYPE_CPU, &devices_buffer);
+                    devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
+                } catch (std::exception& e2) {
+                    printf("sb: couldn't enumerate OpenCL CPU devices: %s\n", e2.what());
+                }
             }
         }
 
@@ -402,7 +409,7 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
             }
         }
     } catch(std::exception& e) {
-        printf("sb: ex: %s\n", e.what());
+        printf("sb: couldn't create CL backend: %s\n", e.what());
     }
 
     fprintf(stderr, "sb: can't make CL compute backend\n");
