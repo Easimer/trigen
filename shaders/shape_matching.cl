@@ -71,6 +71,10 @@ void mat_mul_main(
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
+#ifndef M_PI
+#define M_PI 3.1415926f
+#endif
+
 __kernel
 void calculate_particle_masses(
     __global float4* sizes,

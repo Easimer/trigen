@@ -21,7 +21,7 @@
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenCL/cl.hpp>
 #else
-#include <CL/cl.hpp>
+#include <CL/cl2.hpp>
 #endif
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
@@ -31,8 +31,10 @@ class calc_mass;
 class Compute_CL : public ICompute_Backend {
 public:
     Compute_CL(cl::Context&& _ctx, cl::Program&& _program)
-        : ctx(std::move(_ctx)), program(std::move(_program)), queue(ctx)
+        : ctx(std::move(_ctx)), program(std::move(_program))
     {
+        queue = cl::CommandQueue(ctx);
+
         assert(sanity_check_mat_mul());
         assert(sanity_check_mueller_rotation_extraction());
     }
@@ -77,7 +79,7 @@ private:
         cl::Buffer d_densities(ctx, s.density.begin(), s.density.end(), true);
         cl::Buffer d_masses(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, N * sizeof(float));
 
-        cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer> kernel(program, "calculate_particle_masses");
+        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_particle_masses");
 
         queue.enqueueWriteBuffer(d_densities, CL_FALSE, 0, N * sizeof(float), s.density.data());
         queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, N * 4 * sizeof(float), h_sizes.data());
@@ -106,7 +108,7 @@ private:
         cl::Buffer d_A(ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 3 * 16 * sizeof(float));
         cl::Buffer d_q(ctx, CL_MEM_READ_WRITE, 3 * 4 * sizeof(float));
 
-        cl::make_kernel<cl::Buffer, cl::Buffer> kernel(program, "mueller_rotation_extraction");
+        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer>(program, "mueller_rotation_extraction");
 
         queue.enqueueWriteBuffer(d_A, CL_FALSE, 0, 3 * 16 * sizeof(float), matrices);
         queue.enqueueWriteBuffer(d_q, CL_FALSE, 0, 3 *  4 * sizeof(float), approx);
@@ -153,7 +155,7 @@ private:
         cl::Buffer d_rhs(ctx, glm::value_ptr(rhs), glm::value_ptr(rhs) + 16, true);
         cl::Buffer d_out(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, 16 * sizeof(float));
 
-        cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer> kernel(program, "mat_mul_main");
+        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "mat_mul_main");
 
         queue.enqueueWriteBuffer(d_lhs, CL_FALSE, 0, 16 * sizeof(float), glm::value_ptr(lhs));
         queue.enqueueWriteBuffer(d_rhs, CL_FALSE, 0, 16 * sizeof(float), glm::value_ptr(rhs));
@@ -256,7 +258,7 @@ private:
             h_A.push_back(glm::mat4(A));
         }
 
-        cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer> kernel(program, "calculate_optimal_rotation");
+        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_optimal_rotation");
 
         queue.enqueueWriteBuffer(d_A, CL_FALSE, 0, N * 16 * sizeof(float), h_A.data());
         queue.enqueueWriteBuffer(d_invRest, CL_FALSE, 0, N * 16 * sizeof(float), h_invRest.data());
@@ -380,13 +382,13 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
             try {
                 platform.getDevices(CL_DEVICE_TYPE_GPU, &devices_buffer);
                 devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
-            } catch (std::exception& e1) {
-                printf("sb: couldn't enumerate OpenCL GPU devices: %s\n", e1.what());
+            } catch (cl::Error& e1) {
+                printf("sb: couldn't enumerate OpenCL GPU devices: [%d] %s\n", e1.err(), e1.what());
                 try {
                     platform.getDevices(CL_DEVICE_TYPE_CPU, &devices_buffer);
                     devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
-                } catch (std::exception& e2) {
-                    printf("sb: couldn't enumerate OpenCL CPU devices: %s\n", e2.what());
+                } catch (cl::Error& e2) {
+                    printf("sb: couldn't enumerate OpenCL CPU devices: [%d] %s\n", e2.err(), e2.what());
                 }
             }
         }
@@ -408,8 +410,8 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
                 return std::make_unique<Compute_CL>(std::move(ctx), std::move(*program));
             }
         }
-    } catch(std::exception& e) {
-        printf("sb: couldn't create CL backend: %s\n", e.what());
+    } catch(cl::Error& e) {
+        printf("sb: couldn't create CL backend: [%d] %s\n", e.err(), e.what());
     }
 
     fprintf(stderr, "sb: can't make CL compute backend\n");
