@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 #include <glm/vec3.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace sb {
     template<typename T, typename Deleter = std::default_delete<T>>

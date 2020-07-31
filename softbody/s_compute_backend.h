@@ -18,12 +18,10 @@ public:
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
-
-// TODO(danielm):
-inline sb::Unique_Ptr<ICompute_Backend> Make_SYCL_Backend() { return NULL; }
+sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend();
 
 inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend() {
-    auto ret = Make_SYCL_Backend();
+    auto ret = Make_CL_Backend();
 
     if (ret == NULL) {
         ret = Make_Reference_Backend();

@@ -9,6 +9,7 @@
 #include <mutex>
 #include <queue>
 #include <unordered_map>
+#include <functional>
 
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
