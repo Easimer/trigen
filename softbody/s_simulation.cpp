@@ -188,6 +188,8 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 }
 
 void Softbody_Simulation::constraint_resolution(float dt) {
+    compute->begin_new_frame(s);
+
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
         compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         do_one_iteration_of_distance_constraint_resolution(dt);

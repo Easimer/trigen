@@ -14,6 +14,7 @@ class ICompute_Backend {
 public:
     virtual ~ICompute_Backend() {}
 
+    virtual void begin_new_frame(System_State const& sim) = 0;
     virtual void do_one_iteration_of_shape_matching_constraint_resolution(System_State& sim, float phdt) = 0;
 };
 

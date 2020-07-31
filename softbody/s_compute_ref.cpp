@@ -11,6 +11,8 @@
 #include "softbody.h"
 #include "l_iterators.h"
 #include "s_compute_backend.h"
+#define SB_BENCHMARK (1)
+#include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm\gtx\matrix_operation.hpp>
 
@@ -28,10 +30,15 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
         return s.position.size();
     }
 
+    void begin_new_frame(System_State const& sim) override {}
+
     void do_one_iteration_of_shape_matching_constraint_resolution(
         System_State& s,
         float phdt
     ) override {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
+
         // shape matching constraint
         for (unsigned i = 0; i < particle_count(s); i++) {
             std::array<unsigned, 1> me{ i };
@@ -113,6 +120,9 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
 
             s.predicted_orientation[i] = R;
         }
+
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT();
     }
 };
 

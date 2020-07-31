@@ -1,6 +1,6 @@
 ﻿// === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
 //
-// Purpose: SYCL computation backend
+// Purpose: OpenCL computation backend
 //
 
 #include "stdafx.h"
@@ -11,6 +11,8 @@
 #include "softbody.h"
 #include "l_iterators.h"
 #include "s_compute_backend.h"
+#define SB_BENCHMARK (1)
+#include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm\gtx\matrix_operation.hpp>
 
@@ -39,6 +41,8 @@ private:
     cl::Program program;
     cl::CommandQueue queue;
 
+    cl::Buffer d_A, d_invRest, d_q;
+
     float mass_of_particle(System_State const& s, unsigned i) const {
         auto const d_i = s.density[i];
         auto const s_i = s.size[i];
@@ -48,6 +52,13 @@ private:
 
     size_t particle_count(System_State const& s) const {
         return s.position.size();
+    }
+
+    void begin_new_frame(System_State const& sim) override {
+        auto const N = particle_count(sim);
+        d_A = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
+        d_invRest = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
+        d_q = cl::Buffer(ctx, CL_MEM_READ_WRITE, N * 4 * sizeof(float));
     }
 
     Vector<float> calculate_particle_masses(System_State & s) {
@@ -185,9 +196,15 @@ private:
         System_State& s,
         float phdt
     ) override {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
+
         auto const N = particle_count(s);
         std::vector<glm::mat4> h_A;
-        // shape matching constraint
+        std::vector<glm::mat4> h_invRest;
+        h_A.reserve(N);
+        h_invRest.reserve(N);
+
         for (unsigned i = 0; i < N; i++) {
             std::array<unsigned, 1> me{ i };
             auto& neighbors = s.edges[i];
@@ -233,20 +250,19 @@ private:
                 [&](Mat3 const& acc, unsigned idx) -> Mat3 {
                     return acc + calc_A_i(idx);
                 }
-            ) * invRest;
+            );
 
+            h_invRest.push_back(glm::mat4(invRest));
             h_A.push_back(glm::mat4(A));
         }
 
-        cl::Buffer d_A(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
-        cl::Buffer d_q(ctx, CL_MEM_READ_WRITE, N * 4 * sizeof(float));
-
-        cl::make_kernel<cl::Buffer, cl::Buffer> kernel(program, "mueller_rotation_extraction");
+        cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer> kernel(program, "calculate_optimal_rotation");
 
         queue.enqueueWriteBuffer(d_A, CL_FALSE, 0, N * 16 * sizeof(float), h_A.data());
+        queue.enqueueWriteBuffer(d_invRest, CL_FALSE, 0, N * 16 * sizeof(float), h_invRest.data());
         queue.enqueueWriteBuffer(d_q, CL_FALSE, 0, N *  4 * sizeof(float), s.predicted_orientation.data());
 
-        kernel(cl::EnqueueArgs(queue, cl::NDRange(N)), d_A, d_q);
+        kernel(cl::EnqueueArgs(queue, cl::NDRange(N)), d_A, d_invRest, d_q);
 
         struct Particle_Correction_Info {
             Vec3 pos_bind;
@@ -286,6 +302,9 @@ private:
             s.predicted_position[i] += inf.inv_numClusters * correction;
             s.goal_position[i] = goal;
         }
+
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT();
     }
 };
 
