@@ -57,10 +57,6 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
     // Detect open-source Intel drivers
     is_intel_gpu = (strcmp((char*)glGetString(GL_VENDOR), "Intel Open Source Technology Center") == 0);
 
-    if (!is_intel_gpu) {
-        printf("GL Vendor: %s\n", glGetString(GL_VENDOR));
-    }
-
     char const* pszVersion = "#version 330 core\n";
     char const* pszLineReset = "#line -1\n";
 
@@ -69,6 +65,11 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
     }
 
     sources.push_back(pszVersion);
+
+    if (is_intel_gpu) {
+        sources.push_back("#define VAO_LAYOUT(i)\n");
+    }
+
     for (auto& def : defines) {
         char buf[64];
         snprintf(buf, 63, "#define %s %s\n", def.key.c_str(), def.value.c_str());

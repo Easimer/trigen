@@ -3,7 +3,11 @@
 // Purpose: Ellipsoid raymarching vertex shader
 //
 
-layout (location = 0) in vec2 aPosition;
+#ifndef VAO_LAYOUT
+#define VAO_LAYOUT(i) layout (location = i)
+#endif
+
+VAO_LAYOUT(0) in vec2 aPosition;
 
 out vec2 vUV;
 

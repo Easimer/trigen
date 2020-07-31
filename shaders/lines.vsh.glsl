@@ -1,5 +1,9 @@
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in float fT;
+#ifndef VAO_LAYOUT
+#define VAO_LAYOUT(i) layout (location = i)
+#endif
+
+VAO_LAYOUT(0) in vec3 aPosition;
+VAO_LAYOUT(1) in float fT;
 
 uniform mat4 matMVP;
 
