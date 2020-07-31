@@ -54,8 +54,21 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
     std::vector<std::string> defines_fmt;
     std::vector<char const*> sources;
 
+    bool is_intel_gpu = false;
+
+    // Detect open-source Intel drivers
+    is_intel_gpu = (strcmp((char*)glGetString(GL_VENDOR), "Intel Open Source Technology Center") == 0);
+
+    if (!is_intel_gpu) {
+        printf("GL Vendor: %s\n", glGetString(GL_VENDOR));
+    }
+
     char const* pszVersion = "#version 330 core\n";
     char const* pszLineReset = "#line -1\n";
+
+    if (is_intel_gpu) {
+        pszVersion = "#version 130\n";
+    }
 
     sources.push_back(pszVersion);
     for (auto& def : defines) {
@@ -64,7 +77,11 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
         defines_fmt.push_back(std::string((char const*)buf));
         sources.push_back(defines_fmt.back().c_str());
     }
-    sources.push_back(pszLineReset);
+
+    if (!is_intel_gpu) {
+        sources.push_back(pszLineReset);
+    }
+
     sources.push_back(pszSource);
 
     glShaderSource(shader, sources.size(), sources.data(), NULL);
