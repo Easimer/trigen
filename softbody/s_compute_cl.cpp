@@ -17,7 +17,7 @@
 #include <glm/gtx/matrix_operation.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#define __CL_ENABLE_EXCEPTIONS
+#define CL_HPP_ENABLE_EXCEPTIONS 1
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenCL/cl.hpp>
 #else
