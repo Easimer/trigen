@@ -3,7 +3,7 @@
 // Purpose: Ellipsoid raymarching pixel shader
 //
 
-// NOTE: BATCH_SIZED will be inserted at runtime by the renderer
+// NOTE: BATCH_SIZE will be inserted at runtime by the renderer
 // #define BATCH_SIZE (N)
 
 // Distance to the near clipping plane
@@ -11,9 +11,9 @@
 // Distance to the far clipping plane
 #define FAR_CLIPPING_PLANE 256.0
 // Number of raymarching steps
-#define STEPS_N 32
+#define STEPS_N 16
 // Epsilon value
-#define EPSILON 0.01
+#define EPSILON 0.0001
 // Distance bias
 #define DISTANCE_BIAS 1.0
 // Set this to 1 to return early during raymarching steps if the
@@ -22,17 +22,17 @@
 // profile this somehow.
 #define RETURN_EARLY 1
 
-// Screen coordinates, x,y in [-1, 1]
-in vec2 vUV;
+// Screen coordinates, x,y in [-1, 1], z=0, w=1
+in vec4 vUV;
 // Fragment color
 out vec4 vFrag;
 
 // Particle positions
-uniform vec3 vTranslation[BATCH_SIZE];
+uniform vec4 vTranslation[BATCH_SIZE];
 // Particle inverse rotations
-uniform mat3 matInvRotation[BATCH_SIZE];
+uniform mat4 matInvRotation[BATCH_SIZE];
 // Particle sizes
-uniform vec3 vSize[BATCH_SIZE];
+uniform vec4 vSize[BATCH_SIZE];
 // Particle color
 uniform vec3 vColor;
 
@@ -64,10 +64,13 @@ float sdEllipsoid(vec3 p, vec3 r) {
 float scene(vec3 p) {
     float ret = FAR_CLIPPING_PLANE;
 
+	vec4 p4 = vec4(p, 1);
+
     for(int i = 0; i < BATCH_SIZE; i++) {
         // Transform the sample point into model space
-        vec3 sp = matInvRotation[i] * (p - vTranslation[i]);
-        ret = min(ret, sdEllipsoid(sp, vSize[i]));
+        //vec3 sp = matInvRotation[i] * (p - vTranslation[i]);
+		vec3 sp = (matInvRotation[i] * (p4 - vTranslation[i])).xyz;
+        ret = min(ret, sdEllipsoid(sp, vSize[i].xyz));
     }
 	
 	return ret;
@@ -102,7 +105,8 @@ struct Ray {
  * @return Ray origin and direction
  */
 Ray getRay() {
-    vec4 near = vec4(vUV, 0.0, 1.0);
+    //vec4 near = vec4(vUV, 0.0, 1.0);
+	vec4 near = vUV;
 	near = matInvVP * near;
     vec4 far = near + matInvVP[2];
     near.xyz /= near.w;

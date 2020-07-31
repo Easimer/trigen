@@ -5,15 +5,19 @@ Acquire these:
 - CMake
 - SDL2 development libraries
 - SDL2_ttf development libraries
+- OpenCL development libraries
 
 On Windows, download and install CMake from [their website](https://cmake.org/download/);
 then either build SDL2/SDL2_ttf from source or
 download the prebuilt libraries from <https://libsdl.org/download-2.0.php> and
 <https://www.libsdl.org/projects/SDL_ttf/> (e.g. if you use MSVC you will need SDL2-devel-2.0.12-VC.zip and  SDL2_ttf-devel-2.0.15-VC.zip).
+To install OpenCL you'll need the development package appropriate for your platform:
+- NVIDIA CUDA Toolkit: https://developer.nvidia.com/cuda-toolkit
+- Intel OpenCL SDK: https://software.seek.intel.com/intel-opencl?os=windows
 
-On Linux, download and install CMake, SDL2 and SDL2_ttf from your package manager.
-On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev`.
-On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-devel SDL2_ttf-devel SDL2-static`.
+On Linux, download and install CMake, SDL2, SDL2_ttf and OpenCL from your package manager.
+On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev ocl-icd-opencl-dev`.
+On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-devel SDL2_ttf-devel SDL2-static ocl-icd-devel`.
 
 Now, configure and generate the build scripts using CMake. You can build either out-of-tree or in-tree. 
 

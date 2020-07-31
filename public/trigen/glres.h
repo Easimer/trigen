@@ -196,6 +196,16 @@ namespace gl {
     inline void SetUniformLocationArray<glm::mat3>(Uniform_Location<glm::mat3*> const& uiLoc, glm::mat3 const* matMatrix, unsigned count) {
         glUniformMatrix3fv(uiLoc, count, GL_FALSE, (float*)matMatrix);
     }
+
+    template<>
+    inline void SetUniformLocationArray<glm::vec4>(Uniform_Location<glm::vec4*> const& uiLoc, glm::vec4 const* vVec, unsigned count) {
+        glUniform4fv(uiLoc, count, (float const*)vVec);
+    }
+
+    template<>
+    inline void SetUniformLocationArray<glm::mat4>(Uniform_Location<glm::mat4*> const& uiLoc, glm::mat4 const* matMatrix, unsigned count) {
+        glUniformMatrix4fv(uiLoc, count, GL_FALSE, (float*)matMatrix);
+    }
 #else
     template<>
     inline void SetUniformLocation<lm::Matrix4>(Uniform_Location<lm::Matrix4> const& uiLoc, lm::Matrix4 const& matMatrix) {

@@ -21,8 +21,6 @@
 #define SDF_BATCH_SIZE_ORDER (5)
 #define SDF_BATCH_SIZE (1 << SDF_BATCH_SIZE_ORDER)
 
-#define UNIFORM_BLOCK_SLOT_PARTICLE_DATA (2)
-
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
     if (length == 0) return;
@@ -183,8 +181,6 @@ public:
                 snprintf(buf, 63, "%d", 1 << order);
                 defines[0].value = (char const*)buf;
                 LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", defines, m_sdf_ellipsoid_batch[order]);
-                auto bidxEllipsoids = glGetUniformBlockIndex(*m_sdf_ellipsoid_batch[order], "ellipsoids");
-                glUniformBlockBinding(*m_sdf_ellipsoid_batch[order], bidxEllipsoids, UNIFORM_BLOCK_SLOT_PARTICLE_DATA);
             }
 
             glEnable(GL_DEPTH_TEST);
@@ -306,9 +302,9 @@ public:
 
             auto locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
             auto locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
-            auto locSiz = gl::Uniform_Location<Vec3*>(*shader, "vSize");
-            auto locTranslation = gl::Uniform_Location<Vec3*>(*shader, "vTranslation");
-            auto locInvRotation = gl::Uniform_Location<Mat3*>(*shader, "matInvRotation");
+            auto locSiz = gl::Uniform_Location<glm::vec4*>(*shader, "vSize");
+            auto locTranslation = gl::Uniform_Location<glm::vec4*>(*shader, "vTranslation");
+            auto locInvRotation = gl::Uniform_Location<glm::mat4*>(*shader, "matInvRotation");
             auto locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
             auto locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
 
@@ -318,7 +314,9 @@ public:
             gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
             gl::SetUniformLocation(locColor, color);
 
-            std::vector<GLuint> ubos;
+            glm::vec4 vTranslationArray[SDF_BATCH_SIZE];
+            glm::mat4 matInvRotationArray[SDF_BATCH_SIZE];
+            glm::vec4 vSizeArray[SDF_BATCH_SIZE];
 
             for (unsigned off = 0; off < count; off += batch_size) {
                 while (remain < batch_size) {
@@ -330,9 +328,9 @@ public:
 
                         locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
                         locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
-                        locSiz = gl::Uniform_Location<Vec3*>(*shader, "vSize");
-                        locTranslation = gl::Uniform_Location<Vec3*>(*shader, "vTranslation");
-                        locInvRotation = gl::Uniform_Location<Mat3*>(*shader, "matInvRotation");
+                        locSiz = gl::Uniform_Location<glm::vec4*>(*shader, "vSize");
+                        locTranslation = gl::Uniform_Location<glm::vec4*>(*shader, "vTranslation");
+                        locInvRotation = gl::Uniform_Location<glm::mat4*>(*shader, "matInvRotation");
                         locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
                         locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
 
@@ -344,20 +342,6 @@ public:
                     }
                 }
 
-                GLuint ubo;
-                glGenBuffers(1, &ubo);
-                ubos.push_back(ubo);
-                glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-                glBufferData(GL_UNIFORM_BUFFER, batch_size * sizeof(glm::mat4) * 2 * sizeof(glm::vec4), NULL, GL_STREAM_DRAW);
-
-#define SDF_BUFFER_TRANSLATION(ptr, batch_size) (glm::vec4*)(((float*)ptr) + 0)
-#define SDF_BUFFER_INVROTATION(ptr, batch_size) (glm::mat4*)(SDF_BUFFER_TRANSLATION(ptr, batch_size) + batch_size)
-#define SDF_BUFFER_SIZE(ptr, batch_size) (glm::vec4*)(SDF_BUFFER_INVROTATION(ptr, batch_size) + batch_size)
-                auto bufferBase = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-                auto vTranslationArray = SDF_BUFFER_TRANSLATION(bufferBase, batch_size);
-                auto matInvRotationArray = SDF_BUFFER_INVROTATION(bufferBase, batch_size);
-                auto vSizeArray = SDF_BUFFER_SIZE(bufferBase, batch_size);
-
                 for (int i = 0; i < batch_size; i++) {
                     auto idx = off + i;
                     vTranslationArray[i] = glm::vec4(centers[idx], 0);
@@ -365,8 +349,10 @@ public:
                     vSizeArray[i] = glm::vec4(sizes[idx], 0);
                 }
 
-                glUnmapBuffer(GL_UNIFORM_BUFFER);
-                glBindBufferBase(GL_UNIFORM_BUFFER, UNIFORM_BLOCK_SLOT_PARTICLE_DATA, ubo);
+                gl::SetUniformLocationArray(locTranslation, vTranslationArray, batch_size);
+                gl::SetUniformLocationArray(locSiz, vSizeArray, batch_size);
+                gl::SetUniformLocationArray(locInvRotation, matInvRotationArray, batch_size);
+
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
                 remain -= batch_size;
@@ -374,7 +360,6 @@ public:
 
             glDeleteBuffers(1, &vbo);
             glDeleteVertexArrays(1, &vao);
-            glDeleteBuffers(ubos.size(), ubos.data());
         }
     }
 
