@@ -286,7 +286,7 @@ private:
             inf.inv_numClusters = 1.0f / (float)numClusters;
         }
 
-        queue.enqueueReadBuffer(d_q, CL_TRUE, 0, 3 * 4 * sizeof(float), s.predicted_orientation.data());
+        queue.enqueueReadBuffer(d_q, CL_TRUE, 0, N * 4 * sizeof(float), s.predicted_orientation.data());
 
         for (unsigned i = 0; i < particle_count(s); i++) {
             float const stiffness = 1;
