@@ -21,7 +21,7 @@
 #define SIM_SIZE_LIMIT (1024)
 #define SOLVER_ITERATIONS (5)
 
-#define DEBUG_TETRAHEDRON
+// #define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
 #define DISABLE_GROWTH
 #define DISABLE_PHOTOTROPISM
@@ -107,6 +107,9 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
         prev = cur;
     }
 #endif
+#else
+    auto siz = Vec3(1, 1, 2);
+    auto idx_root = add_particle(o, Vec3(0.25, 0.25, 0.50), 1);
 #endif /* DEBUG_TETRAHEDRON */
 
     params = configuration;
@@ -364,6 +367,7 @@ public:
         }
         case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
         {
+            sim->compute->begin_new_frame(sim->s);
             sim->compute->do_one_iteration_of_shape_matching_constraint_resolution(sim->s, PHYSICS_STEP);
             state = Single_Step_State::CONSTRAINT_FIXED;
             break;

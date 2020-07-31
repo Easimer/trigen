@@ -13,8 +13,16 @@
 namespace sb {
     template<typename T, typename Deleter = std::default_delete<T>>
     using Unique_Ptr = std::unique_ptr<T, Deleter>;
+    template<typename T>
+    using Shared_Ptr = std::shared_ptr<T>;
+
+    enum class Extension {
+        None = 0,
+        Plant_Simulation,
+    };
 
     struct Config {
+        Extension ext;
         glm::vec3 seed_position;
 
         float density;                          // rho
@@ -70,6 +78,13 @@ namespace sb {
         virtual void get_state_description(unsigned length, char* buffer) = 0;
     };
 
+    class ISigned_Distance_Function {
+    public:
+        virtual ~ISigned_Distance_Function() {}
+
+        virtual float operator()() const = 0;
+    };
+
     class ISoftbody_Simulation {
     public:
         virtual ~ISoftbody_Simulation() {}
@@ -87,6 +102,9 @@ namespace sb {
         virtual Unique_Ptr<Relation_Iterator> get_lateral_relations() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_connections() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_predicted_connections() = 0;
+
+        // virtual size_t attach_collider(Shared_Ptr<ISigned_Distance_Function>& sdf) = 0;
+        // virtual void detach_collider(size_t handle) = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);

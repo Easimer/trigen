@@ -119,6 +119,7 @@ void app_main_loop() {
 
     // Simulation setup
     sb::Config sim_cfg = {
+        sb::Extension::Plant_Simulation,
         Vec3(0, 0, 0), // seed_position
         1.0f, // density
         1.0f, // attachment_strength

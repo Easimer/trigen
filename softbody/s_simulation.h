@@ -7,46 +7,11 @@
 
 #include "common.h"
 #include "softbody.h"
-
-struct System_State {
-    Vector<Vec3> bind_pose;
-    // Position in the previous frame
-    Vector<Vec3> position;
-    // Position in the current frame
-    Vector<Vec3> predicted_position;
-
-    // Particle velocities
-    Vector<Vec3> velocity;
-    // Particle angular velocities
-    Vector<Vec3> angular_velocity;
-
-    // Particle sizes
-    Vector<Vec3> size;
-
-    // Particle orientations in the last frame
-    Vector<Quat> orientation;
-    // Particle orientations in the current frame
-    Vector<Quat> predicted_orientation;
-
-    // Particle densities
-    Vector<float> density;
-    // Particle ages
-    //Vector<float> age;
-    Map<unsigned, Vector<unsigned>> edges;
-    Map<unsigned, unsigned> apical_child;
-    Map<unsigned, unsigned> lateral_bud;
-
-    Vector<Vec3> bind_pose_center_of_mass;
-    Vector<Mat3> bind_pose_inverse_bind_pose;
-
-    // For debug visualization only
-    Vector<Vec3> center_of_mass;
-    Vector<Vec3> goal_position;
-};
+#include "s_ext.h"
 
 class ICompute_Backend;
 
-class Softbody_Simulation : public sb::ISoftbody_Simulation {
+class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Manager {
 public:
     Softbody_Simulation(sb::Config const& configuration);
 
@@ -75,8 +40,8 @@ public:
     void do_one_iteration_of_distance_constraint_resolution(float phdt);
     void do_one_iteration_of_fixed_constraint_resolution(float phdt);
 
-    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density);
-    void connect_particles(unsigned a, unsigned b);
+    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
+    void connect_particles(unsigned a, unsigned b) override;
     float mass_of_particle(unsigned i);
 
     void invalidate_particle_cache(unsigned pidx);

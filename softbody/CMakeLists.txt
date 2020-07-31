@@ -20,6 +20,9 @@ set(SRC_IMPL
     s_compute_backend.h
     s_compute_ref.cpp
     s_compute_cl.cpp
+
+    s_ext.h
+    s_ext_plant.cpp
 )
 
 set(SRC_TESTS
