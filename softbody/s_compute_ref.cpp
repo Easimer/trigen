@@ -3,8 +3,7 @@
 // Purpose: reference computation backend
 //
 
-#pragma once
-
+#include "stdafx.h"
 #include <cassert>
 #include <array>
 #include <algorithm>
@@ -14,7 +13,7 @@
 #define SB_BENCHMARK (1)
 #include "s_benchmark.h"
 #include "m_utils.h"
-#include <glm\gtx\matrix_operation.hpp>
+#include <glm/gtx/matrix_operation.hpp>
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 

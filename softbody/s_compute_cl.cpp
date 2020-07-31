@@ -14,7 +14,8 @@
 #define SB_BENCHMARK (1)
 #include "s_benchmark.h"
 #include "m_utils.h"
-#include <glm\gtx\matrix_operation.hpp>
+#include <glm/gtx/matrix_operation.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define __CL_ENABLE_EXCEPTIONS
 #if defined(__APPLE__) || defined(__MACOSX)
@@ -22,7 +23,6 @@
 #else
 #include <CL/cl.hpp>
 #endif
-#include <glm\gtc\type_ptr.hpp>
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
