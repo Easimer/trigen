@@ -121,12 +121,16 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     s.center_of_mass.resize(particle_count());
 
     compute = Make_Compute_Backend();
+    ext = Create_Extension(params.ext);
 }
 
 void Softbody_Simulation::prediction(float dt) {
     s.predicted_position.resize(particle_count());
     s.predicted_orientation.resize(s.orientation.size());
     s.center_of_mass.resize(particle_count());
+
+    ext->pre_prediction(this, s);
+
     for (unsigned i = 0; i < particle_count(); i++) {
         // prediction step
 #if 1
@@ -150,6 +154,8 @@ void Softbody_Simulation::prediction(float dt) {
         s.predicted_position[i] = pos;
         s.predicted_orientation[i] = q;
     }
+
+    ext->post_prediction(this, s);
 }
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
@@ -191,6 +197,7 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 }
 
 void Softbody_Simulation::constraint_resolution(float dt) {
+    ext->pre_constraint(this, s);
     compute->begin_new_frame(s);
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
@@ -198,9 +205,13 @@ void Softbody_Simulation::constraint_resolution(float dt) {
         do_one_iteration_of_distance_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
+
+    ext->post_constraint(this, s);
 }
 
 void Softbody_Simulation::integration(float dt) {
+    ext->pre_integration(this, s);
+
     for (unsigned i = 0; i < particle_count(); i++) {
         s.velocity[i] = (s.predicted_position[i] - s.position[i]) / dt;
         s.position[i] = s.predicted_position[i];
@@ -217,6 +228,8 @@ void Softbody_Simulation::integration(float dt) {
         s.orientation[i] = s.predicted_orientation[i];
         // TODO(danielm): friction?
     }
+
+    ext->post_integration(this, s);
 }
 
 unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {

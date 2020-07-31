@@ -47,6 +47,7 @@ public:
     void invalidate_particle_cache(unsigned pidx);
 
     sb::Unique_Ptr<ICompute_Backend> compute;
+    sb::Unique_Ptr<ISimulation_Extension> ext;
 
     System_State s;
 
