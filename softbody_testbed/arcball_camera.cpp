@@ -140,12 +140,14 @@ private:
     void update_camera() {
         camera = glm::translate(translation) * Mat4(ARCBALL_PARANOID(rotation)) * glm::translate(center_translation);
 
+        /*
         for (int y = 0; y < 4; y++) {
             for (int x = 0; x < 4; x++) {
                 printf("%f ", camera[x][y]);
             }
             printf("\n");
         }
+        */
     }
 
     void set_screen_size(int x, int y) override {
