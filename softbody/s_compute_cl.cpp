@@ -44,12 +44,11 @@ private:
     cl::CommandQueue queue;
 
     cl::Buffer d_A, d_invRest, d_q;
+    Vector<float> particle_masses;
 
     float mass_of_particle(System_State const& s, unsigned i) const {
-        auto const d_i = s.density[i];
-        auto const s_i = s.size[i];
-        auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
-        return m_i;
+        assert(particle_masses.size() == particle_count(s));
+        return particle_masses[i];
     }
 
     size_t particle_count(System_State const& s) const {
@@ -61,9 +60,11 @@ private:
         d_A = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
         d_invRest = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
         d_q = cl::Buffer(ctx, CL_MEM_READ_WRITE, N * 4 * sizeof(float));
+
+        particle_masses = calculate_particle_masses(sim);
     }
 
-    Vector<float> calculate_particle_masses(System_State & s) {
+    Vector<float> calculate_particle_masses(System_State const& s) {
         auto N = particle_count(s);
         Vector<float> h_masses;
         Vector<glm::vec4> h_sizes;
@@ -75,9 +76,9 @@ private:
             h_sizes[i] = glm::vec4(s.size[i], 0);
         }
 
-        cl::Buffer d_sizes(ctx, h_sizes.begin(), h_sizes.end(), true);
-        cl::Buffer d_densities(ctx, s.density.begin(), s.density.end(), true);
-        cl::Buffer d_masses(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, N * sizeof(float));
+        auto d_sizes = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 4 * sizeof(float));
+        auto d_densities = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * sizeof(float));
+        auto d_masses = cl::Buffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, N * sizeof(float));
 
         auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_particle_masses");
 
