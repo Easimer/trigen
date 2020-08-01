@@ -8,6 +8,8 @@
 #include "m_utils.h"
 #include "l_iterators.h"
 #include "s_simulation.h"
+#define SB_BENCHMARK 1
+#include "s_benchmark.h"
 #include <cstdlib>
 #include <array>
 #include <glm/gtx/matrix_operation.hpp>
@@ -21,7 +23,7 @@
 #define SIM_SIZE_LIMIT (1024)
 #define SOLVER_ITERATIONS (5)
 
-// #define DEBUG_TETRAHEDRON
+#define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
 #define DISABLE_GROWTH
 #define DISABLE_PHOTOTROPISM
@@ -95,17 +97,34 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     connect_particles(idx_t1, idx_t2);
     connect_particles(idx_t0, idx_t2);
 #else
+#if 0
     auto siz = Vec3(0.25, 0.25, 0.5);
     auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
     auto idx_root = add_particle(o, siz, 1);
     s.orientation[idx_root] = x90;
     auto prev = idx_root;
-    for (int i = 0; i < 1024; i++) {
+    for (int i = 0; i < 64; i++) {
         auto cur = add_particle(o + Vec3((i + 1) * 0.5f, 0, 0), siz, 1);
         s.orientation[cur] = x90;
         connect_particles(prev, cur);
         prev = cur;
     }
+#else
+    auto siz = Vec3(0.25, 0.25, 0.5);
+    auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 16; x++) {
+            auto idx = add_particle(Vec3(x, y, 0), siz, 1);
+            if (y != 0) {
+                connect_particles(idx - 16, idx);
+            }
+            if (x != 0) {
+                connect_particles(idx - 1, idx);
+            }
+            s.orientation[idx] = x90;
+        }
+    }
+#endif
 #endif
 #else
     auto siz = Vec3(1, 1, 2);
@@ -155,6 +174,8 @@ void Softbody_Simulation::prediction(float dt) {
         s.predicted_orientation[i] = q;
     }
 
+    s.collision_constraints = generate_collision_constraints();
+
     ext->post_prediction(this, s);
 }
 
@@ -188,6 +209,7 @@ void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(flo
 }
 
 void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
+    return;
     // force particles to stay in their bind pose
     auto particles = { 0 };
 
@@ -203,10 +225,29 @@ void Softbody_Simulation::constraint_resolution(float dt) {
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
         compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
+        do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
 
     ext->post_constraint(this, s);
+}
+
+void Softbody_Simulation::do_one_iteration_of_collision_constraint_resolution(float phdt) {
+    auto const k = 0.95f; // TODO(danielm): This should be 1.0, but at that value particles
+                          // get stuck to the object they're colliding with.
+    for (auto& C : s.collision_constraints) {
+        auto p = s.predicted_position[C.pidx];
+        auto w = 1 / mass_of_particle(C.pidx);
+        auto dir = p - C.intersect;
+        auto d = dot(dir, C.normal) * k;
+        auto sf = glm::epsilon<float>() + d / w;
+
+        auto corr = -sf * w * C.normal;
+
+        auto from = s.predicted_position[C.pidx];
+        auto to = from + corr;
+        s.predicted_position[C.pidx] = to;
+    }
 }
 
 void Softbody_Simulation::integration(float dt) {
@@ -229,7 +270,104 @@ void Softbody_Simulation::integration(float dt) {
         // TODO(danielm): friction?
     }
 
+    for (auto& C : s.collision_constraints) {
+        s.velocity[C.pidx] *= 0.9;
+        // TODO(danielm): friction?
+    }
+
     ext->post_integration(this, s);
+}
+
+static Vec3 get_sdf_normal(sb::Signed_Distance_Function const& f, Vec3 sp) {
+    auto const smoothness = 1.0f;
+    Vec3 n;
+    auto xyy = Vec3(smoothness, 0, 0);
+    auto yxy = Vec3(0, smoothness, 0);
+    auto yyx = Vec3(0, 0, smoothness);
+    n.x = f(sp + xyy) - f(sp - xyy);
+    n.y = f(sp + yxy) - f(sp - yxy);
+    n.z = f(sp + yyx) - f(sp - yyx);
+    return glm::normalize(n);
+}
+
+Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints() {
+    DECLARE_BENCHMARK_BLOCK();
+    auto ret = Vector<Collision_Constraint>();
+    BEGIN_BENCHMARK();
+
+    for (auto& coll : s.colliders_sdf) {
+        // Skip unused collider slots
+        if (!coll.used) continue;
+
+        for (auto i = 0ull; i < particle_count(); i++) {
+            float dist = 0;
+            auto const start = s.position[i];
+            auto thru = s.predicted_position[i];
+            auto const dir = thru - start;
+            bool too_close = false;
+            bool too_far = false;
+            for (auto step = 0; step < 32; step++) {
+                auto p = start + dist * dir;
+                float temp = coll.fun(p);
+                if (temp < 0.05) {
+                    too_close = true;
+                    break;
+                }
+
+                dist += temp;
+
+                if (dist > 1) {
+                    too_far = true;
+                    break;
+                }
+            }
+
+            if (0 <= dist && dist < 0.98) {
+                auto intersect = start + dist * dir;
+                auto normal = get_sdf_normal(coll.fun, intersect);
+                Collision_Constraint C;
+                C.intersect = intersect;
+                C.normal = normal;
+                C.pidx = i;
+                ret.push_back(C);
+            }
+        }
+    }
+
+    END_BENCHMARK();
+    PRINT_BENCHMARK_RESULT_MASKED(0xF);
+
+    return ret;
+}
+
+sb::ISoftbody_Simulation::Collider_Handle Softbody_Simulation::add_collider(sb::Signed_Distance_Function const& sdf) {
+    System_State::SDF_Slot* slot = NULL;
+    size_t ret;
+    for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
+        if (!s.colliders_sdf[i].used) {
+            slot = &s.colliders_sdf[i];
+            ret = i;
+            break;
+        }
+    }
+
+    if (slot == NULL) {
+        ret = s.colliders_sdf.size();
+        s.colliders_sdf.push_back({});
+        slot = &s.colliders_sdf.back();
+    }
+
+    slot->used = true;
+    slot->fun = sdf;
+
+    return ret;
+}
+
+void Softbody_Simulation::remove_collider(Collider_Handle h) {
+    if (h < s.colliders_sdf.size()) {
+        s.colliders_sdf[h].used = false;
+        s.colliders_sdf[h].fun = [](glm::vec3 const&) { return 0.0f; };
+    }
 }
 
 unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {

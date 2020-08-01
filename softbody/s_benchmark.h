@@ -24,11 +24,15 @@
 #define END_BENCHMARK() \
     auto const rdtsc_end = cpu_rdtsc();
 
-#define PRINT_BENCHMARK_RESULT() \
+#define PRINT_BENCHMARK_RESULT_MASKED(mask) \
     auto const rdtsc_diff = rdtsc_end - rdtsc_begin; \
     rdtsc_sum += rdtsc_diff; \
     rdtsc_count++; \
-    printf("sb: benchmark: %s %f kilocycles\n", __func__, (double)rdtsc_sum / (double)rdtsc_count / 1000.0f);
+    if((rdtsc_count & (mask)) == 0) { \
+        printf("sb: benchmark: %s %f kilocycles\n", __func__, (double)rdtsc_sum / (double)rdtsc_count / 1000.0f); \
+    }
+
+#define PRINT_BENCHMARK_RESULT() PRINT_BENCHMARK_RESULT_MASKED(0x00000000)
 
 #else
 #define cpu_rdtsc() (0)

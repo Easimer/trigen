@@ -34,6 +34,11 @@ using Fun = std::function<T>;
 using Mutex = std::mutex;
 using Lock_Guard = std::lock_guard<std::mutex>;
 
+struct Collision_Constraint {
+    unsigned pidx;
+    Vec3 intersect, normal;
+};
+
 struct System_State {
     Vector<Vec3> bind_pose;
     // Position in the previous frame
@@ -65,8 +70,15 @@ struct System_State {
     Vector<Vec3> bind_pose_center_of_mass;
     Vector<Mat3> bind_pose_inverse_bind_pose;
 
+    struct SDF_Slot {
+        bool used;
+        std::function<float(glm::vec3 const&)> fun;
+    };
+
+    Vector<SDF_Slot> colliders_sdf;
+    Vector<Collision_Constraint> collision_constraints;
+
     // For debug visualization only
     Vector<Vec3> center_of_mass;
     Vector<Vec3> goal_position;
 };
-

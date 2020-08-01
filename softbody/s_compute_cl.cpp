@@ -306,7 +306,7 @@ private:
         }
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT_MASKED(0xFF);
     }
 };
 

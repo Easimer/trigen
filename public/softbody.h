@@ -78,12 +78,7 @@ namespace sb {
         virtual void get_state_description(unsigned length, char* buffer) = 0;
     };
 
-    class ISigned_Distance_Function {
-    public:
-        virtual ~ISigned_Distance_Function() {}
-
-        virtual float operator()() const = 0;
-    };
+    using Signed_Distance_Function = std::function<float(glm::vec3 const&)>;
 
     class ISoftbody_Simulation {
     public:
@@ -103,8 +98,9 @@ namespace sb {
         virtual Unique_Ptr<Relation_Iterator> get_connections() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_predicted_connections() = 0;
 
-        // virtual size_t attach_collider(Shared_Ptr<ISigned_Distance_Function>& sdf) = 0;
-        // virtual void detach_collider(size_t handle) = 0;
+        using Collider_Handle = size_t;
+        virtual Collider_Handle add_collider(Signed_Distance_Function const& sdf) = 0;
+        virtual void remove_collider(Collider_Handle handle) = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);

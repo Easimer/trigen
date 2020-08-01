@@ -9,6 +9,8 @@
 #include "s_ext.h"
 
 class Plant_Simulation : public ISimulation_Extension {
+    void post_prediction(IParticle_Manager* pman, System_State& s) override {
+    }
 };
 
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind) {

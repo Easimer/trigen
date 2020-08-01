@@ -33,12 +33,18 @@ public:
     void constraint_resolution(float dt);
     void integration(float dt);
 
+    Vector<Collision_Constraint> generate_collision_constraints();
+
+    Collider_Handle add_collider(sb::Signed_Distance_Function const& sdf) override;
+    void remove_collider(Collider_Handle) override;
+
     size_t particle_count() const { return s.position.size(); }
 
     // manual control
     float get_phdt();
     void do_one_iteration_of_distance_constraint_resolution(float phdt);
     void do_one_iteration_of_fixed_constraint_resolution(float phdt);
+    void do_one_iteration_of_collision_constraint_resolution(float phdt);
 
     unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
     void connect_particles(unsigned a, unsigned b) override;
