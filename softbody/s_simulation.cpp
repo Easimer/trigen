@@ -14,9 +14,7 @@
 #include <array>
 #include <glm/gtx/matrix_operation.hpp>
 #include "s_compute_backend.h"
-
-// #include <CL/sycl.hpp>
-// namespace sycl = cl::sycl;
+#include "m_sdf.h"
 
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
@@ -271,23 +269,11 @@ void Softbody_Simulation::integration(float dt) {
     }
 
     for (auto& C : s.collision_constraints) {
-        s.velocity[C.pidx] *= 0.9;
+        s.velocity[C.pidx] = Vec3();
         // TODO(danielm): friction?
     }
 
     ext->post_integration(this, s);
-}
-
-static Vec3 get_sdf_normal(sb::Signed_Distance_Function const& f, Vec3 sp) {
-    auto const smoothness = 1.0f;
-    Vec3 n;
-    auto xyy = Vec3(smoothness, 0, 0);
-    auto yxy = Vec3(0, smoothness, 0);
-    auto yyx = Vec3(0, 0, smoothness);
-    n.x = f(sp + xyy) - f(sp - xyy);
-    n.y = f(sp + yxy) - f(sp - yxy);
-    n.z = f(sp + yyx) - f(sp - yyx);
-    return glm::normalize(n);
 }
 
 Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints() {
@@ -306,31 +292,16 @@ Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints
             auto const dir = thru - start;
             bool too_close = false;
             bool too_far = false;
-            for (auto step = 0; step < 32; step++) {
-                auto p = start + dist * dir;
-                float temp = coll.fun(p);
-                if (temp < 0.05) {
-                    too_close = true;
-                    break;
-                }
 
-                dist += temp;
-
-                if (dist > 1) {
-                    too_far = true;
-                    break;
-                }
-            }
-
-            if (0 <= dist && dist < 1) {
+            sdf::raymarch(coll.fun, 32, start, dir, 0.05f, 0.0f, 1.0f, [&](float dist) {
                 auto intersect = start + dist * dir;
-                auto normal = get_sdf_normal(coll.fun, intersect);
+                auto normal = sdf::normal(coll.fun, intersect);
                 Collision_Constraint C;
                 C.intersect = intersect;
                 C.normal = normal;
                 C.pidx = i;
                 ret.push_back(C);
-            }
+            });
         }
     }
 

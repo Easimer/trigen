@@ -11,7 +11,10 @@ set(SRC_IMPL
 
     m_utils.cpp
     m_utils.h
+    m_sdf.cpp
+    m_sdf.h
 
+    l_iterators.h
     s_iterators.cpp
 
     c_particle.cpp

@@ -39,6 +39,8 @@ struct Collision_Constraint {
     Vec3 intersect, normal;
 };
 
+using index_t = typename std::make_signed<size_t>::type;
+
 struct System_State {
     Vector<Vec3> bind_pose;
     // Position in the previous frame
