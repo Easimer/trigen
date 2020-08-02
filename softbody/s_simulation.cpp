@@ -233,20 +233,20 @@ void Softbody_Simulation::constraint_resolution(float dt) {
 }
 
 void Softbody_Simulation::do_one_iteration_of_collision_constraint_resolution(float phdt) {
-    auto const k = 0.95f; // TODO(danielm): This should be 1.0, but at that value particles
-                          // get stuck to the object they're colliding with.
     for (auto& C : s.collision_constraints) {
         auto p = s.predicted_position[C.pidx];
         auto w = 1 / mass_of_particle(C.pidx);
         auto dir = p - C.intersect;
-        auto d = dot(dir, C.normal) * k;
-        auto sf = glm::epsilon<float>() + d / w;
+        auto d = dot(dir, C.normal);
+        if (d < 0) {
+            auto sf = d / w;
 
-        auto corr = -sf * w * C.normal;
+            auto corr = -sf * w * C.normal;
 
-        auto from = s.predicted_position[C.pidx];
-        auto to = from + corr;
-        s.predicted_position[C.pidx] = to;
+            auto from = s.predicted_position[C.pidx];
+            auto to = from + corr;
+            s.predicted_position[C.pidx] = to;
+        }
     }
 }
 
@@ -322,7 +322,7 @@ Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints
                 }
             }
 
-            if (0 <= dist && dist < 0.98) {
+            if (0 <= dist && dist < 1) {
                 auto intersect = start + dist * dir;
                 auto normal = get_sdf_normal(coll.fun, intersect);
                 Collision_Constraint C;
