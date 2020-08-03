@@ -43,8 +43,12 @@ private:
     cl::Program program;
     cl::CommandQueue queue;
 
-    cl::Buffer d_A, d_invRest, d_q;
     Vector<float> particle_masses;
+    cl::Buffer d_masses, d_predicted_orientations, d_sizes, d_predicted_positions;
+    cl::Buffer d_bind_pose, d_centers_of_masses, d_bind_pose_centers_of_masses;
+    cl::Buffer d_bind_pose_inverse_bind_pose;
+    cl::Buffer d_adjacency;
+    cl::Buffer d_out;
 
     float mass_of_particle(System_State const& s, unsigned i) const {
         assert(particle_masses.size() == particle_count(s));
@@ -55,11 +59,22 @@ private:
         return s.position.size();
     }
 
+#define SIZE_N_VEC1(N) ((N) *  1 * sizeof(float))
+#define SIZE_N_VEC4(N) ((N) *  4 * sizeof(float))
+#define SIZE_N_MAT4(N) ((N) * 16 * sizeof(float))
+
     void begin_new_frame(System_State const& sim) override {
         auto const N = particle_count(sim);
-        d_A = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
-        d_invRest = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 16 * sizeof(float));
-        d_q = cl::Buffer(ctx, CL_MEM_READ_WRITE, N * 4 * sizeof(float));
+
+        d_masses = cl::Buffer(ctx, CL_MEM_READ_WRITE, SIZE_N_VEC1(N));
+        d_predicted_orientations = cl::Buffer(ctx, CL_MEM_READ_WRITE, SIZE_N_VEC4(N));
+        d_sizes = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC4(N));
+        d_predicted_positions = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC4(N));
+        d_bind_pose = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC4(N));
+        d_centers_of_masses = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC4(N));
+        d_bind_pose_centers_of_masses = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC4(N));
+        d_bind_pose_inverse_bind_pose = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_MAT4(N));
+        d_out = cl::Buffer(ctx, CL_MEM_READ_WRITE, SIZE_N_VEC4(N));
 
         particle_masses = calculate_particle_masses(sim);
     }
@@ -67,27 +82,25 @@ private:
     Vector<float> calculate_particle_masses(System_State const& s) {
         auto N = particle_count(s);
         Vector<float> h_masses;
-        Vector<glm::vec4> h_sizes;
+        Vector<Vec4> h_sizes;
 
         h_masses.resize(N);
         h_sizes.resize(N);
 
         for (auto i = 0ull; i < N; i++) {
-            h_sizes[i] = glm::vec4(s.size[i], 0);
+            h_sizes[i] = Vec4(s.size[i], 0);
         }
 
-        auto d_sizes = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * 4 * sizeof(float));
-        auto d_densities = cl::Buffer(ctx, CL_MEM_READ_ONLY, N * sizeof(float));
-        auto d_masses = cl::Buffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, N * sizeof(float));
+        auto d_densities = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC1(N));
 
         auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_particle_masses");
 
-        queue.enqueueWriteBuffer(d_densities, CL_FALSE, 0, N * sizeof(float), s.density.data());
-        queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, N * 4 * sizeof(float), h_sizes.data());
+        queue.enqueueWriteBuffer(d_densities, CL_FALSE, 0, SIZE_N_VEC1(N), s.density.data());
+        queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, SIZE_N_VEC4(N), h_sizes.data());
 
         kernel(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(N), cl::NDRange(1)), d_sizes, d_densities, d_masses);
 
-        queue.enqueueReadBuffer(d_masses, true, 0, N * sizeof(float), h_masses.data());
+        queue.enqueueReadBuffer(d_masses, true, 0, SIZE_N_VEC1(N), h_masses.data());
 
         return h_masses;
     }
@@ -165,8 +178,7 @@ private:
 
         queue.enqueueReadBuffer(d_out, CL_TRUE, 0, 16 * sizeof(float), glm::value_ptr(out));
 
-        auto diff_mat = expected - out;
-        auto diff = glm::determinant(diff_mat);
+        auto diff = matrix_difference(expected, out);
 
         if (glm::abs(diff) > 4 * glm::epsilon<float>()) {
             printf("sb: MAT_MUL SANITY CHECK FAILED!\n");
@@ -195,6 +207,64 @@ private:
         return true;
     }
 
+    // Generate the adjacency table
+    // This table describes the connections between the particles.
+    // It has N rows (where N is the particle count), each row has the neighbor count
+    // in the first column, which is then followed by the corresponding amount of
+    // particle indices.
+    // If the particle with the most amount of neighbors has M neighbors, then each
+    // row has M+1 columns.
+    sb::Unique_Ptr<unsigned[]> make_adjacency_table(System_State const& s, unsigned* adjacency_stride, unsigned* adjacency_size) {
+        auto const N = particle_count(s);
+        unsigned columns = 0;
+        for (unsigned i = 0; i < N; i++) {
+            auto c = s.edges.at(i).size();
+            if (c > columns) {
+                columns = c;
+            }
+        }
+
+        // Add one more slot for the neighbor count
+        columns = columns + 1;
+
+        auto ret = std::make_unique<unsigned[]>(N * columns);
+        *adjacency_stride = columns;
+        *adjacency_size = N * columns * sizeof(unsigned);
+
+        for (unsigned i = 0; i < N; i++) {
+            auto base = i * columns;
+            auto& neighbors = s.edges.at(i);
+            auto const M = neighbors.size();
+            ret[base] = M;
+            base++;
+            for (unsigned j = 0; j < M; j++) {
+                ret[base] = neighbors[j];
+                base++;
+            }
+        }
+
+        return ret;
+    }
+
+    // Produces a number that describes how different are these two matrices.
+    // A value of (near) zero means that they're (almost) equal.
+    // A non-zero value has no meaning other than that the two matrices are different.
+    float matrix_difference(glm::mat4 const& lhs, glm::mat4 const& rhs) {
+        auto sum_mat = [](glm::mat4 const& m) {
+            float acc = 0;
+
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    acc += glm::abs(m[i][j]);
+                }
+            }
+
+            return acc;
+        };
+
+        return sum_mat(lhs - rhs);
+    }
+
     void do_one_iteration_of_shape_matching_constraint_resolution(
         System_State& s,
         float phdt
@@ -203,10 +273,8 @@ private:
         BEGIN_BENCHMARK();
 
         auto const N = particle_count(s);
-        std::vector<glm::mat4> h_A;
-        std::vector<glm::mat4> h_invRest;
-        h_A.reserve(N);
-        h_invRest.reserve(N);
+        std::vector<Vec4> h_centers_of_masses;
+        h_centers_of_masses.reserve(N);
 
         for (unsigned i = 0; i < N; i++) {
             std::array<unsigned, 1> me{ i };
@@ -238,34 +306,88 @@ private:
 
             s.center_of_mass[i] = com_cur;
 
-            // Calculates the moment matrix of a single particle
-            auto calc_A_i = [&](unsigned i) -> Mat3 {
-                auto m_i = mass_of_particle(s, i);
-                auto A_i = 1.0f / 5.0f * glm::diagonal3x3(s.size[i] * s.size[i]) * Mat3(s.orientation[i]);
-
-                return m_i * (A_i + glm::outerProduct(s.predicted_position[i], s.bind_pose[i]) - glm::outerProduct(com_cur, com0));
-            };
-
-            // Calculate the cluster moment matrix
-            auto A = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                calc_A_i(i),
-                [&](Mat3 const& acc, unsigned idx) -> Mat3 {
-                    return acc + calc_A_i(idx);
-                }
-            );
-
-            h_invRest.push_back(glm::mat4(invRest));
-            h_A.push_back(glm::mat4(A));
+            h_centers_of_masses.push_back(Vec4(com_cur, 0));
         }
 
-        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_optimal_rotation");
+        unsigned adjacency_stride, adjacency_size;
+        auto adjacency = make_adjacency_table(s, &adjacency_stride, &adjacency_size);
+        using Do_Shape_Matching_Functor = cl::KernelFunctor<cl::Buffer, cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer > ;
 
-        queue.enqueueWriteBuffer(d_A, CL_FALSE, 0, N * 16 * sizeof(float), h_A.data());
-        queue.enqueueWriteBuffer(d_invRest, CL_FALSE, 0, N * 16 * sizeof(float), h_invRest.data());
-        queue.enqueueWriteBuffer(d_q, CL_FALSE, 0, N *  4 * sizeof(float), s.predicted_orientation.data());
+        // Convert Vec3's into Vec4's before we upload them to the GPU
+        // TODO(danielm): this has a significant performance hit.
+        // Convert all Vec3 type values into Vec4's in System_State
 
-        kernel(cl::EnqueueArgs(queue, cl::NDRange(N)), d_A, d_invRest, d_q);
+        Vector<Vec4> h_predicted_positions, h_bind_pose, h_bind_pose_centers_of_masses;
+        Vector<glm::mat4> h_bind_pose_inverse_bind_pose;
+        Vector<Quat> h_out;
+
+        h_predicted_positions.resize(N);
+        h_bind_pose.resize(N);
+        h_bind_pose_centers_of_masses.resize(N);
+        h_bind_pose_inverse_bind_pose.resize(N);
+
+        d_adjacency = cl::Buffer(ctx, CL_MEM_READ_ONLY, adjacency_size);
+
+        queue.enqueueWriteBuffer(d_predicted_orientations, CL_FALSE, 0, SIZE_N_VEC4(N), s.predicted_orientation.data());
+        queue.enqueueWriteBuffer(d_adjacency, CL_FALSE, 0, adjacency_size, adjacency.get());
+        queue.enqueueWriteBuffer(d_centers_of_masses, CL_FALSE, 0, SIZE_N_VEC4(N), h_centers_of_masses.data());
+        for (unsigned i = 0; i < N; i++) h_predicted_positions[i] = Vec4(s.predicted_position[i], 0);
+        queue.enqueueWriteBuffer(d_predicted_positions, CL_FALSE, 0, SIZE_N_VEC4(N), h_predicted_positions.data());
+        for (unsigned i = 0; i < N; i++) h_bind_pose[i] = Vec4(s.bind_pose[i], 0);
+        queue.enqueueWriteBuffer(d_bind_pose, CL_FALSE, 0, SIZE_N_VEC4(N), h_bind_pose.data());
+        for (unsigned i = 0; i < N; i++) h_bind_pose_centers_of_masses[i] = Vec4(s.bind_pose_center_of_mass[i], 0);
+        queue.enqueueWriteBuffer(d_bind_pose_centers_of_masses, CL_FALSE, 0, SIZE_N_VEC4(N), h_bind_pose_centers_of_masses.data());
+        for (unsigned i = 0; i < N; i++) h_bind_pose_inverse_bind_pose[i] = glm::mat4(s.bind_pose_inverse_bind_pose[i]);
+        queue.enqueueWriteBuffer(d_bind_pose_inverse_bind_pose, CL_FALSE, 0, SIZE_N_MAT4(N), h_bind_pose_inverse_bind_pose.data());
+
+        auto kernel = Do_Shape_Matching_Functor(program, "do_shape_matching");
+        kernel(cl::EnqueueArgs(queue, cl::NDRange(N)),
+            d_out,
+            d_adjacency, adjacency_stride,
+            d_masses,
+            d_predicted_orientations, d_sizes, d_predicted_positions, d_bind_pose,
+            d_centers_of_masses, d_bind_pose_centers_of_masses,
+            d_bind_pose_inverse_bind_pose
+        );
+
+#if CALC_A_I_PARANOID
+        // Check if the matrix calculated by the GPU kernel and the matrix
+        // calculated by the reference implementations match.
+        auto calc_A_i = [&](unsigned i) -> glm::mat4 {
+            auto m_i = mass_of_particle(s, i);
+            auto diag = glm::diagonal4x4(Vec4(s.size[i], 0) * Vec4(s.size[i], 0));
+            auto orient = glm::mat4(s.predicted_orientation[i]);
+            auto A_i = 1.0f / 5.0f * diag * orient;
+
+            auto t0 = A_i + glm::outerProduct(h_predicted_positions[i], h_bind_pose[i]);
+
+            auto t1 = (t0 - glm::outerProduct(h_centers_of_masses[i], h_bind_pose_centers_of_masses[i]));
+
+            return m_i * t1;
+        };
+
+
+        Vector<glm::mat4> h_test_out;
+        Vector<glm::mat4> expected;
+        h_test_out.resize(N);
+        expected.resize(N);
+        auto d_test_out = cl::Buffer(ctx, CL_MEM_WRITE_ONLY, SIZE_N_MAT4(N));
+        auto test_kernel = cl::KernelFunctor<cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "test_calculate_A_i");
+        test_kernel(cl::EnqueueArgs(queue, cl::NDRange(1)), d_test_out, N, d_masses, d_predicted_orientations, d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses, d_bind_pose_centers_of_masses);
+
+        for (unsigned i = 0; i < N; i++) {
+            expected[i] = calc_A_i(i);
+        }
+
+        queue.enqueueReadBuffer(d_test_out, CL_TRUE, 0, SIZE_N_MAT4(N), h_test_out.data());
+
+        for (unsigned i = 0; i < N; i++) {
+            auto diff = matrix_difference(expected[i], h_test_out[i]);
+            if (diff > glm::epsilon<float>()) {
+                assert(!"Calculated A_i matrix doesn't match expected value!");
+            }
+        }
+#endif /* CALC_A_I_PARANOID */
 
         struct Particle_Correction_Info {
             Vec3 pos_bind;
@@ -287,11 +409,13 @@ private:
             inf.inv_numClusters = 1.0f / (float)numClusters;
         }
 
-        queue.enqueueReadBuffer(d_q, CL_TRUE, 0, N * 4 * sizeof(float), s.predicted_orientation.data());
+        h_out.resize(N);
+
+        queue.enqueueReadBuffer(d_out, CL_TRUE, 0, SIZE_N_VEC4(N), h_out.data());
 
         for (unsigned i = 0; i < particle_count(s); i++) {
             float const stiffness = 1;
-            auto const R = s.predicted_orientation[i];
+            auto const R = h_out[i];
 
             auto& inf = correction_infos[i];
 
@@ -304,6 +428,7 @@ private:
             // The correction must be divided by the number of clusters this particle is a member of
             s.predicted_position[i] += inf.inv_numClusters * correction;
             s.goal_position[i] = goal;
+            s.predicted_orientation[i] = R;
         }
 
         END_BENCHMARK();
@@ -345,6 +470,18 @@ static std::optional<cl::Program> from_file_load_program(
         auto program = cl::Program(ctx, sources);
         try {
             program.build();
+
+            for (auto& dev : devices) {
+                auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
+                auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
+                if (!log.empty()) {
+                    printf(
+                        "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
+                        dev_name.c_str(), pszPath, log.c_str()
+                    );
+                }
+            }
+
             return program;
         } catch (cl::Error& e) {
             if (e.err() == CL_BUILD_PROGRAM_FAILURE) {

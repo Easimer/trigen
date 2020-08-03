@@ -19,17 +19,64 @@ void mat_sub_assign(float4* out, float4 const* other) {
     out[3] -= other[3];
 }
 
-void mat_scale(float s, __local float* m) {
+void mat_scale(float s, float4* m) {
     m[0] = s * m[0];
     m[1] = s * m[1];
     m[2] = s * m[2];
     m[3] = s * m[3];
 }
 
+void mat_mul_ppg(
+    float* out,
+    float const* lhs,
+    __global float const* rhs
+) {
+    float4 lhs_rows[4];
+    for(int row = 0; row < 4; row++) {
+        lhs_rows[row].x = lhs[0 * 4 + row];
+        lhs_rows[row].y = lhs[1 * 4 + row];
+        lhs_rows[row].z = lhs[2 * 4 + row];
+        lhs_rows[row].w = lhs[3 * 4 + row];
+    }
+
+    for(int col = 0; col < 4; col++) {
+        float4 rhs_col = (float4)(rhs[col * 4 + 0], rhs[col * 4 + 1], rhs[col * 4 + 2], rhs[col * 4 + 3]);
+        unsigned idx = col * 4;
+        for(int row = 0; row < 4; row++) {
+            out[idx] = dot(lhs_rows[row], rhs_col);
+            idx++;
+        }
+    }
+}
+
 void mat_mul(
     float* out,
     __local float const* lhs,
     __local float const* rhs
+) {
+    float4 lhs_rows[4];
+    for(int row = 0; row < 4; row++) {
+        lhs_rows[row].x = lhs[0 * 4 + row];
+        lhs_rows[row].y = lhs[1 * 4 + row];
+        lhs_rows[row].z = lhs[2 * 4 + row];
+        lhs_rows[row].w = lhs[3 * 4 + row];
+    }
+
+    for(int col = 0; col < 4; col++) {
+        float4 rhs_col = (float4)(rhs[col * 4 + 0], rhs[col * 4 + 1], rhs[col * 4 + 2], rhs[col * 4 + 3]);
+        unsigned idx = col * 4;
+        for(int row = 0; row < 4; row++) {
+            out[idx] = dot(lhs_rows[row], rhs_col);
+            idx++;
+        }
+    }
+}
+
+
+void mat_mul_ppp(
+    float* out,
+    float const* lhs,
+    float const* rhs
 ) {
     float4 lhs_rows[4];
     for(int row = 0; row < 4; row++) {
@@ -238,31 +285,53 @@ void calculate_optimal_rotation(
 
 void calculate_A_i(
     float4* A_i,
-    unsigned i,
+    float mass,
+    float4 orientation,
+    float4 size,
+    float4 predicted_position,
+    float4 bind_pose,
+    float4 center_of_mass,
+    float4 bind_pose_center_of_mass
+) {
+    float4 temp[4];
+    float4 diag[4];
+    float4 orient[4];
+    float const s = 1.0f / 5.0f;
+
+    quat_to_mat(orient, orientation);
+    diagonal3x3(diag, size * size);
+    mat_mul_ppp((float*)A_i, (float*)diag, (float*)orient);
+    mat_scale(s, A_i);
+
+    outer_product(temp, predicted_position, bind_pose);
+    mat_add_assign(A_i, temp);
+    outer_product(temp, center_of_mass, bind_pose_center_of_mass);
+    mat_sub_assign(A_i, temp);
+    mat_scale(mass, A_i);
+}
+
+__kernel
+void test_calculate_A_i(
+    __global float4* A_i,
+    unsigned N,
     __global float* masses,
-    __global float4* orientations,
+    __global float4* predicted_orientations,
     __global float4* sizes,
     __global float4* predicted_positions,
     __global float4* bind_pose,
     __global float4* centers_of_masses,
     __global float4* bind_pose_centers_of_masses
 ) {
-    float4 temp[4];
-    float4 diag[4];
-    float4 orient[4];
-    float const s = 1.0f / 5.0f;
-    float m_i = masses[i];
-
-    quat_to_mat(orient, orientations[i]);
-    diagonal3x3(diag, sizes[i] * sizes[i]);
-    mat_mul(A_i, diag, orient);
-    mat_scale(s, A_i);
-
-    outer_product(temp, predicted_positions[i], bind_pose[i]);
-    mat_add_assign(A_i, temp);
-    mat_scale(m_i, A_i);
-    outer_product(temp, centers_of_masses[i], bind_pose_centers_of_masses[i]);
-    mat_sub_assign(A_i, temp);
+    for(int i = 0; i < N; i++) {
+        float4 out[4];
+        calculate_A_i(out, masses[i],
+        predicted_orientations[i], sizes[i], predicted_positions[i],
+        bind_pose[i], centers_of_masses[i], bind_pose_centers_of_masses[i]);
+        A_i[i * 4 + 0] = out[0];
+        A_i[i * 4 + 1] = out[1];
+        A_i[i * 4 + 2] = out[2];
+        A_i[i * 4 + 3] = out[3];
+    }
 }
 
 void calculate_cluster_moment_matrix(
@@ -279,8 +348,7 @@ void calculate_cluster_moment_matrix(
     __global float4* bind_pose_inverse_bind_pose
 ) {
     float4 acc[4];
-    calculate_A_i(acc, i, masses, predicted_orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
-
+    calculate_A_i(acc, masses[i], predicted_orientations[i], sizes[i], predicted_positions[i], bind_pose[i], centers_of_masses[i], bind_pose_centers_of_masses[i]);
 
     unsigned base = i * adjacency_stride;
     unsigned number_of_neighbors = adjacency[base + 0];
@@ -288,15 +356,30 @@ void calculate_cluster_moment_matrix(
         float4 temp[4];
         unsigned idx = adjacency[base + off];
 
-        calculate_A_i(temp, idx, masses, predicted_orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
-        mat_add_assign(acc, temp);
+        calculate_A_i(
+            temp,
+            masses[idx], predicted_orientations[idx], sizes[idx],
+            predicted_positions[idx], bind_pose[idx],
+            centers_of_masses[i], bind_pose_centers_of_masses[i]
+        );
+        
+        acc[0] = acc[0] + temp[0];
+        acc[1] = acc[1] + temp[1];
+        acc[2] = acc[2] + temp[2];
+        acc[3] = acc[3] + temp[3];
     }
 
-    mat_mul(A, acc, IDX_MAT4_ARR(bind_pose_inverse_bind_pose, i));
+    float4 invRest[4];
+    invRest[0] = bind_pose_inverse_bind_pose[i * 4 + 0];
+    invRest[1] = bind_pose_inverse_bind_pose[i * 4 + 1];
+    invRest[2] = bind_pose_inverse_bind_pose[i * 4 + 2];
+    invRest[3] = bind_pose_inverse_bind_pose[i * 4 + 3];
+    mat_mul_ppp((float*)A, (float*)acc, (float*)invRest);
 }
 
 __kernel
 void do_shape_matching(
+    __global float4* out,
     __global unsigned* adjacency, unsigned adjacency_stride,
     __global float* masses,
     __global float4* predicted_orientations,
@@ -309,6 +392,7 @@ void do_shape_matching(
 ) {
     unsigned id = get_global_id(0);
     float4 A[4];
+
     calculate_cluster_moment_matrix(
         A, id,
         adjacency, adjacency_stride,
@@ -318,5 +402,5 @@ void do_shape_matching(
         bind_pose_inverse_bind_pose
     );
     
-    predicted_orientations[id] = mueller_rotation_extraction_impl(A, predicted_orientations[id]);
+    out[id] = mueller_rotation_extraction_impl(A, predicted_orientations[id]);
 }
