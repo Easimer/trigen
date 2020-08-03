@@ -268,9 +268,9 @@ void calculate_A_i(
 void calculate_cluster_moment_matrix(
     float4* A,
     unsigned i,
-    unsigned* adjacency, unsigned adjacency_stride,
+    __global unsigned* adjacency, unsigned adjacency_stride,
     __global float* masses,
-    __global float4* orientations,
+    __global float4* predicted_orientations,
     __global float4* sizes,
     __global float4* predicted_positions,
     __global float4* bind_pose,
@@ -279,7 +279,7 @@ void calculate_cluster_moment_matrix(
     __global float4* bind_pose_inverse_bind_pose
 ) {
     float4 acc[4];
-    calculate_A_i(acc, i, masses, orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
+    calculate_A_i(acc, i, masses, predicted_orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
 
 
     unsigned base = i * adjacency_stride;
@@ -288,9 +288,35 @@ void calculate_cluster_moment_matrix(
         float4 temp[4];
         unsigned idx = adjacency[base + off];
 
-        calculate_A_i(temp, idx, masses, orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
+        calculate_A_i(temp, idx, masses, predicted_orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
         mat_add_assign(acc, temp);
     }
 
     mat_mul(A, acc, IDX_MAT4_ARR(bind_pose_inverse_bind_pose, i));
+}
+
+__kernel
+void do_shape_matching(
+    __global unsigned* adjacency, unsigned adjacency_stride,
+    __global float* masses,
+    __global float4* predicted_orientations,
+    __global float4* sizes,
+    __global float4* predicted_positions,
+    __global float4* bind_pose,
+    __global float4* centers_of_masses,
+    __global float4* bind_pose_centers_of_masses,
+    __global float4* bind_pose_inverse_bind_pose
+) {
+    unsigned id = get_global_id(0);
+    float4 A[4];
+    calculate_cluster_moment_matrix(
+        A, id,
+        adjacency, adjacency_stride,
+        masses, predicted_orientations, sizes,
+        predicted_positions, bind_pose,
+        centers_of_masses, bind_pose_centers_of_masses,
+        bind_pose_inverse_bind_pose
+    );
+    
+    predicted_orientations[id] = mueller_rotation_extraction_impl(A, predicted_orientations[id]);
 }
