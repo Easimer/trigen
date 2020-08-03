@@ -5,17 +5,25 @@ void mat_add(float4* out, float4 const* lhs, float4 const* rhs) {
     out[3] = lhs[3] + rhs[3];
 }
 
-void mat_scale(float s, __local float* m) {
-    for(int i = 0; i < 4; i++) {
-        m[i] = s * m[i];
-    }
+void mat_add_assign(float4* out, float4 const* other) {
+    out[0] += other[0];
+    out[1] += other[1];
+    out[2] += other[2];
+    out[3] += other[3];
 }
 
-void mat_sq_diag(float4* out, float4 v) {
-    out[0] = (float4)(v.x * v.x, 0, 0, 0);
-    out[1] = (float4)(0, v.y * v.y, 0, 0);
-    out[2] = (float4)(0, 0, v.z * v.z, 0);
-    out[3] = (float4)(0, 0, 0, v.w * v.w);
+void mat_sub_assign(float4* out, float4 const* other) {
+    out[0] -= other[0];
+    out[1] -= other[1];
+    out[2] -= other[2];
+    out[3] -= other[3];
+}
+
+void mat_scale(float s, __local float* m) {
+    m[0] = s * m[0];
+    m[1] = s * m[1];
+    m[2] = s * m[2];
+    m[3] = s * m[3];
 }
 
 void mat_mul(
@@ -71,9 +79,20 @@ void mat_mul_main(
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-#ifndef M_PI
-#define M_PI 3.1415926f
-#endif
+void diagonal3x3(float4* m, float4 diag) {
+    diag.w = 0;
+    m[0] = (float4)(diag.xwww);
+    m[1] = (float4)(diag.wyww);
+    m[2] = (float4)(diag.wwzw);
+    m[3] = 0;
+}
+
+void outer_product(float4* m, float4 p, float4 q) {
+    m[0] = p * q.xxxx;
+    m[1] = p * q.yyyy;
+    m[2] = p * q.zzzz;
+    m[3] = p * q.wwww;
+}
 
 __kernel
 void calculate_particle_masses(
@@ -85,7 +104,7 @@ void calculate_particle_masses(
 
     float d_i = densities[i];
     float4 s_i = sizes[i];
-    masses[i] = (4.0f / 3.0f) * M_PI * s_i.x * s_i.y * s_i.z * d_i;
+    masses[i] = (4.0f / 3.0f) * M_PI_F * s_i.x * s_i.y * s_i.z * d_i;
 }
 
 #define MAX_ITER (32)
@@ -213,4 +232,65 @@ void calculate_optimal_rotation(
     float4 l_q = q[i];
 
     q[i] = mueller_rotation_extraction_impl(l_A_pq, l_q);
+}
+
+#define IDX_MAT4_ARR(arr, i) &arr[i * 4]
+
+void calculate_A_i(
+    float4* A_i,
+    unsigned i,
+    __global float* masses,
+    __global float4* orientations,
+    __global float4* sizes,
+    __global float4* predicted_positions,
+    __global float4* bind_pose,
+    __global float4* centers_of_masses,
+    __global float4* bind_pose_centers_of_masses
+) {
+    float4 temp[4];
+    float4 diag[4];
+    float4 orient[4];
+    float const s = 1.0f / 5.0f;
+    float m_i = masses[i];
+
+    quat_to_mat(orient, orientations[i]);
+    diagonal3x3(diag, sizes[i] * sizes[i]);
+    mat_mul(A_i, diag, orient);
+    mat_scale(s, A_i);
+
+    outer_product(temp, predicted_positions[i], bind_pose[i]);
+    mat_add_assign(A_i, temp);
+    mat_scale(m_i, A_i);
+    outer_product(temp, centers_of_masses[i], bind_pose_centers_of_masses[i]);
+    mat_sub_assign(A_i, temp);
+}
+
+void calculate_cluster_moment_matrix(
+    float4* A,
+    unsigned i,
+    unsigned* adjacency, unsigned adjacency_stride,
+    __global float* masses,
+    __global float4* orientations,
+    __global float4* sizes,
+    __global float4* predicted_positions,
+    __global float4* bind_pose,
+    __global float4* centers_of_masses,
+    __global float4* bind_pose_centers_of_masses,
+    __global float4* bind_pose_inverse_bind_pose
+) {
+    float4 acc[4];
+    calculate_A_i(acc, i, masses, orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
+
+
+    unsigned base = i * adjacency_stride;
+    unsigned number_of_neighbors = adjacency[base + 0];
+    for(unsigned off = 1; off < number_of_neighbors + 1; off++) {
+        float4 temp[4];
+        unsigned idx = adjacency[base + off];
+
+        calculate_A_i(temp, idx, masses, orientations, sizes, predicted_positions, bind_pose, centers_of_masses, bind_pose_centers_of_masses);
+        mat_add_assign(acc, temp);
+    }
+
+    mat_mul(A, acc, IDX_MAT4_ARR(bind_pose_inverse_bind_pose, i));
 }
