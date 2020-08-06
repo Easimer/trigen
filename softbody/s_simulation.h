@@ -11,7 +11,7 @@
 
 class ICompute_Backend;
 
-class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Manager {
+class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Manager, public IParticle_Manager_Deferred {
 public:
     Softbody_Simulation(sb::Config const& configuration);
 
@@ -46,8 +46,19 @@ public:
     void do_one_iteration_of_fixed_constraint_resolution(float phdt);
     void do_one_iteration_of_collision_constraint_resolution(float phdt);
 
-    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
+    // Add a new particle to the simulation
+    // This must only be called in the initial state.
+    unsigned add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
+
+    // Connect two particles. This has two effects to be exact:
+    // - There will be a distance constraint between these two particles
+    // - Both particles will be added to the other particle's cluster
     void connect_particles(unsigned a, unsigned b) override;
+
+    // Add a new particle to the simulation
+    // This can be called when the system state has been already mutated, but
+    // the caller must tell us who is this particle connected to.
+    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) override;
     float mass_of_particle(unsigned i);
 
     void invalidate_particle_cache(unsigned pidx);
@@ -59,12 +70,16 @@ public:
 
     float time_accumulator = 0.0f;
 
+    // Is the system currently being mutated? (OBSOLETE)
     bool assert_parallel;
+    // Are we still in the initial state, that is, before the first call to step()
+    bool assert_init;
     Vec3 light_source = Vec3(0, 0, 0);
     sb::Config params;
 
     // Stores functions whose execution has been deferred until after the parallelized
     // part
     Mutex deferred_lock;
-    Vector<Fun<void()>> deferred;
+    Vector<Fun<void(IParticle_Manager*, System_State& s)>> deferred;
+    virtual void defer(std::function<void(IParticle_Manager* pman, System_State& s)> const& f) override;
 };

@@ -19,9 +19,9 @@
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
-#define SOLVER_ITERATIONS (5)
+#define SOLVER_ITERATIONS (12)
 
-#define DEBUG_TETRAHEDRON
+// #define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
 #define DISABLE_GROWTH
 #define DISABLE_PHOTOTROPISM
@@ -78,15 +78,15 @@ static float randf() {
 }
 
 Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
-    : assert_parallel(false) {
+    : assert_parallel(false), assert_init(true) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
-#if 0
+#if 1
     auto siz = Vec3(1, 1, 2);
-    auto idx_root = add_particle(o, siz, 1);
-    auto idx_t0 = add_particle(o + Vec3(-4,  8,  4), siz, 1);
-    auto idx_t1 = add_particle(o + Vec3(+4,  8,  4), siz, 1);
-    auto idx_t2 = add_particle(o + Vec3( 0,  8, -4), siz, 1);
+    auto idx_root = add_init_particle(o, siz, 1);
+    auto idx_t0 = add_init_particle(o + Vec3(-4,  8,  4), siz, 1);
+    auto idx_t1 = add_init_particle(o + Vec3(+4,  8,  4), siz, 1);
+    auto idx_t2 = add_init_particle(o + Vec3( 0,  8, -4), siz, 1);
 
     connect_particles(idx_root, idx_t0);
     connect_particles(idx_root, idx_t1);
@@ -95,38 +95,21 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     connect_particles(idx_t1, idx_t2);
     connect_particles(idx_t0, idx_t2);
 #else
-#if 0
     auto siz = Vec3(0.25, 0.25, 0.5);
     auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
     auto idx_root = add_particle(o, siz, 1);
     s.orientation[idx_root] = x90;
     auto prev = idx_root;
     for (int i = 0; i < 64; i++) {
-        auto cur = add_particle(o + Vec3((i + 1) * 0.5f, 0, 0), siz, 1);
+        auto cur = add_init_particle(o + Vec3((i + 1) * 0.5f, 0, 0), siz, 1);
         s.orientation[cur] = x90;
         connect_particles(prev, cur);
         prev = cur;
     }
-#else
-    auto siz = Vec3(0.25, 0.25, 0.5);
-    auto x90 = glm::normalize(Quat(Vec3(0, 0, glm::radians(90.0f))));
-    for (int y = 0; y < 16; y++) {
-        for (int x = 0; x < 16; x++) {
-            auto idx = add_particle(Vec3(x, y, 0), siz, 1);
-            if (y != 0) {
-                connect_particles(idx - 16, idx);
-            }
-            if (x != 0) {
-                connect_particles(idx - 1, idx);
-            }
-            s.orientation[idx] = x90;
-        }
-    }
-#endif
 #endif
 #else
-    auto siz = Vec3(1, 1, 2);
-    auto idx_root = add_particle(o, Vec3(0.25, 0.25, 0.50), 1);
+    constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
+    auto idx_root = add_init_particle(o, new_size, 1);
 #endif /* DEBUG_TETRAHEDRON */
 
     params = configuration;
@@ -138,15 +121,16 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     s.center_of_mass.resize(particle_count());
 
     compute = Make_Compute_Backend();
-    ext = Create_Extension(params.ext);
+    ext = Create_Extension(params.ext, params);
 }
 
 void Softbody_Simulation::prediction(float dt) {
+    assert_init = false;
     s.predicted_position.resize(particle_count());
     s.predicted_orientation.resize(s.orientation.size());
     s.center_of_mass.resize(particle_count());
 
-    ext->pre_prediction(this, s);
+    ext->pre_prediction(this, s, dt);
 
     for (unsigned i = 0; i < particle_count(); i++) {
         // prediction step
@@ -174,7 +158,7 @@ void Softbody_Simulation::prediction(float dt) {
 
     s.collision_constraints = generate_collision_constraints();
 
-    ext->post_prediction(this, s);
+    ext->post_prediction(this, s, dt);
 }
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
@@ -207,7 +191,6 @@ void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(flo
 }
 
 void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
-    return;
     // force particles to stay in their bind pose
     auto particles = { 0 };
 
@@ -217,7 +200,7 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 }
 
 void Softbody_Simulation::constraint_resolution(float dt) {
-    ext->pre_constraint(this, s);
+    ext->pre_constraint(this, s, dt);
     compute->begin_new_frame(s);
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
@@ -227,7 +210,7 @@ void Softbody_Simulation::constraint_resolution(float dt) {
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
 
-    ext->post_constraint(this, s);
+    ext->post_constraint(this, s, dt);
 }
 
 void Softbody_Simulation::do_one_iteration_of_collision_constraint_resolution(float phdt) {
@@ -249,7 +232,7 @@ void Softbody_Simulation::do_one_iteration_of_collision_constraint_resolution(fl
 }
 
 void Softbody_Simulation::integration(float dt) {
-    ext->pre_integration(this, s);
+    ext->pre_integration(this, s, dt);
 
     for (unsigned i = 0; i < particle_count(); i++) {
         s.velocity[i] = (s.predicted_position[i] - s.position[i]) / dt;
@@ -273,19 +256,20 @@ void Softbody_Simulation::integration(float dt) {
         // TODO(danielm): friction?
     }
 
-    ext->post_integration(this, s);
+    ext->post_integration(this, s, dt);
 }
 
 Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints() {
     DECLARE_BENCHMARK_BLOCK();
     auto ret = Vector<Collision_Constraint>();
     BEGIN_BENCHMARK();
+    auto N = particle_count();
 
     for (auto& coll : s.colliders_sdf) {
         // Skip unused collider slots
         if (!coll.used) continue;
 
-        for (auto i = 0ull; i < particle_count(); i++) {
+        for (auto i = 0ull; i < N; i++) {
             float dist = 0;
             auto const start = s.position[i];
             auto thru = s.predicted_position[i];
@@ -341,7 +325,7 @@ void Softbody_Simulation::remove_collider(Collider_Handle h) {
     }
 }
 
-unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
+unsigned Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
     Vec3 zero(0, 0, 0);
@@ -355,6 +339,7 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     s.size.push_back(p_size);
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    s.center_of_mass.push_back(zero);
     //age.push_back(0);
     s.edges[index] = {};
 
@@ -365,6 +350,7 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
 
 void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
     assert(!assert_parallel);
+    assert(a != b);
     assert(a < particle_count());
     assert(b < particle_count());
 
@@ -373,6 +359,40 @@ void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
 
     invalidate_particle_cache(a);
     invalidate_particle_cache(b);
+}
+
+unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) {
+    assert(!assert_parallel);
+    assert(p_density >= 0.0f && p_density <= 1.0f);
+    Vec3 zero(0, 0, 0);
+    unsigned const index = particle_count();
+    assert(parent < index);
+
+    // Determine the bind pose position
+    auto parent_pos = s.position[parent];
+    auto offset = p_pos - parent_pos;
+    auto p_bpos = s.bind_pose[parent] + offset;
+
+    // TODO(danielm): should the new particle inherit the moment of the parent?
+
+    s.bind_pose.push_back(p_bpos);
+    s.position.push_back(p_pos);
+    s.predicted_position.push_back(p_pos);
+    s.velocity.push_back(zero);
+    s.angular_velocity.push_back(zero);
+    s.goal_position.push_back(p_pos);
+    s.size.push_back(p_size);
+    s.density.push_back(p_density);
+    s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    s.center_of_mass.push_back(zero);
+    //age.push_back(0);
+    s.edges[index] = {};
+
+    // NOTE(danielm): connect_particle invalidates all cached info about both
+    // this particle and its parent
+    connect_particles(index, parent);
+
+    return 0;
 }
 
 float Softbody_Simulation::mass_of_particle(unsigned i) {
@@ -436,6 +456,11 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
     s.bind_pose_inverse_bind_pose[i] = invRest;
 }
 
+void Softbody_Simulation::defer(std::function<void(IParticle_Manager* pman, System_State& s)> const& f) {
+    std::lock_guard G(deferred_lock);
+    deferred.push_back(f);
+}
+
 sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {
     return std::make_unique<Softbody_Simulation>(configuration);
 }
@@ -459,7 +484,7 @@ void Softbody_Simulation::step(float delta_time) {
         }
 
         for (auto& def_func : deferred) {
-            def_func();
+            def_func(this, s);
         }
         deferred.clear();
 

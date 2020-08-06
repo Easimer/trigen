@@ -158,7 +158,7 @@ void app_main_loop() {
 
     auto sdf_sphere_test = std::bind(sdf_sphere, glm::vec3(0, -4, 0), 2.0f, std::placeholders::_1);
     auto sdf_plane_test = std::bind(sdf_plane, glm::vec3(0, 1, 0), -2, std::placeholders::_1);
-    auto sdf_box_test = std::bind(sdf_box, glm::vec3(0, -4, 0), glm::vec3(10, 2, 10), std::placeholders::_1);
+    auto sdf_box_test = std::bind(sdf_box, glm::vec3(0, -1, 0), glm::vec3(10, 2, 10), std::placeholders::_1);
 
     sim->add_collider(sdf_box_test);
 
