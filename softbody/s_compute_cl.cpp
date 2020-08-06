@@ -18,11 +18,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #define CL_HPP_ENABLE_EXCEPTIONS 1
-#if defined(__APPLE__) || defined(__MACOSX)
-#include <OpenCL/cl.hpp>
-#else
 #include <CL/cl2.hpp>
-#endif
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
@@ -30,18 +26,37 @@ class calc_mass;
 
 class Compute_CL : public ICompute_Backend {
 public:
-    Compute_CL(cl::Context&& _ctx, cl::Program&& _program)
-        : ctx(std::move(_ctx)), program(std::move(_program))
+    Compute_CL(cl::Context&& _ctx, cl::Device&& _dev, cl::Program&& _program)
+        : ctx(std::move(_ctx)), dev(std::move(_dev)), program(std::move(_program)),
+        k_test_mat_mul(program, "mat_mul_main"),
+        k_test_rotation_extraction(program, "mueller_rotation_extraction"),
+        k_calculate_particle_masses(program, "calculate_particle_masses"),
+        k_do_shape_matching(program, "do_shape_matching")
     {
         queue = cl::CommandQueue(ctx);
 
         assert(sanity_check_mat_mul());
         assert(sanity_check_mueller_rotation_extraction());
+
+        auto local_mem_size = k_do_shape_matching.getKernel().getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(dev);
+        auto private_mem_size = k_do_shape_matching.getKernel().getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(dev);
+        auto preferred_work_group_size_multiple = k_do_shape_matching.getKernel().getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(dev);
+
+        printf("sb: do_shape_matching kernel details:\n");
+        printf("\tLocal memory size: %llu\n", local_mem_size);
+        printf("\tPrivate memory size: %llu\n", private_mem_size);
+        printf("\tPreferred work-group size multiple: %zu\n\n", preferred_work_group_size_multiple);
     }
 private:
     cl::Context ctx;
+    cl::Device dev;
     cl::Program program;
     cl::CommandQueue queue;
+
+    using Test_Mat_Mul = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>;
+    using Test_Rotation_Extraction = cl::KernelFunctor<cl::Buffer, cl::Buffer>;
+    using Calculate_Particle_Masses = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>;
+    using Do_Shape_Matching = cl::KernelFunctor<cl::Buffer, cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer >;
 
     Vector<float> particle_masses;
     cl::Buffer d_masses, d_predicted_orientations, d_sizes, d_predicted_positions;
@@ -49,6 +64,11 @@ private:
     cl::Buffer d_bind_pose_inverse_bind_pose;
     cl::Buffer d_adjacency;
     cl::Buffer d_out;
+
+    Test_Mat_Mul k_test_mat_mul;
+    Test_Rotation_Extraction k_test_rotation_extraction;
+    Calculate_Particle_Masses k_calculate_particle_masses;
+    Do_Shape_Matching k_do_shape_matching;
 
     float mass_of_particle(System_State const& s, unsigned i) const {
         assert(particle_masses.size() == particle_count(s));
@@ -93,12 +113,10 @@ private:
 
         auto d_densities = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC1(N));
 
-        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "calculate_particle_masses");
-
         queue.enqueueWriteBuffer(d_densities, CL_FALSE, 0, SIZE_N_VEC1(N), s.density.data());
         queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, SIZE_N_VEC4(N), h_sizes.data());
 
-        kernel(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(N), cl::NDRange(1)), d_sizes, d_densities, d_masses);
+        k_calculate_particle_masses(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(N), cl::NDRange(1)), d_sizes, d_densities, d_masses);
 
         queue.enqueueReadBuffer(d_masses, true, 0, SIZE_N_VEC1(N), h_masses.data());
 
@@ -122,12 +140,10 @@ private:
         cl::Buffer d_A(ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 3 * 16 * sizeof(float));
         cl::Buffer d_q(ctx, CL_MEM_READ_WRITE, 3 * 4 * sizeof(float));
 
-        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer>(program, "mueller_rotation_extraction");
-
         queue.enqueueWriteBuffer(d_A, CL_FALSE, 0, 3 * 16 * sizeof(float), matrices);
         queue.enqueueWriteBuffer(d_q, CL_FALSE, 0, 3 *  4 * sizeof(float), approx);
 
-        kernel(cl::EnqueueArgs(queue, cl::NDRange(3)), d_A, d_q);
+        k_test_rotation_extraction(cl::EnqueueArgs(queue, cl::NDRange(3)), d_A, d_q);
 
         queue.enqueueReadBuffer(d_q, CL_TRUE, 0, 3 * 4 * sizeof(float), approx);
 
@@ -169,12 +185,10 @@ private:
         cl::Buffer d_rhs(ctx, glm::value_ptr(rhs), glm::value_ptr(rhs) + 16, true);
         cl::Buffer d_out(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, 16 * sizeof(float));
 
-        auto kernel = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>(program, "mat_mul_main");
-
         queue.enqueueWriteBuffer(d_lhs, CL_FALSE, 0, 16 * sizeof(float), glm::value_ptr(lhs));
         queue.enqueueWriteBuffer(d_rhs, CL_FALSE, 0, 16 * sizeof(float), glm::value_ptr(rhs));
 
-        kernel(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(1), cl::NDRange(1)), d_out, d_lhs, d_rhs);
+        k_test_mat_mul(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(1), cl::NDRange(1)), d_out, d_lhs, d_rhs);
 
         queue.enqueueReadBuffer(d_out, CL_TRUE, 0, 16 * sizeof(float), glm::value_ptr(out));
 
@@ -311,7 +325,6 @@ private:
 
         unsigned adjacency_stride, adjacency_size;
         auto adjacency = make_adjacency_table(s, &adjacency_stride, &adjacency_size);
-        using Do_Shape_Matching_Functor = cl::KernelFunctor<cl::Buffer, cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer > ;
 
         // Convert Vec3's into Vec4's before we upload them to the GPU
         // TODO(danielm): this has a significant performance hit.
@@ -340,8 +353,7 @@ private:
         for (unsigned i = 0; i < N; i++) h_bind_pose_inverse_bind_pose[i] = glm::mat4(s.bind_pose_inverse_bind_pose[i]);
         queue.enqueueWriteBuffer(d_bind_pose_inverse_bind_pose, CL_FALSE, 0, SIZE_N_MAT4(N), h_bind_pose_inverse_bind_pose.data());
 
-        auto kernel = Do_Shape_Matching_Functor(program, "do_shape_matching");
-        kernel(cl::EnqueueArgs(queue, cl::NDRange(N)),
+        k_do_shape_matching(cl::EnqueueArgs(queue, cl::NDRange(N)),
             d_out,
             d_adjacency, adjacency_stride,
             d_masses,
@@ -439,7 +451,7 @@ private:
 static std::optional<cl::Program> from_file_load_program(
     char const* pszPath,
     cl::Context& ctx,
-    std::vector<cl::Device> const& devices
+    cl::Device& dev 
 ) {
     Vector<std::string> chunks;
 
@@ -471,33 +483,29 @@ static std::optional<cl::Program> from_file_load_program(
         try {
             program.build();
 
-            for (auto& dev : devices) {
-                auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
-                auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
-                if (!log.empty()) {
-                    printf(
-                        "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                        dev_name.c_str(), pszPath, log.c_str()
-                    );
-                }
+            auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
+            auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
+            if (!log.empty()) {
+                printf(
+                    "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
+                    dev_name.c_str(), pszPath, log.c_str()
+                );
             }
 
             return program;
         } catch (cl::Error& e) {
             if (e.err() == CL_BUILD_PROGRAM_FAILURE) {
-                for (auto& dev : devices) {
-                    auto status = program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev);
-                    if (status != CL_BUILD_ERROR) {
-                        continue;
-                    }
-
-                    auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
-                    auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
-                    printf(
-                        "sb: CL program build failure\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                        dev_name.c_str(), pszPath, log.c_str()
-                    );
+                auto status = program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev);
+                if (status != CL_BUILD_ERROR) {
+                    return std::nullopt;
                 }
+
+                auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
+                auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
+                printf(
+                    "sb: CL program build failure\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
+                    dev_name.c_str(), pszPath, log.c_str()
+                );
             }
 
             return std::nullopt;
@@ -511,41 +519,45 @@ static std::optional<cl::Program> from_file_load_program(
 
 sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
     try {
+        std::optional<cl::Device> selected_device;
         Vector<cl::Platform> platforms;
         cl::Platform::get(&platforms);
-        Vector<cl::Device> devices;
 
         for (auto& platform : platforms) {
             Vector<cl::Device> devices_buffer;
             try {
                 platform.getDevices(CL_DEVICE_TYPE_GPU, &devices_buffer);
-                devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
+                if (devices_buffer.size() > 0) {
+                    selected_device = devices_buffer[0];
+                    break;
+                }
             } catch (cl::Error& e1) {
                 printf("sb: couldn't enumerate OpenCL GPU devices: [%d] %s\n", e1.err(), e1.what());
                 try {
                     platform.getDevices(CL_DEVICE_TYPE_CPU, &devices_buffer);
-                    devices.insert(devices.end(), devices_buffer.begin(), devices_buffer.end());
+                    if (devices_buffer.size() > 0) {
+                        selected_device = devices_buffer[0];
+                        break;
+                    }
                 } catch (cl::Error& e2) {
                     printf("sb: couldn't enumerate OpenCL CPU devices: [%d] %s\n", e2.err(), e2.what());
                 }
             }
         }
 
-        if (devices.size() != 0) {
-            printf("sb: OpenCL devices available (count=%zu):\n", devices.size());
-            for (auto& device : devices) {
-                std::string name;
-                device.getInfo(CL_DEVICE_NAME, &name);
-                printf("- %s\n", name.c_str());
-                device.getInfo(CL_DEVICE_VENDOR, &name);
-                printf("\tVendor: %s\n", name.c_str());
-            }
+        if (selected_device) {
+            printf("sb: OpenCL device selected:\n");
+            std::string name;
+            selected_device->getInfo(CL_DEVICE_NAME, &name);
+            printf("- %s\n", name.c_str());
+            selected_device->getInfo(CL_DEVICE_VENDOR, &name);
+            printf("\tVendor: %s\n", name.c_str());
             printf("\n");
 
-            cl::Context ctx(devices);
-            auto program = from_file_load_program("shape_matching.cl", ctx, devices);
+            cl::Context ctx(*selected_device);
+            auto program = from_file_load_program("shape_matching.cl", ctx, *selected_device);
             if (program) {
-                return std::make_unique<Compute_CL>(std::move(ctx), std::move(*program));
+                return std::make_unique<Compute_CL>(std::move(ctx), std::move(*selected_device), std::move(*program));
             }
         }
     } catch(cl::Error& e) {
