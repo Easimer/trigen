@@ -149,20 +149,6 @@ private:
     Particle_Factory make_particle;
 };
 
-sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_apical_relations() {
-    auto get_map = [&]() -> decltype(s.apical_child)& { return s.apical_child; };
-    auto make_relation = [&](unsigned lhs, unsigned rhs) {
-        return sb::Relation {
-            lhs,
-            s.position[lhs],
-            rhs,
-            s.position[rhs],
-        };
-    };
-
-    return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
-}
-
 #define MAKE_PARTICLE_FACTORY(position_source) \
     [&](size_t pidx) {                                                          \
         sb::Particle ret;                                                       \
@@ -204,20 +190,6 @@ sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_centers_of_masses
     auto pf = MAKE_PARTICLE_FACTORY(center_of_mass);
 
     return std::make_unique<Particle_Iterator>(pcg, pf);
-}
-
-sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_lateral_relations() {
-    auto get_map = [&]() -> decltype(s.lateral_bud)& { return s.lateral_bud; };
-    auto make_relation = [&](unsigned lhs, unsigned rhs) {
-        return sb::Relation {
-            lhs,
-            s.position[lhs],
-            rhs,
-            s.position[rhs],
-        };
-    };
-
-    return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
 }
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {

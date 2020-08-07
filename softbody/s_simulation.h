@@ -24,8 +24,6 @@ public:
     sb::Unique_Ptr<sb::Particle_Iterator> get_particles_with_goal_positions() override;
     sb::Unique_Ptr<sb::Particle_Iterator> get_particles_with_predicted_positions() override;
     sb::Unique_Ptr<sb::Particle_Iterator> get_centers_of_masses() override;
-    sb::Unique_Ptr<sb::Relation_Iterator> get_apical_relations() override;
-    sb::Unique_Ptr<sb::Relation_Iterator> get_lateral_relations() override;
     sb::Unique_Ptr<sb::Relation_Iterator> get_connections() override;
     sb::Unique_Ptr<sb::Relation_Iterator> get_predicted_connections() override;
 

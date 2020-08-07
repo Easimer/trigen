@@ -17,6 +17,9 @@ public:
 private:
     sb::Config params;
     Rand_Float rnd;
+    Map<unsigned, unsigned> parents;
+    Map<unsigned, unsigned> apical_child;
+    Map<unsigned, unsigned> lateral_bud;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         // Create root
@@ -77,30 +80,10 @@ private:
                     auto longest_axis = longest_axis_normalized(s.size[pidx]);
                     auto new_longest_axis = longest_axis_normalized(new_size);
 
-                    auto parent = s.parent[pidx];
+                    auto parent = parents[pidx];
                     auto branch_dir = s.bind_pose[pidx] - s.bind_pose[parent];
 
                     if (lateral_chance < params.branching_probability) {
-                        /*
-                        // Oldalagat novesszuk
-                        auto angle = rnd.central() * params.branch_angle_variance;
-                        auto x = rnd.central();
-                        auto y = rnd.central();
-                        auto z = rnd.central();
-                        auto axis = glm::normalize(Vec3(x, y, z));
-                        auto bud_rot_offset = glm::angleAxis(angle, axis);
-                        auto lateral_orientation = bud_rot_offset * s.orientation[pidx];
-                        auto l_pos = s.position[pidx]
-                            + s.orientation[pidx] * (longest_axis / 2.0f) * glm::inverse(s.orientation[pidx])
-                            + lateral_orientation * (new_longest_axis / 2.0f) * glm::inverse(lateral_orientation);
-
-                        pman_defer->defer([&, l_pos, new_size, pidx, lateral_orientation](IParticle_Manager* pman, System_State& s) {
-                            auto l_idx = pman->add_particle(l_pos, new_size, 1.0f, pidx);
-                            s.lateral_bud[pidx] = l_idx;
-                            s.orientation[l_idx] = lateral_orientation;
-                        });
-                        */
-
                         auto angle = rnd.central() * params.branch_angle_variance;
                         auto x = rnd.central();
                         auto y = rnd.central();
@@ -113,16 +96,16 @@ private:
 
                         pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                             auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                            s.lateral_bud[pidx] = l_idx;
-                            s.parent[l_idx] = pidx; // TODO(danielm): this should be done by add_particle
+                            lateral_bud[pidx] = l_idx;
+                            parents[l_idx] = pidx;
                         });
                     }
                     auto pos = s.position[pidx] + 0.25f * branch_dir;
 
                     pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                         auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                        s.apical_child[pidx] = a_idx;
-                        s.parent[a_idx] = pidx; // TODO(danielm): this should be done by add_particle
+                        apical_child[pidx] = a_idx;
+                        parents[a_idx] = pidx;
                     });
                 }
             }

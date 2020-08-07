@@ -91,46 +91,6 @@ private:
     }
 };
 
-class Command_Render_Apical_Relations : public gfx::IRender_Command {
-public:
-    Command_Render_Apical_Relations(sb::ISoftbody_Simulation* sim) : sim(sim) {}
-private:
-    sb::ISoftbody_Simulation* sim;
-    virtual void execute(gfx::IRenderer* renderer) override {
-        std::vector<glm::vec3> lines;
-
-        for (auto iter = sim->get_apical_relations(); !iter->ended(); iter->step()) {
-            auto rel = iter->get();
-            lines.push_back(rel.parent_position);
-            lines.push_back(rel.child_position);
-        }
-
-        auto col0 = Vec3(0, 0.5, 0);
-        auto col1 = Vec3(0, 1.0, 0);
-        renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), col0, col1);
-    }
-};
-
-class Command_Render_Lateral_Relations : public gfx::IRender_Command {
-public:
-    Command_Render_Lateral_Relations(sb::ISoftbody_Simulation* sim) : sim(sim) {}
-private:
-    sb::ISoftbody_Simulation* sim;
-    virtual void execute(gfx::IRenderer* renderer) override {
-        std::vector<glm::vec3> lines;
-
-        for (auto iter = sim->get_lateral_relations(); !iter->ended(); iter->step()) {
-            auto rel = iter->get();
-            lines.push_back(rel.parent_position);
-            lines.push_back(rel.child_position);
-        }
-
-        auto col0 = Vec3(0.5, 0, 0);
-        auto col1 = Vec3(1.0, 0, 0);
-        renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), col0, col1);
-    }
-};
-
 class Render_Grid : public gfx::IRender_Command {
 private:
     virtual void execute(gfx::IRenderer* renderer) override {
@@ -226,10 +186,8 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
     assert(sim != NULL);
 
     allocate_command_and_initialize<Render_Grid>(rq);
-    auto render_points = allocate_command_and_initialize<Command_Render_Points>(rq, sim);
-    // auto render_apical_branches = allocate_command_and_initialize<Command_Render_Apical_Relations>(rq, sim);
-    // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
-    auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
+    allocate_command_and_initialize<Command_Render_Points>(rq, sim);
+    allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
     allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
     if (params.draw_bind_pose) {

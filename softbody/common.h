@@ -71,9 +71,6 @@ struct System_State {
     // Particle ages
     //Vector<float> age;
     Map<unsigned, Vector<unsigned>> edges;
-    Map<unsigned, unsigned> apical_child;
-    Map<unsigned, unsigned> parent;
-    Map<unsigned, unsigned> lateral_bud;
 
     Vector<Vec3> bind_pose_center_of_mass;
     Vector<Mat3> bind_pose_inverse_bind_pose;

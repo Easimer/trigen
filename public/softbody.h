@@ -94,8 +94,6 @@ namespace sb {
         virtual Unique_Ptr<Particle_Iterator> get_particles_with_goal_positions() = 0;
         virtual Unique_Ptr<Particle_Iterator> get_particles_with_predicted_positions() = 0;
         virtual Unique_Ptr<Particle_Iterator> get_centers_of_masses() = 0;
-        virtual Unique_Ptr<Relation_Iterator> get_apical_relations() = 0;
-        virtual Unique_Ptr<Relation_Iterator> get_lateral_relations() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_connections() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_predicted_connections() = 0;
 
