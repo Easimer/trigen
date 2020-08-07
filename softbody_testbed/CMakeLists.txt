@@ -16,6 +16,8 @@ set(SRC
 
 	arcball_camera.cpp
 	arcball_camera.h
+
+	../public/raymarching.h
 )
 
 add_executable(softbody_testbed ${SRC})

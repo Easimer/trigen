@@ -247,3 +247,24 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_predicted_connect
 
     return std::make_unique<One_To_Many_Relation_Iterator>(get_map, make_relation);
 }
+
+sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_in_bind_pose() {
+    auto pcg = [&]() { return s.position.size(); };
+    auto pf = MAKE_PARTICLE_FACTORY(bind_pose);
+
+    return std::make_unique<Particle_Iterator>(pcg, pf);
+}
+
+sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections_in_bind_pose() {
+    auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
+    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+        return sb::Relation {
+            lhs,
+            s.bind_pose[lhs],
+            rhs,
+            s.bind_pose[rhs],
+        };
+    };
+
+    return std::make_unique<One_To_Many_Relation_Iterator>(get_map, make_relation);
+}

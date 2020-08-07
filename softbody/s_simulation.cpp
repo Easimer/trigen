@@ -12,13 +12,14 @@
 #include "s_benchmark.h"
 #include <cstdlib>
 #include <array>
+#include <raymarching.h>
 #include <glm/gtx/matrix_operation.hpp>
 #include "s_compute_backend.h"
-#include "m_sdf.h"
 
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
+#define MIN_SOLVER_ITERATIONS (5)
 #define SOLVER_ITERATIONS (12)
 
 // #define DEBUG_TETRAHEDRON
@@ -73,6 +74,8 @@ struct Cache_Table {
     }
 };
 
+static int gnSolverIterations = MIN_SOLVER_ITERATIONS;
+
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
@@ -108,8 +111,6 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     }
 #endif
 #else
-    constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
-    auto idx_root = add_init_particle(o, new_size, 1);
 #endif /* DEBUG_TETRAHEDRON */
 
     params = configuration;
@@ -122,6 +123,9 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
 
     compute = Make_Compute_Backend();
     ext = Create_Extension(params.ext, params);
+
+    ext->init(this, s, 0.0f);
+    pump_deferred_requests();
 }
 
 void Softbody_Simulation::prediction(float dt) {
@@ -163,6 +167,13 @@ void Softbody_Simulation::prediction(float dt) {
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
+void Softbody_Simulation::pump_deferred_requests() {
+    for (auto& def_func : deferred) {
+        def_func(this, s);
+    }
+    deferred.clear();
+}
+
 float Softbody_Simulation::get_phdt() {
     return PHYSICS_STEP;
 }
@@ -192,10 +203,9 @@ void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(flo
 
 void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
     // force particles to stay in their bind pose
-    auto particles = { 0 };
 
-    for (auto i : particles) {
-        s.predicted_position[i] = Vec3();
+    for (auto i : s.fixed_particles) {
+        s.predicted_position[i] = s.bind_pose[i];
     }
 }
 
@@ -461,6 +471,15 @@ void Softbody_Simulation::defer(std::function<void(IParticle_Manager* pman, Syst
     deferred.push_back(f);
 }
 
+void Softbody_Simulation::add_fixed_constraint(unsigned count, unsigned* pidx) {
+    assert(!assert_parallel);
+    assert(pidx != NULL);
+
+    if (count > 0 && pidx != NULL) {
+        s.fixed_particles.insert(pidx, pidx + count);
+    }
+}
+
 sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {
     return std::make_unique<Softbody_Simulation>(configuration);
 }
@@ -483,10 +502,7 @@ void Softbody_Simulation::step(float delta_time) {
             fprintf(stderr, "sb: warning: extreme lag, acc = %f\n", time_accumulator);
         }
 
-        for (auto& def_func : deferred) {
-            def_func(this, s);
-        }
-        deferred.clear();
+        pump_deferred_requests();
 
         time_accumulator -= phdt;
     }

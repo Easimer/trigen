@@ -11,8 +11,6 @@ set(SRC_IMPL
 
     m_utils.cpp
     m_utils.h
-    m_sdf.cpp
-    m_sdf.h
 
     l_iterators.h
     l_random.h
@@ -27,6 +25,8 @@ set(SRC_IMPL
 
     s_ext.h
     s_ext_plant.cpp
+
+    ../public/raymarching.h
 )
 
 set(SRC_TESTS

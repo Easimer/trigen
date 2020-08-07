@@ -10,6 +10,7 @@
 #include <queue>
 #include <unordered_map>
 #include <functional>
+#include <unordered_set>
 
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
@@ -34,6 +35,9 @@ using Fun = std::function<T>;
 
 using Mutex = std::mutex;
 using Lock_Guard = std::lock_guard<std::mutex>;
+
+template<typename T>
+using Set = std::unordered_set<T>;
 
 struct Collision_Constraint {
     unsigned pidx;
@@ -68,6 +72,7 @@ struct System_State {
     //Vector<float> age;
     Map<unsigned, Vector<unsigned>> edges;
     Map<unsigned, unsigned> apical_child;
+    Map<unsigned, unsigned> parent;
     Map<unsigned, unsigned> lateral_bud;
 
     Vector<Vec3> bind_pose_center_of_mass;
@@ -84,4 +89,6 @@ struct System_State {
     // For debug visualization only
     Vector<Vec3> center_of_mass;
     Vector<Vec3> goal_position;
+
+    Set<unsigned> fixed_particles;
 };

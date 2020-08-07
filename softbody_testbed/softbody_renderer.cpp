@@ -46,8 +46,8 @@ private:
         auto iter = sim->get_particles();
         while(!iter->ended()) {
             auto particle = iter->get();
-            lines.push_back(particle.start);
-            lines.push_back(particle.end);
+            // lines.push_back(particle.start);
+            // lines.push_back(particle.end);
 
             positions.push_back(particle.position);
             sizes.push_back(particle.size);
@@ -187,6 +187,32 @@ private:
 
 };
 
+class Visualize_Bind_Pose : public gfx::IRender_Command {
+public:
+    Visualize_Bind_Pose(sb::ISoftbody_Simulation* s) : sim(s) {}
+private:
+    sb::ISoftbody_Simulation* sim;
+
+    virtual void execute(gfx::IRenderer* renderer) override {
+        std::vector<glm::vec3> lines;
+        std::vector<glm::vec3> particles;
+
+        for (auto iter = sim->get_particles_in_bind_pose(); !iter->ended(); iter->step()) {
+            auto particle = iter->get();
+            particles.push_back(particle.position);
+        }
+
+        for (auto iter = sim->get_connections_in_bind_pose(); !iter->ended(); iter->step()) {
+            auto rel = iter->get();
+            lines.push_back(rel.parent_position);
+            lines.push_back(rel.child_position);
+        }
+
+        renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0, 1), Vec3(0, 0, 1));
+        renderer->draw_points(particles.data(), particles.size(), Vec3());
+    }
+};
+
 template<typename T, class ... Arg>
 static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
     auto cmd = rq->allocate<T>();
@@ -205,6 +231,10 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
     // auto render_lateral_branches = allocate_command_and_initialize<Command_Render_Lateral_Relations>(rq, sim);
     auto render_particles = allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
     allocate_command_and_initialize<Visualize_Connections>(rq, sim);
+
+    if (params.draw_bind_pose) {
+        allocate_command_and_initialize<Visualize_Bind_Pose>(rq, sim);
+    }
 
     return true;
 }

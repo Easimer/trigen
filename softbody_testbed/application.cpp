@@ -12,6 +12,7 @@
 #include "softbody_renderer.h"
 #include "events.h"
 #include <imgui.h>
+#include <raymarching.h>
 #include "arcball_camera.h"
 
 struct Renderer_Preferences_Screen : public IEvent_Handler {
@@ -105,10 +106,6 @@ private:
     bool v = false, s = false;
 };
 
-static float sdf_sphere(glm::vec3 origin, float radius, glm::vec3 const& sp) {
-    return glm::length(sp - origin) - radius;
-}
-
 void app_main_loop() {
     bool quit = false;
 
@@ -135,32 +132,26 @@ void app_main_loop() {
         glm::pi<float>(), // branch_angle_variance
         128, // particle_count_limit
     };
-    auto sim = sb::create_simulation(sim_cfg);
+    sb::Unique_Ptr<sb::ISoftbody_Simulation> sim;
     bool bDoTick = false;
     Falling_Edge bStep;
     sb::Unique_Ptr<sb::ISingle_Step_State> pSingleStep;
     char stateDescription[128] = { '\0' };
     Softbody_Render_Parameters render_params = {};
 
-    auto sdf_sphere = [](glm::vec3 origin, float radius, glm::vec3 const& sp) {
-        return glm::length(sp - origin) - radius;
+    auto sdf_box_100_100 = std::bind(&sdf::box, glm::vec3(100, 2, 100), std::placeholders::_1);
+    auto sdf_box = sdf::translate(sdf_box_100_100, glm::vec3(0, -1, 0));
+
+    auto sdf_cylinder = std::bind(&sdf::infCylinder, glm::vec3(4, 4, 1), std::placeholders::_1);
+
+    auto reset_simulation = [&]() {
+        sim.reset();
+        sim = sb::create_simulation(sim_cfg);
+        sim->add_collider(sdf_box);
+        sim->add_collider(sdf_cylinder);
     };
 
-    auto sdf_plane = [](glm::vec3 n, float h, glm::vec3 const& sp) {
-        return glm::dot(n, sp) + h;
-    };
-
-    auto sdf_box = [](glm::vec3 origin, glm::vec3 b, glm::vec3 const& sp) {
-        auto p = sp - origin;
-        auto q = glm::abs(p) - b;
-        return glm::length(glm::max(q, Vec3(0, 0, 0))) + glm::min(glm::max(q.x, glm::max(q.y, q.z)), 0.0f);
-    };
-
-    auto sdf_sphere_test = std::bind(sdf_sphere, glm::vec3(0, -4, 0), 2.0f, std::placeholders::_1);
-    auto sdf_plane_test = std::bind(sdf_plane, glm::vec3(0, 1, 0), -2, std::placeholders::_1);
-    auto sdf_box_test = std::bind(sdf_box, glm::vec3(0, -1, 0), glm::vec3(10, 2, 10), std::placeholders::_1);
-
-    sim->add_collider(sdf_box_test);
+    reset_simulation();
 
     // Sun
     float sun_angle = 0.0f;
@@ -227,6 +218,7 @@ void app_main_loop() {
             ImGui::Checkbox("Draw positions", &render_params.draw_positions);
             ImGui::Checkbox("Draw centers of masses", &render_params.draw_center_of_mass);
             ImGui::Checkbox("Draw goal positions", &render_params.draw_goal_position);
+            ImGui::Checkbox("Draw bind pose", &render_params.draw_bind_pose);
             ImGui::Text(stateDescription);
 
             if (flDeltaDivider < 1) flDeltaDivider = 1;
@@ -267,8 +259,7 @@ void app_main_loop() {
 
         if (ImGui::Begin("Configuration")) {
             if (display_simulation_config(sim_cfg)) {
-                sim = sb::create_simulation(sim_cfg);
-                sim->add_collider(sdf_box_test);
+                reset_simulation();
             }
         }
         ImGui::End();

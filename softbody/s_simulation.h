@@ -29,6 +29,9 @@ public:
     sb::Unique_Ptr<sb::Relation_Iterator> get_connections() override;
     sb::Unique_Ptr<sb::Relation_Iterator> get_predicted_connections() override;
 
+    sb::Unique_Ptr<sb::Particle_Iterator> get_particles_in_bind_pose() override;
+    sb::Unique_Ptr<sb::Relation_Iterator> get_connections_in_bind_pose() override;
+
     void prediction(float dt);
     void constraint_resolution(float dt);
     void integration(float dt);
@@ -39,6 +42,8 @@ public:
     void remove_collider(Collider_Handle) override;
 
     size_t particle_count() const { return s.position.size(); }
+
+    void pump_deferred_requests();
 
     // manual control
     float get_phdt();
@@ -54,6 +59,8 @@ public:
     // - There will be a distance constraint between these two particles
     // - Both particles will be added to the other particle's cluster
     void connect_particles(unsigned a, unsigned b) override;
+
+    virtual void add_fixed_constraint(unsigned count, unsigned* pidx) override;
 
     // Add a new particle to the simulation
     // This can be called when the system state has been already mutated, but

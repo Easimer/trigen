@@ -13,6 +13,7 @@ struct Softbody_Render_Parameters {
     bool draw_positions;
     bool draw_center_of_mass;
     bool draw_goal_position;
+    bool draw_bind_pose;
 };
 
 bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params);

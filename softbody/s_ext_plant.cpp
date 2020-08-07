@@ -7,7 +7,6 @@
 #include "common.h"
 #include "softbody.h"
 #include "s_ext.h"
-#include "m_sdf.h"
 #include "m_utils.h"
 #include "l_random.h"
 
@@ -19,10 +18,24 @@ private:
     sb::Config params;
     Rand_Float rnd;
 
+    void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
+        // Create root
+        pman->defer([&](IParticle_Manager* pman, System_State&) {
+            constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
+            auto o = params.seed_position;
+            auto root0 = pman->add_init_particle(o - Vec3(0, 0.5, 0), new_size, 1);
+            auto root1 = pman->add_init_particle(o, new_size, 1);
+            pman->connect_particles(root0, root1);
+
+            unsigned indices[] = { root0, root1 };
+
+            pman->add_fixed_constraint(2, indices);
+        });
+    }
+
     void post_prediction(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
-        return;
         auto const anchor_point_min_dist = 2.0f;
-        auto const attachment_strength = 0.25f;
+        auto const attachment_strength = 0.01f;
         for (index_t i = 0; i < s.position.size(); i++) {
             Vector<Vec3> anchor_points;
 
@@ -33,7 +46,7 @@ private:
                     auto normal = sdf::normal(C.fun, p);
                     auto anchor_point = p - t * normal;
 
-                    s.predicted_position[i] += attachment_strength * (anchor_point - s.predicted_position[i]);
+                    s.predicted_position[i] += dt * attachment_strength * (anchor_point - s.predicted_position[i]);
                 }
             }
         }
@@ -51,7 +64,7 @@ private:
 
         if (N >= params.particle_count_limit) return;
 
-        for (index_t pidx = 0; pidx < N; pidx++) {
+        for (index_t pidx = 1; pidx < N; pidx++) {
             auto& r = s.size[pidx].x;
 
             if (r < max_size) {
@@ -60,10 +73,15 @@ private:
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
                 if (r >= max_size && N < params.particle_count_limit) {
                     auto lateral_chance = rnd.normal();
-                    constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
+                    constexpr auto new_size = Vec3(0.25f, 0.25f, 2.0f);
                     auto longest_axis = longest_axis_normalized(s.size[pidx]);
                     auto new_longest_axis = longest_axis_normalized(new_size);
+
+                    auto parent = s.parent[pidx];
+                    auto branch_dir = s.bind_pose[pidx] - s.bind_pose[parent];
+
                     if (lateral_chance < params.branching_probability) {
+                        /*
                         // Oldalagat novesszuk
                         auto angle = rnd.central() * params.branch_angle_variance;
                         auto x = rnd.central();
@@ -81,17 +99,30 @@ private:
                             s.lateral_bud[pidx] = l_idx;
                             s.orientation[l_idx] = lateral_orientation;
                         });
+                        */
+
+                        auto angle = rnd.central() * params.branch_angle_variance;
+                        auto x = rnd.central();
+                        auto y = rnd.central();
+                        auto z = rnd.central();
+                        auto axis = glm::normalize(Vec3(x, y, z));
+                        auto bud_rot_offset = glm::angleAxis(angle, axis);
+                        auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
+
+                        auto pos = s.position[pidx] + 0.10f * lateral_branch_dir;
+
+                        pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
+                            auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                            s.lateral_bud[pidx] = l_idx;
+                            s.parent[l_idx] = pidx; // TODO(danielm): this should be done by add_particle
+                        });
                     }
+                    auto pos = s.position[pidx] + 0.25f * branch_dir;
 
-                    auto pos = s.position[pidx]
-                        + s.orientation[pidx] * Vec3(1, 0, 0) * glm::inverse(s.orientation[pidx]);
-                        // + s.orientation[pidx] * (new_longest_axis / 2.0f) * glm::inverse(s.orientation[pidx]);
-
-                    pman_defer->defer([&, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                        auto pos = s.position[pidx] + Vec3(0, 0.5, 0);
-
+                    pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                         auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
                         s.apical_child[pidx] = a_idx;
+                        s.parent[a_idx] = pidx; // TODO(danielm): this should be done by add_particle
                     });
                 }
             }

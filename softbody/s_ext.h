@@ -14,6 +14,8 @@ public:
     virtual void connect_particles(unsigned a, unsigned b) = 0;
 
     virtual unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) = 0;
+
+    virtual void add_fixed_constraint(unsigned count, unsigned* pidx) = 0;
 };
 
 class IParticle_Manager_Deferred {
@@ -25,6 +27,7 @@ class ISimulation_Extension {
 public:
     virtual ~ISimulation_Extension() {}
 #define SIMEXT_CALLBACK(name) virtual void name (IParticle_Manager_Deferred*, System_State&, float dt) {}
+    SIMEXT_CALLBACK(init)
     SIMEXT_CALLBACK(pre_prediction)
     SIMEXT_CALLBACK(post_prediction)
     SIMEXT_CALLBACK(pre_constraint)

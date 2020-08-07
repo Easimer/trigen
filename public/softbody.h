@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <memory>
+#include <raymarching.h>
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -78,7 +79,7 @@ namespace sb {
         virtual void get_state_description(unsigned length, char* buffer) = 0;
     };
 
-    using Signed_Distance_Function = std::function<float(glm::vec3 const&)>;
+    using Signed_Distance_Function = sdf::Function;
 
     class ISoftbody_Simulation {
     public:
@@ -97,6 +98,9 @@ namespace sb {
         virtual Unique_Ptr<Relation_Iterator> get_lateral_relations() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_connections() = 0;
         virtual Unique_Ptr<Relation_Iterator> get_predicted_connections() = 0;
+
+        virtual Unique_Ptr<Particle_Iterator> get_particles_in_bind_pose() = 0;
+        virtual Unique_Ptr<Relation_Iterator> get_connections_in_bind_pose() = 0;
 
         using Collider_Handle = size_t;
         virtual Collider_Handle add_collider(Signed_Distance_Function const& sdf) = 0;
