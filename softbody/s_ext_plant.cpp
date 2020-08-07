@@ -38,7 +38,7 @@ private:
 
     void post_prediction(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         auto const anchor_point_min_dist = 2.0f;
-        auto const attachment_strength = 0.01f;
+        auto const attachment_strength = 0.10f;
         for (index_t i = 0; i < s.position.size(); i++) {
             Vector<Vec3> anchor_points;
 
@@ -68,10 +68,11 @@ private:
         if (N >= params.particle_count_limit) return;
 
         for (index_t pidx = 1; pidx < N; pidx++) {
-            auto& r = s.size[pidx].x;
+            auto r = s.size[pidx].x;
 
+            s.size[pidx] += Vec3(g * dt, g * dt, 0);
             if (r < max_size) {
-                s.size[pidx] += Vec3(g * dt, g * dt, 0);
+                r = s.size[pidx].x;
 
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
                 if (r >= max_size && N < params.particle_count_limit) {
@@ -81,7 +82,7 @@ private:
                     auto new_longest_axis = longest_axis_normalized(new_size);
 
                     auto parent = parents[pidx];
-                    auto branch_dir = s.bind_pose[pidx] - s.bind_pose[parent];
+                    auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
 
                     if (lateral_chance < params.branching_probability) {
                         auto angle = rnd.central() * params.branch_angle_variance;
@@ -92,7 +93,7 @@ private:
                         auto bud_rot_offset = glm::angleAxis(angle, axis);
                         auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
 
-                        auto pos = s.position[pidx] + 0.10f * lateral_branch_dir;
+                        auto pos = s.position[pidx] + 0.5f * lateral_branch_dir;
 
                         pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                             auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);

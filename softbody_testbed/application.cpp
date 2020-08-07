@@ -140,15 +140,15 @@ void app_main_loop() {
     Softbody_Render_Parameters render_params = {};
 
     auto sdf_box_100_100 = std::bind(&sdf::box, glm::vec3(100, 2, 100), std::placeholders::_1);
+    auto sdf_wall_100_100 = std::bind(&sdf::box, glm::vec3(2, 100, 100), std::placeholders::_1);
     auto sdf_box = sdf::translate(sdf_box_100_100, glm::vec3(0, -1, 0));
-
-    auto sdf_cylinder = std::bind(&sdf::infCylinder, glm::vec3(4, 4, 1), std::placeholders::_1);
+    auto sdf_wall = sdf::translate(sdf_wall_100_100, glm::vec3(3, 0, 0));
 
     auto reset_simulation = [&]() {
         sim.reset();
         sim = sb::create_simulation(sim_cfg);
         sim->add_collider(sdf_box);
-        sim->add_collider(sdf_cylinder);
+        sim->add_collider(sdf_wall);
     };
 
     reset_simulation();

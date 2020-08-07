@@ -30,6 +30,7 @@ public:
     sb::Unique_Ptr<sb::Particle_Iterator> get_particles_in_bind_pose() override;
     sb::Unique_Ptr<sb::Relation_Iterator> get_connections_in_bind_pose() override;
 
+    void velocity_damping(float dt);
     void prediction(float dt);
     void constraint_resolution(float dt);
     void integration(float dt);

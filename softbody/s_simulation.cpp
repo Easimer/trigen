@@ -19,7 +19,7 @@
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
-#define MIN_SOLVER_ITERATIONS (5)
+#define MIN_SOLVER_ITERATIONS (12)
 #define SOLVER_ITERATIONS (12)
 
 // #define DEBUG_TETRAHEDRON
@@ -128,6 +128,83 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     pump_deferred_requests();
 }
 
+void Softbody_Simulation::velocity_damping(float dt) {
+    auto N = particle_count();
+    for (index_t i = 0; i < N; i++) {
+        s.velocity[i] *= 0.9f;
+    }
+
+    return;
+
+    // TODO(danielm): something is wrong with these calculations
+    // Probably the r_i_tilde matrix
+
+    auto k_damping = 0.5f;
+    for (index_t i = 0; i < N; i++) {
+        std::array<unsigned, 1> me{ i };
+        auto& neighbors = s.edges[i];
+        auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
+        auto x_cm = s.center_of_mass[i];
+
+        auto M = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            mass_of_particle(i),
+            [&](float acc, index_t pidx) {
+                return acc + mass_of_particle(pidx);
+            }
+        );
+
+        auto v_cm = std::accumulate(
+            neighbors.begin(), neighbors.end(),
+            s.velocity[i] * mass_of_particle(i),
+            [&](Vec3 const& acc, index_t pidx) {
+                return acc + s.velocity[pidx] * mass_of_particle(pidx);
+            }
+        ) / M;
+
+        auto get_r_i = [&](index_t pidx) {
+            return s.position[pidx] - x_cm;
+        };
+
+        if (length(v_cm) > glm::epsilon<float>()) {
+            auto L = std::accumulate(
+                neighbors.begin(), neighbors.end(),
+                cross(get_r_i(i), mass_of_particle(i) * s.velocity[i]),
+                [&](Vec3 const& acc, index_t pidx) {
+                    return acc + cross(get_r_i(i), mass_of_particle(i) * s.velocity[i]);
+                }
+            );
+
+            auto get_r_i_tilde = [&](index_t pidx) -> Mat3 {
+                Mat3 ret(1.0f);
+                auto v = s.velocity[pidx];
+                if (length(v) > glm::epsilon<float>()) {
+                    auto r_cross_v = cross(get_r_i(pidx), v);
+                    ret[0][0] = r_cross_v.x / v.x;
+                    ret[1][1] = r_cross_v.y / v.y;
+                    ret[2][2] = r_cross_v.z / v.z;
+                }
+                return ret;
+            };
+
+            auto I = std::accumulate(
+                neighbors.begin(), neighbors.end(),
+                mass_of_particle(i) * get_r_i_tilde(i) * transpose(get_r_i_tilde(i)),
+                [&](Mat3 const& acc, index_t pidx) {
+                    return mass_of_particle(pidx) * get_r_i_tilde(pidx) * transpose(get_r_i_tilde(pidx));
+                }
+            );
+
+            auto ang_v = glm::inverse(I) * L;
+
+            for (auto pidx : neighbors_and_me) {
+                auto dv = v_cm + cross(ang_v, get_r_i(pidx)) - s.velocity[pidx];
+                s.velocity[i] += k_damping * dv;
+            }
+        }
+    }
+}
+
 void Softbody_Simulation::prediction(float dt) {
     assert_init = false;
     s.predicted_position.resize(particle_count());
@@ -135,6 +212,8 @@ void Softbody_Simulation::prediction(float dt) {
     s.center_of_mass.resize(particle_count());
 
     ext->pre_prediction(this, s, dt);
+
+    velocity_damping(dt);
 
     for (unsigned i = 0; i < particle_count(); i++) {
         // prediction step
@@ -181,7 +260,6 @@ float Softbody_Simulation::get_phdt() {
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
     for (unsigned i = 0; i < particle_count(); i++) {
         auto& neighbors = s.edges[i];
-
         auto w1 = 1 / mass_of_particle(i);
         for (auto j : neighbors) {
             auto w2 = 1 / mass_of_particle(j);
