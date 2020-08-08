@@ -50,25 +50,17 @@ void mat_mul_ppg(
 }
 
 void mat_mul_ppp(
-    float* out,
-    float const* lhs,
-    float const* rhs
+    float4* out,
+    float4 const* lhs,
+    float4 const* rhs
 ) {
-    float4 lhs_rows[4];
-    for(int row = 0; row < 4; row++) {
-        lhs_rows[row].x = lhs[0 * 4 + row];
-        lhs_rows[row].y = lhs[1 * 4 + row];
-        lhs_rows[row].z = lhs[2 * 4 + row];
-        lhs_rows[row].w = lhs[3 * 4 + row];
-    }
-
-    for(int col = 0; col < 4; col++) {
-        float4 rhs_col = (float4)(rhs[col * 4 + 0], rhs[col * 4 + 1], rhs[col * 4 + 2], rhs[col * 4 + 3]);
-        unsigned idx = col * 4;
-        for(int row = 0; row < 4; row++) {
-            out[idx] = dot(lhs_rows[row], rhs_col);
-            idx++;
-        }
+    for(int i = 0; i < 4; i++) {
+        float4 sum = 0;
+        sum = fma(rhs[i].xxxx, lhs[0], sum);
+        sum = fma(rhs[i].yyyy, lhs[1], sum);
+        sum = fma(rhs[i].zzzz, lhs[2], sum);
+        sum = fma(rhs[i].wwww, lhs[3], sum);
+        out[i] = sum;
     }
 }
 
@@ -93,7 +85,7 @@ void mat_mul_main(
     l_rhs[3] = rhs[3];
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    mat_mul_ppp((float*)l_out, (float const*)l_lhs, (float const*)l_rhs);
+    mat_mul_ppp(l_out, l_lhs, l_rhs);
 
     out[0] = l_out[0];
     out[1] = l_out[1];
@@ -245,7 +237,7 @@ void calculate_A_i(
 
     quat_to_mat(orient, orientation);
     diagonal3x3(diag, size * size);
-    mat_mul_ppp((float*)A_i, (float*)diag, (float*)orient);
+    mat_mul_ppp(A_i, diag, orient);
     mat_scale(s, A_i);
 
     outer_product(temp, predicted_position, bind_pose);
@@ -319,7 +311,7 @@ void calculate_cluster_moment_matrix(
     invRest[1] = bind_pose_inverse_bind_pose[i * 4 + 1];
     invRest[2] = bind_pose_inverse_bind_pose[i * 4 + 2];
     invRest[3] = bind_pose_inverse_bind_pose[i * 4 + 3];
-    mat_mul_ppp((float*)A, (float*)acc, (float*)invRest);
+    mat_mul_ppp(A, acc, invRest);
 }
 
 __kernel
