@@ -49,30 +49,6 @@ void mat_mul_ppg(
     }
 }
 
-void mat_mul(
-    float* out,
-    __local float const* lhs,
-    __local float const* rhs
-) {
-    float4 lhs_rows[4];
-    for(int row = 0; row < 4; row++) {
-        lhs_rows[row].x = lhs[0 * 4 + row];
-        lhs_rows[row].y = lhs[1 * 4 + row];
-        lhs_rows[row].z = lhs[2 * 4 + row];
-        lhs_rows[row].w = lhs[3 * 4 + row];
-    }
-
-    for(int col = 0; col < 4; col++) {
-        float4 rhs_col = (float4)(rhs[col * 4 + 0], rhs[col * 4 + 1], rhs[col * 4 + 2], rhs[col * 4 + 3]);
-        unsigned idx = col * 4;
-        for(int row = 0; row < 4; row++) {
-            out[idx] = dot(lhs_rows[row], rhs_col);
-            idx++;
-        }
-    }
-}
-
-
 void mat_mul_ppp(
     float* out,
     float const* lhs,
@@ -102,8 +78,8 @@ void mat_mul_main(
     __global float4* lhs,
     __global float4* rhs
 ) {
-    __local float4 l_lhs[4];
-    __local float4 l_rhs[4];
+    float4 l_lhs[4];
+    float4 l_rhs[4];
     float4 l_out[4];
 
     l_lhs[0] = lhs[0];
@@ -117,7 +93,7 @@ void mat_mul_main(
     l_rhs[3] = rhs[3];
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    mat_mul((float*)l_out, (__local float*)l_lhs, (__local float*)l_rhs);
+    mat_mul_ppp((float*)l_out, (float const*)l_lhs, (float const*)l_rhs);
 
     out[0] = l_out[0];
     out[1] = l_out[1];
@@ -248,37 +224,6 @@ void mueller_rotation_extraction(
     float4 l_q = q[i];
 
     q[i] = mueller_rotation_extraction_impl(l_A, l_q);
-}
-
-__kernel
-void calculate_optimal_rotation(
-    __global float4 const* A,
-    __global float4 const* invRest,
-    __global float4* q
-) {
-    int i = get_global_id(0);
-
-    __local float4 l_A[4];
-    __local float4 l_invRest[4];
-    float4 l_A_pq[4];
-
-    __global float4 const* base_A = A + i * 4;
-    l_A[0] = base_A[0];
-    l_A[1] = base_A[1];
-    l_A[2] = base_A[2];
-    l_A[3] = base_A[3];
-
-    __global float4 const* base_invRest = invRest + i * 4;
-    l_invRest[0] = base_invRest[0];
-    l_invRest[1] = base_invRest[1];
-    l_invRest[2] = base_invRest[2];
-    l_invRest[3] = base_invRest[3];
-
-    mat_mul((float*)l_A_pq, (__local float*)l_A, (__local float*)l_invRest);
-
-    float4 l_q = q[i];
-
-    q[i] = mueller_rotation_extraction_impl(l_A_pq, l_q);
 }
 
 #define IDX_MAT4_ARR(arr, i) &arr[i * 4]

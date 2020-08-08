@@ -494,7 +494,7 @@ static std::optional<cl::Program> from_file_load_program(
 
             return program;
         } catch (cl::Error& e) {
-            if (e.err() == CL_BUILD_PROGRAM_FAILURE) {
+            if (e.err() == CL_BUILD_PROGRAM_FAILURE || e.err() == -9999) {
                 auto status = program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev);
                 if (status != CL_BUILD_ERROR) {
                     return std::nullopt;
