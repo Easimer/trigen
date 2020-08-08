@@ -15,7 +15,7 @@
 #endif /* PLATFORM */
 
 #define DECLARE_BENCHMARK_BLOCK() \
-    static decltype(cpu_rdtsc()) rdtsc_sum = 0; \
+    static decltype(cpu_rdtsc()) rdtsc = 0; \
     static size_t rdtsc_count = 0;
 
 #define BEGIN_BENCHMARK() \
@@ -26,10 +26,10 @@
 
 #define PRINT_BENCHMARK_RESULT_MASKED(mask) \
     auto const rdtsc_diff = rdtsc_end - rdtsc_begin; \
-    rdtsc_sum += rdtsc_diff; \
+    rdtsc = rdtsc_diff; \
     rdtsc_count++; \
     if((rdtsc_count & (mask)) == 0) { \
-        printf("sb: benchmark: %s %f kilocycles\n", __func__, (double)rdtsc_sum / (double)rdtsc_count / 1000.0f); \
+        printf("sb: benchmark: %s %f kilocycles\n", __func__, (double)rdtsc / 1000.0f); \
     }
 
 #define PRINT_BENCHMARK_RESULT() PRINT_BENCHMARK_RESULT_MASKED(0x00000000)
