@@ -19,7 +19,15 @@ namespace sb {
 
     enum class Extension {
         None = 0,
+        Debug_Rope,
+        Debug_Cloth,
         Plant_Simulation,
+    };
+
+    enum class Compute_Preference {
+        None = 0,
+        Reference,
+        GPU,
     };
 
     struct Config {
