@@ -26,29 +26,6 @@ void mat_scale(float s, float4* m) {
     m[3] = s * m[3];
 }
 
-void mat_mul_ppg(
-    float* out,
-    float const* lhs,
-    __global float const* rhs
-) {
-    float4 lhs_rows[4];
-    for(int row = 0; row < 4; row++) {
-        lhs_rows[row].x = lhs[0 * 4 + row];
-        lhs_rows[row].y = lhs[1 * 4 + row];
-        lhs_rows[row].z = lhs[2 * 4 + row];
-        lhs_rows[row].w = lhs[3 * 4 + row];
-    }
-
-    for(int col = 0; col < 4; col++) {
-        float4 rhs_col = (float4)(rhs[col * 4 + 0], rhs[col * 4 + 1], rhs[col * 4 + 2], rhs[col * 4 + 3]);
-        unsigned idx = col * 4;
-        for(int row = 0; row < 4; row++) {
-            out[idx] = dot(lhs_rows[row], rhs_col);
-            idx++;
-        }
-    }
-}
-
 void mat_mul_ppp(
     float4* out,
     float4 const* lhs,
@@ -285,10 +262,15 @@ void calculate_cluster_moment_matrix(
     __global float4* bind_pose_inverse_bind_pose
 ) {
     float4 acc[4];
-    calculate_A_i(acc, masses[i], predicted_orientations[i], sizes[i], predicted_positions[i], bind_pose[i], centers_of_masses[i], bind_pose_centers_of_masses[i]);
+
+    float4 cm = centers_of_masses[i];
+    float4 cm_0 = bind_pose_centers_of_masses[i];
+
+    calculate_A_i(acc, masses[i], predicted_orientations[i], sizes[i], predicted_positions[i], bind_pose[i], cm, cm_0);
 
     unsigned base = i * adjacency_stride;
     unsigned number_of_neighbors = adjacency[base + 0];
+
     for(unsigned off = 1; off < number_of_neighbors + 1; off++) {
         float4 temp[4];
         unsigned idx = adjacency[base + off];
@@ -297,7 +279,7 @@ void calculate_cluster_moment_matrix(
             temp,
             masses[idx], predicted_orientations[idx], sizes[idx],
             predicted_positions[idx], bind_pose[idx],
-            centers_of_masses[i], bind_pose_centers_of_masses[i]
+            cm, cm_0
         );
         
         acc[0] = acc[0] + temp[0];

@@ -552,6 +552,9 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
             printf("- %s\n", name.c_str());
             selected_device->getInfo(CL_DEVICE_VENDOR, &name);
             printf("\tVendor: %s\n", name.c_str());
+            printf("\tCompute units: %d\n", selected_device->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>());
+            printf("\tGlobal memory: %llu\n", selected_device->getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>());
+            printf("\tConstant memory: %llu\n", selected_device->getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>());
             printf("\n");
 
             cl::Context ctx(*selected_device);
