@@ -25,6 +25,7 @@ set(SRC_IMPL
 
     s_ext.h
     s_ext_plant.cpp
+    s_ext_cloth.cpp
 
     ../public/raymarching.h
 )

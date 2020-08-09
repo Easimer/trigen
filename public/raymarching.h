@@ -28,14 +28,15 @@ namespace sdf {
      * @param smoothness Surface smoothness, [0.0, 1.0]
      * @return Surface normal.
      */
-    inline glm::vec3 normal(Function const& f, glm::vec3 const& sp, float smoothness) {
-        glm::vec3 n;
+    inline glm::vec4 normal(Function const& f, glm::vec3 const& sp, float smoothness) {
+        glm::vec4 n;
         auto xyy = glm::vec3(smoothness, 0, 0);
         auto yxy = glm::vec3(0, smoothness, 0);
         auto yyx = glm::vec3(0, 0, smoothness);
         n.x = f(sp + xyy) - f(sp - xyy);
         n.y = f(sp + yxy) - f(sp - yxy);
         n.z = f(sp + yyx) - f(sp - yyx);
+        n.w = 0;
         return normalize(n);
     }
 
@@ -46,7 +47,7 @@ namespace sdf {
      * @param sp Sample point
      * @return Surface normal.
      */
-    inline glm::vec3 normal(Function const& f, glm::vec3 const& sp) {
+    inline glm::vec4 normal(Function const& f, glm::vec3 const& sp) {
         return normal(f, sp, 1.0f);
     }
 

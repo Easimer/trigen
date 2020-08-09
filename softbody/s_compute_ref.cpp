@@ -62,7 +62,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             auto com_cur = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec3 const& acc, unsigned idx) {
+                [&](Vec4 const& acc, unsigned idx) {
                     return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
                 }
             ) / M;
@@ -70,9 +70,9 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             s.center_of_mass[i] = com_cur;
 
             // Calculates the moment matrix of a single particle
-            auto calc_A_i = [&](unsigned i) -> Mat3 {
+            auto calc_A_i = [&](unsigned i) -> Mat4 {
                 auto m_i = mass_of_particle(s, i);
-                auto A_i = 1.0f / 5.0f * glm::diagonal3x3(s.size[i] * s.size[i]) * Mat3(s.orientation[i]);
+                auto A_i = 1.0f / 5.0f * glm::diagonal4x4(s.size[i] * s.size[i]) * Mat4(s.orientation[i]);
 
                 return m_i * (A_i + glm::outerProduct(s.predicted_position[i], s.bind_pose[i]) - glm::outerProduct(com_cur, com0));
             };
@@ -81,7 +81,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             auto A = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 calc_A_i(i),
-                [&](Mat3 const& acc, unsigned idx) -> Mat3 {
+                [&](Mat4 const& acc, unsigned idx) -> Mat4 {
                     return acc + calc_A_i(idx);
                 }
             ) * invRest;

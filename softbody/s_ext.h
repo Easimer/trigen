@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "softbody.h"
+#include <array>
 
 class IParticle_Manager {
 public:
@@ -37,10 +38,12 @@ public:
 };
 
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params);
+sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Cloth_Demo(sb::Extension kind, sb::Config const& params);
 
 inline sb::Unique_Ptr<ISimulation_Extension> Create_Extension(sb::Extension kind, sb::Config const& params) {
     switch (kind) {
     case sb::Extension::Plant_Simulation: return Create_Extension_Plant_Simulation(kind, params);
+    case sb::Extension::Debug_Cloth: return Create_Extension_Cloth_Demo(kind, params);
     default: return std::make_unique<ISimulation_Extension>();
     }
 }

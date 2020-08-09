@@ -70,7 +70,7 @@ private:
         for (index_t pidx = 1; pidx < N; pidx++) {
             auto r = s.size[pidx].x;
 
-            s.size[pidx] += Vec3(g * dt, g * dt, 0);
+            s.size[pidx] += Vec4(g * dt, g * dt, 0, 0);
             if (r < max_size) {
                 r = s.size[pidx].x;
 
@@ -83,6 +83,7 @@ private:
 
                     auto parent = parents[pidx];
                     auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
+                    auto branch_len = 2.0f;
 
                     if (lateral_chance < params.branching_probability) {
                         auto angle = rnd.central() * params.branch_angle_variance;
@@ -93,7 +94,7 @@ private:
                         auto bud_rot_offset = glm::angleAxis(angle, axis);
                         auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
 
-                        auto pos = s.position[pidx] + 0.5f * lateral_branch_dir;
+                        auto pos = s.position[pidx] + branch_len * lateral_branch_dir;
 
                         pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                             auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
@@ -101,7 +102,7 @@ private:
                             parents[l_idx] = pidx;
                         });
                     }
-                    auto pos = s.position[pidx] + 0.25f * branch_dir;
+                    auto pos = s.position[pidx] + branch_len * branch_dir;
 
                     pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
                         auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);

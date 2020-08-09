@@ -102,19 +102,13 @@ private:
     Vector<float> calculate_particle_masses(System_State const& s) {
         auto N = particle_count(s);
         Vector<float> h_masses;
-        Vector<Vec4> h_sizes;
 
         h_masses.resize(N);
-        h_sizes.resize(N);
-
-        for (auto i = 0ull; i < N; i++) {
-            h_sizes[i] = Vec4(s.size[i], 0);
-        }
 
         auto d_densities = cl::Buffer(ctx, CL_MEM_READ_ONLY, SIZE_N_VEC1(N));
 
         queue.enqueueWriteBuffer(d_densities, CL_FALSE, 0, SIZE_N_VEC1(N), s.density.data());
-        queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, SIZE_N_VEC4(N), h_sizes.data());
+        queue.enqueueWriteBuffer(d_sizes, CL_FALSE, 0, SIZE_N_VEC4(N), s.size.data());
 
         k_calculate_particle_masses(cl::EnqueueArgs(queue, cl::NullRange, cl::NDRange(N), cl::NDRange(1)), d_sizes, d_densities, d_masses);
 
@@ -313,45 +307,30 @@ private:
             auto com_cur = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec3 const& acc, unsigned idx) {
+                [&](Vec4 const& acc, unsigned idx) {
                     return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
                 }
             ) / M;
 
             s.center_of_mass[i] = com_cur;
 
-            h_centers_of_masses.push_back(Vec4(com_cur, 0));
+            h_centers_of_masses.push_back(com_cur);
         }
 
         unsigned adjacency_stride, adjacency_size;
         auto adjacency = make_adjacency_table(s, &adjacency_stride, &adjacency_size);
 
-        // Convert Vec3's into Vec4's before we upload them to the GPU
-        // TODO(danielm): this has a significant performance hit.
-        // Convert all Vec3 type values into Vec4's in System_State
-
-        Vector<Vec4> h_predicted_positions, h_bind_pose, h_bind_pose_centers_of_masses;
-        Vector<glm::mat4> h_bind_pose_inverse_bind_pose;
         Vector<Quat> h_out;
-
-        h_predicted_positions.resize(N);
-        h_bind_pose.resize(N);
-        h_bind_pose_centers_of_masses.resize(N);
-        h_bind_pose_inverse_bind_pose.resize(N);
 
         d_adjacency = cl::Buffer(ctx, CL_MEM_READ_ONLY, adjacency_size);
 
         queue.enqueueWriteBuffer(d_predicted_orientations, CL_FALSE, 0, SIZE_N_VEC4(N), s.predicted_orientation.data());
         queue.enqueueWriteBuffer(d_adjacency, CL_FALSE, 0, adjacency_size, adjacency.get());
         queue.enqueueWriteBuffer(d_centers_of_masses, CL_FALSE, 0, SIZE_N_VEC4(N), h_centers_of_masses.data());
-        for (unsigned i = 0; i < N; i++) h_predicted_positions[i] = Vec4(s.predicted_position[i], 0);
-        queue.enqueueWriteBuffer(d_predicted_positions, CL_FALSE, 0, SIZE_N_VEC4(N), h_predicted_positions.data());
-        for (unsigned i = 0; i < N; i++) h_bind_pose[i] = Vec4(s.bind_pose[i], 0);
-        queue.enqueueWriteBuffer(d_bind_pose, CL_FALSE, 0, SIZE_N_VEC4(N), h_bind_pose.data());
-        for (unsigned i = 0; i < N; i++) h_bind_pose_centers_of_masses[i] = Vec4(s.bind_pose_center_of_mass[i], 0);
-        queue.enqueueWriteBuffer(d_bind_pose_centers_of_masses, CL_FALSE, 0, SIZE_N_VEC4(N), h_bind_pose_centers_of_masses.data());
-        for (unsigned i = 0; i < N; i++) h_bind_pose_inverse_bind_pose[i] = glm::mat4(s.bind_pose_inverse_bind_pose[i]);
-        queue.enqueueWriteBuffer(d_bind_pose_inverse_bind_pose, CL_FALSE, 0, SIZE_N_MAT4(N), h_bind_pose_inverse_bind_pose.data());
+        queue.enqueueWriteBuffer(d_predicted_positions, CL_FALSE, 0, SIZE_N_VEC4(N), s.predicted_position.data());
+        queue.enqueueWriteBuffer(d_bind_pose, CL_FALSE, 0, SIZE_N_VEC4(N), s.bind_pose.data());
+        queue.enqueueWriteBuffer(d_bind_pose_centers_of_masses, CL_FALSE, 0, SIZE_N_VEC4(N), s.bind_pose_center_of_mass.data());
+        queue.enqueueWriteBuffer(d_bind_pose_inverse_bind_pose, CL_FALSE, 0, SIZE_N_MAT4(N), s.bind_pose_inverse_bind_pose.data());
 
         k_do_shape_matching(cl::EnqueueArgs(queue, cl::NDRange(N)),
             d_out,
@@ -402,8 +381,8 @@ private:
 #endif /* CALC_A_I_PARANOID */
 
         struct Particle_Correction_Info {
-            Vec3 pos_bind;
-            Vec3 com_cur;
+            Vec4 pos_bind;
+            Vec4 com_cur;
             float inv_numClusters;
         };
 

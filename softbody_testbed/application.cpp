@@ -120,7 +120,7 @@ void app_main_loop() {
 
     // Simulation setup
     sb::Config sim_cfg = {
-        sb::Extension::Plant_Simulation,
+        sb::Extension::Debug_Cloth,
         Vec3(0, 0, 0), // seed_position
         1.0f, // density
         1.0f, // attachment_strength
@@ -143,12 +143,15 @@ void app_main_loop() {
     auto sdf_wall_100_100 = std::bind(&sdf::box, glm::vec3(2, 100, 100), std::placeholders::_1);
     auto sdf_box = sdf::translate(sdf_box_100_100, glm::vec3(0, -1, 0));
     auto sdf_wall = sdf::translate(sdf_wall_100_100, glm::vec3(3, 0, 0));
+    auto sdf_sphere_3 = std::bind(&sdf::sphere, 3, std::placeholders::_1);
+    auto sdf_sphere = sdf::translate(sdf_sphere_3, glm::vec3(0, 6, 0));
 
     auto reset_simulation = [&]() {
         sim.reset();
         sim = sb::create_simulation(sim_cfg);
         sim->add_collider(sdf_box);
-        sim->add_collider(sdf_wall);
+        // sim->add_collider(sdf_wall);
+        sim->add_collider(sdf_sphere);
     };
 
     reset_simulation();

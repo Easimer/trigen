@@ -19,7 +19,6 @@
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (1024)
-#define MIN_SOLVER_ITERATIONS (12)
 #define SOLVER_ITERATIONS (12)
 
 // #define DEBUG_TETRAHEDRON
@@ -73,8 +72,6 @@ struct Cache_Table {
         return slot.value;
     }
 };
-
-static int gnSolverIterations = MIN_SOLVER_ITERATIONS;
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -132,6 +129,7 @@ void Softbody_Simulation::velocity_damping(float dt) {
     auto N = particle_count();
     for (index_t i = 0; i < N; i++) {
         s.velocity[i] *= 0.9f;
+        s.angular_velocity[i] *= 0.9f;
     }
 
     return;
@@ -157,27 +155,27 @@ void Softbody_Simulation::velocity_damping(float dt) {
         auto v_cm = std::accumulate(
             neighbors.begin(), neighbors.end(),
             s.velocity[i] * mass_of_particle(i),
-            [&](Vec3 const& acc, index_t pidx) {
+            [&](Vec4 const& acc, index_t pidx) {
                 return acc + s.velocity[pidx] * mass_of_particle(pidx);
             }
         ) / M;
 
         auto get_r_i = [&](index_t pidx) {
-            return s.position[pidx] - x_cm;
+            return Vec3(s.position[pidx] - x_cm);
         };
 
         if (length(v_cm) > glm::epsilon<float>()) {
             auto L = std::accumulate(
                 neighbors.begin(), neighbors.end(),
-                cross(get_r_i(i), mass_of_particle(i) * s.velocity[i]),
+                cross(get_r_i(i), mass_of_particle(i) * Vec3(s.velocity[i])),
                 [&](Vec3 const& acc, index_t pidx) {
-                    return acc + cross(get_r_i(i), mass_of_particle(i) * s.velocity[i]);
+                    return acc + cross(get_r_i(i), mass_of_particle(i) * Vec3(s.velocity[i]));
                 }
             );
 
             auto get_r_i_tilde = [&](index_t pidx) -> Mat3 {
                 Mat3 ret(1.0f);
-                auto v = s.velocity[pidx];
+                auto v = Vec3(s.velocity[pidx]);
                 if (length(v) > glm::epsilon<float>()) {
                     auto r_cross_v = cross(get_r_i(pidx), v);
                     ret[0][0] = r_cross_v.x / v.x;
@@ -198,7 +196,7 @@ void Softbody_Simulation::velocity_damping(float dt) {
             auto ang_v = glm::inverse(I) * L;
 
             for (auto pidx : neighbors_and_me) {
-                auto dv = v_cm + cross(ang_v, get_r_i(pidx)) - s.velocity[pidx];
+                auto dv = v_cm + Vec4(cross(ang_v, get_r_i(pidx)), 0) - s.velocity[pidx];
                 s.velocity[i] += k_damping * dv;
             }
         }
@@ -218,9 +216,9 @@ void Softbody_Simulation::prediction(float dt) {
     for (unsigned i = 0; i < particle_count(); i++) {
         // prediction step
 #if 1
-        auto external_forces = Vec3(0, -10, 0);
+        auto external_forces = Vec4(0, -10, 0, 0);
 #else
-        auto external_forces = Vec3(0, 0, 0);
+        auto external_forces = Vec4(0, 0, 0, 0);
 #endif
         auto v = s.velocity[i] + dt * (1 / mass_of_particle(i)) * external_forces;
         auto pos = s.position[i] + dt * v;
@@ -330,9 +328,9 @@ void Softbody_Simulation::integration(float dt) {
         auto r = (r_tmp.w < 0) ? -r_tmp : r_tmp;
         auto q_angle = glm::angle(r);
         if (glm::abs(q_angle) < 0.1) {
-            s.angular_velocity[i] = Vec3(0, 0, 0);
+            s.angular_velocity[i] = Vec4(0, 0, 0, 0);
         } else {
-            s.angular_velocity[i] = glm::axis(r) * q_angle / dt;
+            s.angular_velocity[i] = Vec4(glm::axis(r) * q_angle / dt, 0);
         }
 
         s.orientation[i] = s.predicted_orientation[i];
@@ -340,7 +338,7 @@ void Softbody_Simulation::integration(float dt) {
     }
 
     for (auto& C : s.collision_constraints) {
-        s.velocity[C.pidx] = Vec3();
+        s.velocity[C.pidx] = Vec4();
         // TODO(danielm): friction?
     }
 
@@ -416,15 +414,17 @@ void Softbody_Simulation::remove_collider(Collider_Handle h) {
 unsigned Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
-    Vec3 zero(0, 0, 0);
+    Vec4 zero(0, 0, 0, 0);
     unsigned const index = particle_count();
-    s.bind_pose.push_back(p_pos);
-    s.position.push_back(p_pos);
-    s.predicted_position.push_back(p_pos);
+    auto pos = Vec4(p_pos, 0);
+    auto size = Vec4(p_size, 0);
+    s.bind_pose.push_back(pos);
+    s.position.push_back(pos);
+    s.predicted_position.push_back(pos);
     s.velocity.push_back(zero);
     s.angular_velocity.push_back(zero);
-    s.goal_position.push_back(p_pos);
-    s.size.push_back(p_size);
+    s.goal_position.push_back(pos);
+    s.size.push_back(size);
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
@@ -452,24 +452,28 @@ void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
 unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
-    Vec3 zero(0, 0, 0);
+    Vec4 zero(0, 0, 0, 0);
     unsigned const index = particle_count();
     assert(parent < index);
 
-    // Determine the bind pose position
-    auto parent_pos = s.position[parent];
-    auto offset = p_pos - parent_pos;
-    auto p_bpos = s.bind_pose[parent] + offset;
-
     // TODO(danielm): should the new particle inherit the moment of the parent?
 
+    auto pos = Vec4(p_pos, 0);
+    auto size = Vec4(p_size, 0);
+
+    // Determine the bind pose position
+    auto parent_pos = s.position[parent];
+    auto offset = pos - parent_pos;
+    auto p_bpos = s.bind_pose[parent] + offset;
+
+
     s.bind_pose.push_back(p_bpos);
-    s.position.push_back(p_pos);
-    s.predicted_position.push_back(p_pos);
+    s.position.push_back(pos);
+    s.predicted_position.push_back(pos);
     s.velocity.push_back(zero);
     s.angular_velocity.push_back(zero);
-    s.goal_position.push_back(p_pos);
-    s.size.push_back(p_size);
+    s.goal_position.push_back(pos);
+    s.size.push_back(size);
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
@@ -504,7 +508,7 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
     auto com0 = std::accumulate(
         neighbors.begin(), neighbors.end(),
         mass_of_particle(pidx) * s.bind_pose[pidx],
-        [&](Vec3 const& acc, unsigned idx) {
+        [&](Vec4 const& acc, unsigned idx) {
             return acc + mass_of_particle(idx) * s.bind_pose[idx];
         }
     ) / M;

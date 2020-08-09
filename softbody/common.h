@@ -13,12 +13,14 @@
 #include <unordered_set>
 
 #include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
 using Mat3 = glm::mat3;
+using Mat4 = glm::mat4;
 using Quat = glm::quat;
 
 template<typename T>
@@ -41,25 +43,25 @@ using Set = std::unordered_set<T>;
 
 struct Collision_Constraint {
     unsigned pidx;
-    Vec3 intersect, normal;
+    Vec4 intersect, normal;
 };
 
 using index_t = typename std::make_signed<size_t>::type;
 
 struct System_State {
-    Vector<Vec3> bind_pose;
+    Vector<Vec4> bind_pose;
     // Position in the previous frame
-    Vector<Vec3> position;
+    Vector<Vec4> position;
     // Position in the current frame
-    Vector<Vec3> predicted_position;
+    Vector<Vec4> predicted_position;
 
     // Particle velocities
-    Vector<Vec3> velocity;
+    Vector<Vec4> velocity;
     // Particle angular velocities
-    Vector<Vec3> angular_velocity;
+    Vector<Vec4> angular_velocity;
 
     // Particle sizes
-    Vector<Vec3> size;
+    Vector<Vec4> size;
 
     // Particle orientations in the last frame
     Vector<Quat> orientation;
@@ -72,8 +74,8 @@ struct System_State {
     //Vector<float> age;
     Map<unsigned, Vector<unsigned>> edges;
 
-    Vector<Vec3> bind_pose_center_of_mass;
-    Vector<Mat3> bind_pose_inverse_bind_pose;
+    Vector<Vec4> bind_pose_center_of_mass;
+    Vector<Mat4> bind_pose_inverse_bind_pose;
 
     struct SDF_Slot {
         bool used;
@@ -84,8 +86,8 @@ struct System_State {
     Vector<Collision_Constraint> collision_constraints;
 
     // For debug visualization only
-    Vector<Vec3> center_of_mass;
-    Vector<Vec3> goal_position;
+    Vector<Vec4> center_of_mass;
+    Vector<Vec4> goal_position;
 
     Set<unsigned> fixed_particles;
 };
