@@ -18,7 +18,7 @@
 
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
-#define SIM_SIZE_LIMIT (1024)
+#define SIM_SIZE_LIMIT (4096)
 #define SOLVER_ITERATIONS (12)
 
 // #define DEBUG_TETRAHEDRON
@@ -290,7 +290,10 @@ void Softbody_Simulation::constraint_resolution(float dt) {
     compute->begin_new_frame(s);
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
-        compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
+        // If simulating plants, don't do shape matching
+        if (params.ext != sb::Extension::Plant_Simulation) {
+            compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
+        }
         do_one_iteration_of_distance_constraint_resolution(dt);
         do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
@@ -456,8 +459,6 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     unsigned const index = particle_count();
     assert(parent < index);
 
-    // TODO(danielm): should the new particle inherit the moment of the parent?
-
     auto pos = Vec4(p_pos, 0);
     auto size = Vec4(p_size, 0);
 
@@ -477,8 +478,14 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
-    //age.push_back(0);
     s.edges[index] = {};
+
+// #define INHERIT_MOMENTUM
+#ifdef INHERIT_MOMENTUM
+    auto parent_momentum = mass_of_particle(parent) * s.velocity[parent];
+    auto child_velocity = parent_momentum / mass_of_particle(index);
+    s.velocity[index] = child_velocity;
+#endif
 
     // NOTE(danielm): connect_particle invalidates all cached info about both
     // this particle and its parent
@@ -492,6 +499,13 @@ float Softbody_Simulation::mass_of_particle(unsigned i) {
     auto const s_i = s.size[i];
     auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
     return m_i;
+}
+
+void Softbody_Simulation::invalidate_particle_cache() {
+    auto N = particle_count();
+    for (index_t i = 0; i < N; i++) {
+        invalidate_particle_cache(i);
+    }
 }
 
 void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {

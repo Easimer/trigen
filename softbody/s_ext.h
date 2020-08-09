@@ -17,6 +17,8 @@ public:
     virtual unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) = 0;
 
     virtual void add_fixed_constraint(unsigned count, unsigned* pidx) = 0;
+
+    virtual void invalidate_particle_cache() = 0;
 };
 
 class IParticle_Manager_Deferred {

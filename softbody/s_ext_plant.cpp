@@ -20,6 +20,8 @@ private:
     Map<unsigned, unsigned> parents;
     Map<unsigned, unsigned> apical_child;
     Map<unsigned, unsigned> lateral_bud;
+    Map<index_t, Vec4> anchor_points;
+    Dequeue<index_t> growing;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         // Create root
@@ -36,20 +38,45 @@ private:
         });
     }
 
+
     void post_prediction(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
-        auto const anchor_point_min_dist = 2.0f;
-        auto const attachment_strength = 0.10f;
+        auto const surface_adaption_min_dist = 8.0f;
+        auto const attachment_min_dist = 0.05f;
+
+        // For all particles
         for (index_t i = 0; i < s.position.size(); i++) {
-            Vector<Vec3> anchor_points;
+            auto const p = s.predicted_position[i];
+            if (anchor_points.count(i)) {
+                auto ap = anchor_points[i];
+                auto dist = distance(p, ap);
+                if (dist <= attachment_min_dist) {
+                    s.predicted_position[i] += dt * params.attachment_strength * (ap - s.predicted_position[i]);
+                } else {
+                    anchor_points.erase(i);
+                }
+            } else {
+                System_State::SDF_Slot const* surface = NULL;
+                float surface_dist = INFINITY;
 
-            auto p = s.predicted_position[i];
-            for (auto& C : s.colliders_sdf) {
-                auto t = C.fun(p);
-                if (t < anchor_point_min_dist) {
-                    auto normal = sdf::normal(C.fun, p);
-                    auto anchor_point = p - t * normal;
+                // Find the closest surface
+                for (auto& C : s.colliders_sdf) {
+                    auto dist = C.fun(p);
+                    if (dist < surface_dist) {
+                        surface = &C;
+                        surface_dist = dist;
+                    }
+                }
 
-                    s.predicted_position[i] += dt * attachment_strength * (anchor_point - s.predicted_position[i]);
+                // If the surface is close enough, move towards it
+                if (surface_dist < surface_adaption_min_dist) {
+                    auto normal = sdf::normal(surface->fun, p);
+                    auto surface = p - surface_dist * normal;
+
+                    s.predicted_position[i] += dt * params.surface_adaption_strength * (surface - s.predicted_position[i]);
+
+                    if (surface_dist < attachment_min_dist) {
+                        anchor_points[i] = surface;
+                    }
                 }
             }
         }
@@ -57,6 +84,46 @@ private:
 
     void post_integration(IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) override {
         growth(pman_defer, s, dt);
+    }
+
+    bool try_grow_branch(index_t pidx, IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
+        if (length(s.velocity[pidx]) > 2) return false;
+
+        auto lateral_chance = rnd.normal();
+        constexpr auto new_size = Vec3(0.25f, 0.25f, 2.0f);
+        auto longest_axis = longest_axis_normalized(s.size[pidx]);
+        auto new_longest_axis = longest_axis_normalized(new_size);
+
+        auto parent = parents[pidx];
+        auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
+        auto branch_len = 2.0f;
+
+        if (lateral_chance < params.branching_probability) {
+            auto angle = rnd.central() * params.branch_angle_variance;
+            auto x = rnd.central();
+            auto y = rnd.central();
+            auto z = rnd.central();
+            auto axis = glm::normalize(Vec3(x, y, z));
+            auto bud_rot_offset = glm::angleAxis(angle, axis);
+            auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
+
+            auto pos = s.position[pidx] + branch_len * lateral_branch_dir;
+
+            pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
+                auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                lateral_bud[pidx] = l_idx;
+                parents[l_idx] = pidx;
+            });
+        }
+        auto pos = s.position[pidx] + branch_len * branch_dir;
+
+        pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
+            auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+            apical_child[pidx] = a_idx;
+            parents[a_idx] = pidx;
+        });
+
+        return true;
     }
 
     void growth(IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
@@ -76,40 +143,17 @@ private:
 
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
                 if (r >= max_size && N < params.particle_count_limit) {
-                    auto lateral_chance = rnd.normal();
-                    constexpr auto new_size = Vec3(0.25f, 0.25f, 2.0f);
-                    auto longest_axis = longest_axis_normalized(s.size[pidx]);
-                    auto new_longest_axis = longest_axis_normalized(new_size);
-
-                    auto parent = parents[pidx];
-                    auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
-                    auto branch_len = 2.0f;
-
-                    if (lateral_chance < params.branching_probability) {
-                        auto angle = rnd.central() * params.branch_angle_variance;
-                        auto x = rnd.central();
-                        auto y = rnd.central();
-                        auto z = rnd.central();
-                        auto axis = glm::normalize(Vec3(x, y, z));
-                        auto bud_rot_offset = glm::angleAxis(angle, axis);
-                        auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
-
-                        auto pos = s.position[pidx] + branch_len * lateral_branch_dir;
-
-                        pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                            auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                            lateral_bud[pidx] = l_idx;
-                            parents[l_idx] = pidx;
-                        });
-                    }
-                    auto pos = s.position[pidx] + branch_len * branch_dir;
-
-                    pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                        auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                        apical_child[pidx] = a_idx;
-                        parents[a_idx] = pidx;
-                    });
+                    growing.push_back(pidx);
                 }
+            }
+        }
+
+        auto remain = growing.size();
+        while (remain--) {
+            auto pidx = growing.front();
+            growing.pop_front();
+            if (!try_grow_branch(pidx, pman_defer, s, dt)) {
+                growing.push_back(pidx);
             }
         }
     }

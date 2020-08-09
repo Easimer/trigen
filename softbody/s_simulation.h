@@ -68,6 +68,7 @@ public:
     float mass_of_particle(unsigned i);
 
     void invalidate_particle_cache(unsigned pidx);
+    void invalidate_particle_cache() override;
 
     sb::Unique_Ptr<ICompute_Backend> compute;
     sb::Unique_Ptr<ISimulation_Extension> ext;
