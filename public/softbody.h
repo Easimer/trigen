@@ -17,7 +17,7 @@ namespace sb {
     template<typename T>
     using Shared_Ptr = std::shared_ptr<T>;
 
-    enum class Extension {
+    enum class Extension : int {
         None = 0,
         Debug_Rope,
         Debug_Cloth,
