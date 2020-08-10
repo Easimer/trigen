@@ -17,7 +17,7 @@ static void* GLGetProcAddress(char const* pFun) {
     assert(gpCtx != NULL);
 
     if (gpCtx != NULL && pFun != NULL) {
-        return gpCtx->getProcAddress(pFun);
+        return (void*)gpCtx->getProcAddress(pFun);
     } else {
         return NULL;
     }

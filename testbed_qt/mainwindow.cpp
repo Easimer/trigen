@@ -10,7 +10,7 @@
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
     connect(                                                                                                \
-        &sim_cfg, &Simulation_Config::##field##_changed,                                                    \
+        &sim_cfg, &Simulation_Config::field##_changed,                                                    \
         sim_config.elem, &QDoubleSpinBox::setValue                                                          \
     );                                                                                                      \
     connect(                                                                                                \
@@ -20,7 +20,7 @@
 
 #define BIND_DATA_SPINBOX(field, elem)                                                      \
     connect(                                                                                \
-        &sim_cfg, &Simulation_Config::##field##_changed,                                    \
+        &sim_cfg, &Simulation_Config::field##_changed,                                    \
         sim_config.elem, &QSpinBox::setValue                                                \
     );                                                                                      \
     connect(                                                                                \
@@ -30,7 +30,7 @@
 
 #define BIND_DATA_COMBOBOX(field, elem)                                                 \
     connect(                                                                            \
-        &sim_cfg, &Simulation_Config::##field##_changed,                                \
+        &sim_cfg, &Simulation_Config::field##_changed,                                \
         [&](Simulation_Config::Extension ext) { \
 sim_config.elem->setCurrentText(                   \
     QVariant::fromValue(ext).toString() \
