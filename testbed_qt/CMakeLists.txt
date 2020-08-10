@@ -17,7 +17,6 @@ set(SRC
 
     mainwindow.cpp
     mainwindow.h
-    mainwindow.ui
 
     glviewport.cpp
     glviewport.h
