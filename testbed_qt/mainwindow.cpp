@@ -6,6 +6,7 @@
 #include "common.h"
 #include "mainwindow.h"
 #include <QVariant>
+#include "softbody_renderer.h"
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
     connect(                                                                                                \
@@ -54,54 +55,12 @@ sim_config.elem->setCurrentText(                   \
     BIND_DATA_VEC3_COMPONENT(vec, fieldy, y_changed, set_y);    \
     BIND_DATA_VEC3_COMPONENT(vec, fieldz, z_changed, set_z);    \
 
-// TODO(danielm): move these elsewhere
-class Render_Grid : public gfx::IRender_Command {
-private:
-    virtual void execute(gfx::IRenderer* renderer) override {
-        glm::vec3 lines[] = {
-            glm::vec3(0, 0, 0),
-            glm::vec3(1, 0, 0),
-            glm::vec3(0, 0, 0),
-            glm::vec3(0, 1, 0),
-            glm::vec3(0, 0, 0),
-            glm::vec3(0, 0, 1),
-        };
-
-        renderer->draw_lines(lines + 0, 1, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
-        renderer->draw_lines(lines + 2, 1, Vec3(0, 0, 0), Vec3(0, .35, 0), Vec3(0, 1, 0));
-        renderer->draw_lines(lines + 4, 1, Vec3(0, 0, 0), Vec3(0, 0, .35), Vec3(0, 0, 1));
-
-        // render grid
-        Vec3 grid[80];
-        for (int i = 0; i < 20; i++) {
-            auto base = 4 * i;
-            grid[base + 0] = Vec3(i - 10, 0, -10);
-            grid[base + 1] = Vec3(i - 10, 0, +10);
-            grid[base + 2] = Vec3(-10, 0, i - 10);
-            grid[base + 3] = Vec3(+10, 0, i - 10);
-        }
-
-        renderer->draw_lines(grid, 40, Vec3(0, 0, 0), Vec3(0.4, 0.4, 0.4), Vec3(0.4, 0.4, 0.4));
-    }
-};
-
-template<typename T, class ... Arg>
-static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
-    auto cmd = rq->allocate<T>();
-    new(cmd) T(args...);
-    rq->push(cmd);
-    return cmd;
-}
-
-static void rqfiller(gfx::Render_Queue* rq) {
-    allocate_command_and_initialize<Render_Grid>(rq);
-}
-
 MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
     render_timer(this),
     sim_cfg(),
-    splitter(std::make_unique<QSplitter>(this)) {
+    splitter(std::make_unique<QSplitter>(this)),
+    render_params() {
     splitter->setOrientation(Qt::Horizontal);
 
     auto tabs = new QTabWidget(this);
@@ -122,7 +81,7 @@ MainWindow::MainWindow(QWidget* parent) :
     setCentralWidget(splitter.get());
 
     viewport = gl_viewport;
-    viewport->set_render_queue_filler(&rqfiller);
+    viewport->set_render_queue_filler([this](gfx::Render_Queue* rq) { render_world(rq); });
 
     connect(&render_timer, SIGNAL(timeout()), viewport, SLOT(update()));
     conn_sim_step = connect(&render_timer, SIGNAL(timeout()), this, SLOT(step_simulation()));
@@ -171,7 +130,6 @@ MainWindow::MainWindow(QWidget* parent) :
 
 void MainWindow::start_simulation() {
     if (!conn_sim_step.has_value()) {
-        printf("Starting simulation\n");
         if (!simulation) {
             reset_simulation();
         }
@@ -179,22 +137,26 @@ void MainWindow::start_simulation() {
     }
 }
 
+void MainWindow::render_world(gfx::Render_Queue* rq) {
+    assert(rq != NULL);
+    if (simulation != nullptr) {
+        render_softbody_simulation(rq, simulation.get(), render_params);
+    }
+}
+
 void MainWindow::stop_simulation() {
     if (conn_sim_step.has_value()) {
-        printf("Stopping simulation\n");
         disconnect(*conn_sim_step);
         conn_sim_step.reset();
     }
 }
 
 void MainWindow::reset_simulation() {
-    printf("Resetting simulation\n");
     simulation = sb::create_simulation(sim_cfg);
 }
 
 void MainWindow::step_simulation() {
     if (simulation) {
-        printf("Stepping simulation\n");
         simulation->step(render_timer.interval() / 1000.0f);
     }
 }

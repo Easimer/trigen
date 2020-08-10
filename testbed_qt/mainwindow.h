@@ -15,6 +15,7 @@
 #include "ui_sim_config.h"
 
 #include "softbody.h"
+#include "softbody_renderer.h"
 
 /*
  * Wraps a glm::vec3 in a Qt object by reference.
@@ -111,6 +112,8 @@ public:
         viewport->set_render_queue_filler(f);
     }
 
+    void render_world(gfx::Render_Queue* rq);
+
 protected slots:
     void start_simulation();
     void stop_simulation();
@@ -134,4 +137,6 @@ private:
     Simulation_Config sim_cfg;
 
     QMap<QString, sb::Extension> extensions;
+
+    Softbody_Render_Parameters render_params;
 };

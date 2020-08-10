@@ -25,6 +25,9 @@ set(SRC
     arcball_camera.cpp
     arcball_camera.h
 
+    softbody_renderer.cpp
+    softbody_renderer.h
+
     resources.qrc
 )
 
