@@ -84,8 +84,16 @@ MainWindow::MainWindow(QWidget* parent) :
     viewport->set_render_queue_filler([this](gfx::Render_Queue* rq) { render_world(rq); });
 
     connect(&render_timer, SIGNAL(timeout()), viewport, SLOT(update()));
-    conn_sim_step = connect(&render_timer, SIGNAL(timeout()), this, SLOT(step_simulation()));
     render_timer.start(13);
+
+    connect(sim_control.sliderSimSpeed, &QSlider::valueChanged, [&](int value) {
+        char buf[64];
+        auto speed = value / 4.0f;
+        auto res = snprintf(buf, 63, "%.2fx", speed);
+        buf[res] = 0;
+        sim_control.lblSpeedValue->setText((char const*)buf);
+        this->sim_speed = speed;
+    });
 
     connect(sim_control.btnStart, SIGNAL(released()), this, SLOT(start_simulation()));
     connect(sim_control.btnStop, SIGNAL(released()), this, SLOT(stop_simulation()));
@@ -139,9 +147,7 @@ void MainWindow::start_simulation() {
 
 void MainWindow::render_world(gfx::Render_Queue* rq) {
     assert(rq != NULL);
-    if (simulation != nullptr) {
-        render_softbody_simulation(rq, simulation.get(), render_params);
-    }
+    render_softbody_simulation(rq, simulation.get(), render_params);
 }
 
 void MainWindow::stop_simulation() {
@@ -157,7 +163,7 @@ void MainWindow::reset_simulation() {
 
 void MainWindow::step_simulation() {
     if (simulation) {
-        simulation->step(render_timer.interval() / 1000.0f);
+        simulation->step(sim_speed * render_timer.interval() / 1000.0f);
     }
 }
 

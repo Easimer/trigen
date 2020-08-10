@@ -128,6 +128,7 @@ private:
 
     Ui::Sim_Control sim_control;
     Unique_Ptr<QWidget> sim_control_widget;
+    float sim_speed = 1.0f;
     Optional<QMetaObject::Connection> conn_sim_step;
 
     Ui::Sim_Config sim_config;

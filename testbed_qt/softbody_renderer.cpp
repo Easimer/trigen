@@ -184,15 +184,17 @@ static T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
 
 bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params) {
     assert(rq != NULL);
-    assert(sim != NULL);
 
     allocate_command_and_initialize<Render_Grid>(rq);
-    allocate_command_and_initialize<Command_Render_Points>(rq, sim);
-    allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
-    allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
-    if (params.draw_bind_pose) {
-        allocate_command_and_initialize<Visualize_Bind_Pose>(rq, sim);
+    if (sim != NULL) {
+        allocate_command_and_initialize<Command_Render_Points>(rq, sim);
+        allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
+        allocate_command_and_initialize<Visualize_Connections>(rq, sim);
+
+        if (params.draw_bind_pose) {
+            allocate_command_and_initialize<Visualize_Bind_Pose>(rq, sim);
+        }
     }
 
     return true;
