@@ -9,7 +9,7 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
 set(SRC
-	common.h
+    common.h
     main.cpp
 
     sim_control.ui
@@ -46,5 +46,7 @@ add_custom_command(
         $<TARGET_FILE:Qt5::Widgets>
         ${CMAKE_BINARY_DIR}
 )
+
+target_precompile_headers(testbed_qt PRIVATE "common.h")
 
 endif()
