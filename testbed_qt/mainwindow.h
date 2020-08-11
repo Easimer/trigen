@@ -10,6 +10,7 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QSplitter>
+#include <QToolBar>
 #include "glviewport.h"
 #include "r_queue.h"
 #include "ui_sim_control.h"
@@ -144,7 +145,13 @@ protected slots:
     void on_extension_changed(QString const& k);
 
 private:
-    void add_collider(Base_Collider_Widget* widget);
+    void add_collider(Unique_Ptr<Base_Collider_Widget>&& widget);
+
+    template<typename T>
+    void add_collider() {
+        auto w = std::make_unique<T>();
+        add_collider(std::move(w));
+    }
 
 private:
     QTimer render_timer;
@@ -164,7 +171,8 @@ private:
 
     Softbody_Render_Parameters render_params;
 
-    std::list<Base_Collider_Widget*> collider_list;
+    std::list<Unique_Ptr<Base_Collider_Widget>> collider_list;
     Unique_Ptr<QWidget> collider_list_widget;
-    QHBoxLayout collider_list_layout;
+    QVBoxLayout collider_list_layout;
+    Unique_Ptr<QToolBar> collider_list_menubar;
 };
