@@ -27,7 +27,12 @@ set(SRC
     softbody_renderer.cpp
     softbody_renderer.h
 
+    colliders.h
+
     resources.qrc
+
+    ui/collider_frame.ui
+    ui/collider_sphere.ui
 )
 
 add_executable(testbed_qt ${SRC})

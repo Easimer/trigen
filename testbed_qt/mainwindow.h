@@ -6,6 +6,7 @@
 #pragma once
 
 #include "common.h"
+#include <list>
 #include <QMainWindow>
 #include <QTimer>
 #include <QSplitter>
@@ -16,6 +17,7 @@
 
 #include "softbody.h"
 #include "softbody_renderer.h"
+#include "colliders.h"
 
 /*
  * Wraps a glm::vec3 in a Qt object by reference.
@@ -104,6 +106,26 @@ signals:
     void ext_changed(sb::Extension value);
 };
 
+template<typename UI>
+class Ui_Widget {
+public:
+    Ui_Widget(QWidget* parent = nullptr)
+        : ui(), widget(std::make_unique<QWidget>(parent)) {
+        ui.setupUi(widget.get());
+    }
+
+    explicit operator QWidget* () {
+        return widget.get();
+    }
+
+    UI* operator->() {
+        return &ui;
+    }
+private:
+    UI ui;
+    Unique_Ptr<QWidget> widget;
+};
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -122,17 +144,18 @@ protected slots:
     void on_extension_changed(QString const& k);
 
 private:
+    void add_collider(Base_Collider_Widget* widget);
+
+private:
     QTimer render_timer;
     Unique_Ptr<QSplitter> splitter;
     GLViewport* viewport; // owned by splitter
 
-    Ui::Sim_Control sim_control;
-    Unique_Ptr<QWidget> sim_control_widget;
+    Ui_Widget<Ui::Sim_Control> sim_control;
     float sim_speed = 1.0f;
     Optional<QMetaObject::Connection> conn_sim_step;
 
-    Ui::Sim_Config sim_config;
-    Unique_Ptr<QWidget> sim_config_widget;
+    Ui_Widget<Ui::Sim_Config> sim_config;
 
     sb::Unique_Ptr<sb::ISoftbody_Simulation> simulation;
     Simulation_Config sim_cfg;
@@ -140,4 +163,8 @@ private:
     QMap<QString, sb::Extension> extensions;
 
     Softbody_Render_Parameters render_params;
+
+    std::list<Base_Collider_Widget*> collider_list;
+    Unique_Ptr<QWidget> collider_list_widget;
+    QHBoxLayout collider_list_layout;
 };

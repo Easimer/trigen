@@ -7,48 +7,50 @@
 #include "mainwindow.h"
 #include <QVariant>
 #include "softbody_renderer.h"
+#include "raymarching.h"
+#include "colliders.h"
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
     connect(                                                                                                \
-        &sim_cfg, &Simulation_Config::field##_changed,                                                    \
-        sim_config.elem, &QDoubleSpinBox::setValue                                                          \
+        &sim_cfg, &Simulation_Config::field##_changed,                                                      \
+        sim_config->elem, &QDoubleSpinBox::setValue                                                         \
     );                                                                                                      \
     connect(                                                                                                \
-        sim_config.elem, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),      \
+        sim_config->elem, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),     \
         &sim_cfg, [&](float v) { sim_cfg.setProperty(#field, v); }                                          \
     );                                                                                                      \
 
 #define BIND_DATA_SPINBOX(field, elem)                                                      \
     connect(                                                                                \
-        &sim_cfg, &Simulation_Config::field##_changed,                                    \
-        sim_config.elem, &QSpinBox::setValue                                                \
+        &sim_cfg, &Simulation_Config::field##_changed,                                      \
+        sim_config->elem, &QSpinBox::setValue                                               \
     );                                                                                      \
     connect(                                                                                \
-        sim_config.elem, static_cast<void (QSpinBox::*)(int )>(&QSpinBox::valueChanged),    \
+        sim_config->elem, static_cast<void (QSpinBox::*)(int )>(&QSpinBox::valueChanged),   \
         &sim_cfg, [&](int v) { sim_cfg.setProperty(#field, (unsigned)v); }                  \
     );                                                                                      \
 
-#define BIND_DATA_COMBOBOX(field, elem)                                                 \
-    connect(                                                                            \
-        &sim_cfg, &Simulation_Config::field##_changed,                                \
-        [&](Simulation_Config::Extension ext) { \
-sim_config.elem->setCurrentText(                   \
-    QVariant::fromValue(ext).toString() \
-);  \
-        }   \
-    );                                                                                  \
-    connect(                                                                            \
-        sim_config.elem, (void (QComboBox::*)(QString const&))&QComboBox::currentIndexChanged,     \
-        &sim_cfg, [&](QString const& v) { sim_cfg.setProperty(#field, v); }                        \
-    );                                                                                  \
+#define BIND_DATA_COMBOBOX(field, elem)                 \
+    connect(                                            \
+        &sim_cfg, &Simulation_Config::field##_changed,  \
+        [&](Simulation_Config::Extension ext) {         \
+            sim_config.elem->setCurrentText(            \
+                QVariant::fromValue(ext).toString()     \
+            );                                          \
+        }                                               \
+    );                                                  \
+    connect(                                                                                    \
+        sim_config.elem, (void (QComboBox::*)(QString const&))&QComboBox::currentIndexChanged,  \
+        &sim_cfg, [&](QString const& v) { sim_cfg.setProperty(#field, v); }                     \
+    );                                                                                          \
 
-#define BIND_DATA_VEC3_COMPONENT(obj_field, field, sig, set)                                            \
-    connect(                                                                                            \
-        &sim_cfg.obj_field, &QVec3::sig,                                                                \
-        sim_config.field, &QDoubleSpinBox::setValue);                                                   \
-    connect(                                                                                            \
-        sim_config.field, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), \
-        &sim_cfg.seed_position, &QVec3::set);                                                           \
+#define BIND_DATA_VEC3_COMPONENT(obj_field, field, sig, set)                                             \
+    connect(                                                                                             \
+        &sim_cfg.obj_field, &QVec3::sig,                                                                 \
+        sim_config->field, &QDoubleSpinBox::setValue);                                                   \
+    connect(                                                                                             \
+        sim_config->field, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), \
+        &sim_cfg.seed_position, &QVec3::set);                                                            \
 
 #define BIND_DATA_VEC3(vec, fieldx, fieldy, fieldz)             \
     BIND_DATA_VEC3_COMPONENT(vec, fieldx, x_changed, set_x);    \
@@ -60,19 +62,21 @@ MainWindow::MainWindow(QWidget* parent) :
     render_timer(this),
     sim_cfg(),
     splitter(std::make_unique<QSplitter>(this)),
-    render_params() {
+    render_params(),
+    sim_control(this) {
     splitter->setOrientation(Qt::Horizontal);
 
     auto tabs = new QTabWidget(this);
     auto gl_viewport = new GLViewport(this);
 
-    sim_control_widget = std::make_unique<QWidget>(this);
-    sim_control.setupUi(sim_control_widget.get());
-    tabs->addTab(sim_control_widget.get(), "Simulation control");
+    tabs->addTab((QWidget*)sim_control, "Simulation control");
+    tabs->addTab((QWidget*)sim_config, "Simulation parameters");
 
-    sim_config_widget = std::make_unique<QWidget>(this);
-    sim_config.setupUi(sim_config_widget.get());
-    tabs->addTab(sim_config_widget.get(), "Simulation parameters");
+    collider_list_widget = std::make_unique<QWidget>(this);
+    tabs->addTab(collider_list_widget.get(), "Colliders");
+    collider_list_widget->setLayout(&collider_list_layout);
+
+    add_collider(new Sphere_Collider_Widget());
 
     // NOTE(danielm): ownership passed to the QSplitter
     splitter->addWidget(tabs);
@@ -86,26 +90,26 @@ MainWindow::MainWindow(QWidget* parent) :
     connect(&render_timer, SIGNAL(timeout()), viewport, SLOT(update()));
     render_timer.start(13);
 
-    connect(sim_control.sliderSimSpeed, &QSlider::valueChanged, [&](int value) {
+    connect(sim_control->sliderSimSpeed, &QSlider::valueChanged, [&](int value) {
         char buf[64];
         auto speed = value / 4.0f;
         auto res = snprintf(buf, 63, "%.2fx", speed);
         buf[res] = 0;
-        sim_control.lblSpeedValue->setText((char const*)buf);
+        sim_control->lblSpeedValue->setText((char const*)buf);
         this->sim_speed = speed;
     });
 
-    connect(sim_control.btnStart, SIGNAL(released()), this, SLOT(start_simulation()));
-    connect(sim_control.btnStop, SIGNAL(released()), this, SLOT(stop_simulation()));
-    connect(sim_control.btnReset, SIGNAL(released()), this, SLOT(reset_simulation()));
+    connect(sim_control->btnStart, SIGNAL(released()), this, SLOT(start_simulation()));
+    connect(sim_control->btnStop, SIGNAL(released()), this, SLOT(stop_simulation()));
+    connect(sim_control->btnReset, SIGNAL(released()), this, SLOT(reset_simulation()));
 
     extensions.insert("#0 None", sb::Extension::None);
     extensions.insert("#1 Rope demo", sb::Extension::Debug_Rope);
     extensions.insert("#2 Cloth demo", sb::Extension::Debug_Cloth);
     extensions.insert("#3 Plant sim", sb::Extension::Plant_Simulation);
 
-    sim_config.cbExtension->addItems(QStringList(extensions.keys()));
-    sim_config.cbExtension->setCurrentIndex(0);
+    sim_config->cbExtension->addItems(QStringList(extensions.keys()));
+    sim_config->cbExtension->setCurrentIndex(0);
 
     BIND_DATA_SPINBOX(particle_count_limit, sbParticleCountLimit);
     BIND_DATA_DBLSPINBOX(density, sbDensity);
@@ -118,7 +122,7 @@ MainWindow::MainWindow(QWidget* parent) :
     BIND_DATA_DBLSPINBOX(branch_angle_variance, sbBranchAngleVariance);
     BIND_DATA_VEC3(seed_position, sbOriginX, sbOriginY, sbOriginZ);
 
-    connect(sim_config.cbExtension, &QComboBox::currentTextChanged, this, &MainWindow::on_extension_changed);
+    connect(sim_config->cbExtension, &QComboBox::currentTextChanged, this, &MainWindow::on_extension_changed);
 
     // Default sim config
     auto extension = sim_cfg.property("ext");
@@ -168,5 +172,18 @@ void MainWindow::step_simulation() {
 }
 
 void MainWindow::on_extension_changed(QString const& k) {
-    sim_cfg.ext = extensions.value(sim_config.cbExtension->currentText(), sb::Extension::None);
+    sim_cfg.ext = extensions.value(sim_config->cbExtension->currentText(), sb::Extension::None);
+}
+
+void MainWindow::add_collider(Base_Collider_Widget* widget) {
+    widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    collider_list_layout.addWidget(widget);
+    collider_list.push_back(widget);
+
+    auto separator = new QFrame(widget);
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    separator->setLineWidth(1);
+
+    collider_list_layout.addWidget(separator);
 }
