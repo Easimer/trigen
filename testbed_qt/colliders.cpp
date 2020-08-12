@@ -76,12 +76,15 @@ public:
     Vector_Constant() : Vector_Constant(vec_t()) {}
 
     Vector_Constant(vec_t const& v) : data(std::make_shared<Node::Vec3>(v)) {
-        widget.setLayout(&layout);
+        widget = new QWidget;
+        layout = new QHBoxLayout;
+        widget->setLayout(layout);
 
         for (int i = 0; i < N; i++) {
-            layout.addWidget(&sb[i]);
+            sb[i] = new QDoubleSpinBox(widget);
+            layout->addWidget(sb[i]);
             connect(
-                &sb[i], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
+                sb[i], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
                 [&](double v) {
                     auto& vec = data->value();
                     if (vec[i] != v) {
@@ -107,7 +110,7 @@ public:
     }
 
     QWidget* embeddedWidget() override {
-        return &widget;
+        return widget;
     }
 
     unsigned int nPorts(QtNodes::PortType portType) const override {
@@ -131,9 +134,9 @@ public:
 private:
     QString type_name;
     std::shared_ptr<Node::Vec3> data;
-    QWidget widget;
-    QHBoxLayout layout;
-    QDoubleSpinBox sb[N];
+    QWidget* widget;
+    QHBoxLayout* layout;
+    QDoubleSpinBox* sb[N];
 };
 
 using Vector3_Constant = Vector_Constant<3>;
@@ -146,11 +149,14 @@ public:
     Float_Constant() : Float_Constant(0.0f) {}
 
     Float_Constant(float v) : data(std::make_shared<Node::Float>(v)) {
-        widget.setLayout(&layout);
+        widget = new QWidget;
+        layout = new QHBoxLayout;
+        widget->setLayout(layout);
 
-        layout.addWidget(&sb[0]);
+        sb[0] = new QDoubleSpinBox(widget);
+        layout->addWidget(sb[0]);
         connect(
-            &sb[0], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
+            sb[0], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
             [&](double v) {
                 if (data->value() != v) {
                     data->set_value(v);
@@ -169,7 +175,7 @@ public:
     }
 
     QWidget* embeddedWidget() override {
-        return &widget;
+        return widget;
     }
 
     unsigned int nPorts(QtNodes::PortType portType) const override {
@@ -194,8 +200,8 @@ public:
 private:
     std::shared_ptr<Node::Float> data;
     QWidget* widget;
-    QHBoxLayout layout;
-    QDoubleSpinBox sb[1];
+    QHBoxLayout* layout;
+    QDoubleSpinBox* sb[1];
 };
 
 class Sample_Point_Data_Source : public QtNodes::NodeDataModel, public Ast_Node<Vec3> {
