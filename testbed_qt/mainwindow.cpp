@@ -64,7 +64,8 @@ MainWindow::MainWindow(QWidget* parent) :
     sim_cfg(),
     splitter(std::make_unique<QSplitter>(this)),
     render_params(),
-    sim_control(this) {
+    sim_control(this),
+    collider_builder(create_collider_builder_widget(this)) {
     splitter->setOrientation(Qt::Horizontal);
 
     auto tabs = new QTabWidget(this);
@@ -72,16 +73,7 @@ MainWindow::MainWindow(QWidget* parent) :
 
     tabs->addTab((QWidget*)sim_control, "Simulation control");
     tabs->addTab((QWidget*)sim_config, "Simulation parameters");
-
-    // Build the collider list tab
-    collider_list_widget = std::make_unique<QWidget>(this);
-    collider_list_widget->setLayout(&collider_list_layout);
-    collider_list_menubar = std::make_unique<QToolBar>(collider_list_widget.get());
-    collider_list_layout.setMenuBar(collider_list_menubar.get());
-    collider_list_menubar->addAction("Sphere", [&]() {
-        add_collider<Sphere_Collider_Widget>();
-    });
-    tabs->addTab(collider_list_widget.get(), "Colliders");
+    tabs->addTab(collider_builder->view(), "Colliders");
 
     // NOTE(danielm): ownership passed to the QSplitter
     splitter->addWidget(tabs);
@@ -146,7 +138,7 @@ MainWindow::MainWindow(QWidget* parent) :
 }
 
 void MainWindow::start_simulation() {
-    if (!conn_sim_step.has_value()) {
+    if (!is_simulation_running()) {
         if (!simulation) {
             reset_simulation();
         }
@@ -160,30 +152,15 @@ void MainWindow::render_world(gfx::Render_Queue* rq) {
 }
 
 void MainWindow::stop_simulation() {
-    if (conn_sim_step.has_value()) {
+    if (is_simulation_running()) {
         disconnect(*conn_sim_step);
         conn_sim_step.reset();
     }
 }
 
 void MainWindow::reset_simulation() {
-    bool recreated = simulation != nullptr;
     simulation = sb::create_simulation(sim_cfg);
-
-    if (recreated) {
-        // There was a previous simulation
-        // Re-add every collider we had added in that simulation
-        for (auto& coll : collider_list) {
-            auto proxy = Collider_Proxy(coll.get());
-            auto handle = simulation->add_collider(proxy);
-            coll->set_remover([&](Base_Collider_Widget* w, unsigned h) {
-                simulation->remove_collider(h);
-                collider_list_layout.removeWidget(coll.get());
-                collider_list.remove(coll);
-                });
-            coll->added_to_simulation(simulation.get(), handle);
-        }
-    }
+    simulation->add_collider(Softbody_Collider_Proxy(collider_builder));
 }
 
 void MainWindow::step_simulation() {
@@ -196,33 +173,6 @@ void MainWindow::on_extension_changed(QString const& k) {
     sim_cfg.ext = extensions.value(sim_config->cbExtension->currentText(), sb::Extension::None);
 }
 
-void MainWindow::add_collider(Unique_Ptr<Base_Collider_Widget>&& widget) {
-    if (simulation != nullptr) {
-        widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        collider_list_layout.addWidget(widget.get());
-
-        /*
-        auto separator = new QFrame(widget);
-        separator->setFrameShape(QFrame::HLine);
-        separator->setFrameShadow(QFrame::Sunken);
-        separator->setLineWidth(1);
-
-        collider_list_layout.addWidget(separator);
-        */
-
-        auto proxy = Collider_Proxy(widget.get());
-        auto handle = simulation->add_collider(proxy);
-        auto pWidget = widget.get();
-        widget->set_remover([this](Base_Collider_Widget* w, unsigned h) {
-            simulation->remove_collider(h);
-            collider_list_layout.removeWidget(w);
-            // collider_list.remove(w);
-            collider_list.remove_if([&](auto& p) { return p.get() == w; });
-            });
-        widget->added_to_simulation(simulation.get(), handle);
-        collider_list.push_back(std::move(widget));
-    } else {
-        QMessageBox b(QMessageBox::Warning, "Failed to add new collider", "Failed to add new collider: there is no simulation created yet", QMessageBox::Ok, this);
-        b.exec();
-    }
+bool MainWindow::is_simulation_running() {
+    return simulation != nullptr && conn_sim_step.has_value();
 }

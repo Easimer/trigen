@@ -145,7 +145,7 @@ protected slots:
     void on_extension_changed(QString const& k);
 
 private:
-    void add_collider(Unique_Ptr<Base_Collider_Widget>&& widget);
+    bool is_simulation_running();
 
     template<typename T>
     void add_collider() {
@@ -171,8 +171,5 @@ private:
 
     Softbody_Render_Parameters render_params;
 
-    std::list<Unique_Ptr<Base_Collider_Widget>> collider_list;
-    Unique_Ptr<QWidget> collider_list_widget;
-    QVBoxLayout collider_list_layout;
-    Unique_Ptr<QToolBar> collider_list_menubar;
+    Unique_Ptr<Collider_Builder_Widget> collider_builder;
 };

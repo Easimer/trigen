@@ -1,7 +1,3 @@
-set(SOFTBODY_TESTBED_QT OFF CACHE BOOL "Build the Qt5-based testbed")
-
-if(${SOFTBODY_TESTBED_QT})
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -27,16 +23,14 @@ set(SRC
     softbody_renderer.cpp
     softbody_renderer.h
 
+    colliders.cpp
     colliders.h
 
     resources.qrc
-
-    ui/collider_frame.ui
-    ui/collider_sphere.ui
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer)
+target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes)
 
 add_custom_command(
     TARGET testbed_qt POST_BUILD
@@ -44,9 +38,8 @@ add_custom_command(
         $<TARGET_FILE:Qt5::Core>
         $<TARGET_FILE:Qt5::Gui>
         $<TARGET_FILE:Qt5::Widgets>
+        $<TARGET_FILE:NodeEditor::nodes>
         ${CMAKE_BINARY_DIR}
 )
 
 target_precompile_headers(testbed_qt PRIVATE "common.h")
-
-endif()
