@@ -71,11 +71,7 @@ template<size_t N>
 class Vector_Constant : public QtNodes::NodeDataModel, public Ast_Node<glm::vec<N, float>> {
 public:
     using vec_t = glm::vec<N, float>;
-    virtual ~Vector_Constant() {
-        for (int i = 0; i < N; i++) {
-            layout.removeWidget(&sb[i]);
-        }
-    }
+    virtual ~Vector_Constant() {}
 
     Vector_Constant() : Vector_Constant(vec_t()) {}
 
@@ -197,7 +193,7 @@ public:
 
 private:
     std::shared_ptr<Node::Float> data;
-    QWidget widget;
+    QWidget* widget;
     QHBoxLayout layout;
     QDoubleSpinBox sb[1];
 };
@@ -309,7 +305,7 @@ public:
 
     float evaluate() override {
         if (ast_distance) {
-            ast_distance->evaluate();
+            return ast_distance->evaluate();
         } else {
             return NAN;
         }
