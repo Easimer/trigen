@@ -19,7 +19,7 @@
 #include <QLayout>
 
 #define NODE_TYPE(id, name) { QStringLiteral(id), QStringLiteral(name) }
-#define NODE_TYPE_VEC3(name) NODE_TYPE("glm::vec3", name)
+#define NODE_TYPE_VEC3(name) NODE_TYPE("Vector3", name)
 #define NODE_TYPE_FLOAT(name) NODE_TYPE("float", name)
 
 template<typename Output>
@@ -85,7 +85,7 @@ public:
             layout->addWidget(sb[i]);
             connect(
                 sb[i], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
-                [&](double v) {
+                [&, i](double v) {
                     auto& vec = data->value();
                     if (vec[i] != v) {
                         vec[i] = v;
@@ -323,6 +323,136 @@ private:
     Ast_Node<float>* ast_distance;
 };
 
+class Box_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+    Q_OBJECT;
+public:
+    virtual ~Box_Collider_Data_Model() {}
+
+    Box_Collider_Data_Model() : distance(std::make_shared<Node::Float>(INFINITY)) {}
+
+    QString caption() const override { return QStringLiteral("Box Collider"); }
+    QString name() const override { return QStringLiteral("Box Collider"); }
+
+    unsigned nPorts(QtNodes::PortType type) const override {
+        switch (type) {
+        case QtNodes::PortType::In: return 2;
+        case QtNodes::PortType::Out: return 1;
+        default: assert(!"Unknown port type"); return 0;
+        }
+    }
+
+    QtNodes::NodeDataType dataType(QtNodes::PortType port_type, QtNodes::PortIndex idx) const override {
+        using QtNodes::PortType;
+        switch (port_type) {
+        case PortType::In:
+        {
+            switch (idx) {
+            case 0: return NODE_TYPE_VEC3("Sample point");
+            case 1: return NODE_TYPE_VEC3("Size");
+            default: assert(!"Unknown port index");
+            }
+            break;
+        }
+        case PortType::Out:
+        {
+            return NODE_TYPE_FLOAT("Distance");
+        }
+        default:
+        {
+            assert(!"Unknown port type");
+        }
+        }
+    }
+
+    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {
+        switch (portIndex) {
+        case 0:
+        {
+            sample_point = std::static_pointer_cast<Node::Vec3, QtNodes::NodeData>(data);
+            break;
+        }
+        case 1:
+        {
+            size = std::static_pointer_cast<Node::Vec3, QtNodes::NodeData>(data);
+            break;
+        }
+        }
+    }
+
+    QWidget* embeddedWidget() override { return nullptr; }
+
+    QtNodes::NodeValidationState validationState() const override {
+        if (!sample_point.expired() && !size.expired()) {
+            auto r = size.lock();
+            if (glm::length(r->value()) > 0.0f) {
+                return QtNodes::NodeValidationState::Valid;
+            } else {
+                return QtNodes::NodeValidationState::Warning;
+            }
+        } else {
+            return QtNodes::NodeValidationState::Error;
+        }
+    }
+
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override {
+        return distance;
+    }
+
+    void inputConnectionCreated(QtNodes::Connection const& conn) override {
+        auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+        switch (idx) {
+        case 0:
+        {
+            ast_sample_point = dynamic_cast<Ast_Node<Vec3>*>(input_node);
+            break;
+        }
+        case 1:
+        {
+            ast_size = dynamic_cast<Ast_Node<Vec3>*>(input_node);
+            break;
+        }
+        }
+    }
+
+    void inputConnectionDeleted(QtNodes::Connection const& conn) override {
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+        switch (idx) {
+        case 0:
+        {
+            ast_sample_point = NULL;
+            break;
+        }
+        case 1:
+        {
+            ast_size = NULL;
+            break;
+        }
+        }
+    }
+
+    float evaluate() override {
+        Vec3 size = {};
+        Vec3 sp = {};
+        if (ast_size != NULL) {
+            size = ast_size->evaluate();
+        }
+        if (ast_sample_point != NULL) {
+            sp = ast_sample_point->evaluate();
+        }
+
+        return sdf::box(size, sp);
+    }
+private:
+    std::weak_ptr<Node::Vec3> sample_point;
+    std::weak_ptr<Node::Vec3> size;
+
+    Ast_Node<Vec3>* ast_sample_point;
+    Ast_Node<Vec3>* ast_size;
+
+    std::shared_ptr<Node::Float> distance;
+};
+
 class Sphere_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
@@ -472,7 +602,8 @@ private:
 inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
     auto ret = std::make_shared<QtNodes::DataModelRegistry>();
 
-    ret->registerModel<Sphere_Collider_Data_Model>("Shape");
+    ret->registerModel<Sphere_Collider_Data_Model>("Shapes");
+    ret->registerModel<Box_Collider_Data_Model>("Shapes");
     ret->registerModel<Sample_Point_Data_Source>("Sources");
     ret->registerModel<Distance_Sink>("Sinks");
     ret->registerModel<Vector3_Constant>("Constants");
