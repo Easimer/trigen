@@ -338,17 +338,42 @@ T evaluate_ast_or_default(Ast_Node<T>* node, T default_value) {
 #define NODE_TO_AST_NODE(Dst, Type) Dst = dynamic_cast<Ast_Node<Type>*>(input_node)
 #define RESET_AST_NODE(Dst) Dst = NULL
 
+// Base class for collider nodes.
 class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
     virtual ~Base_Collider_Data_Model() {}
     Base_Collider_Data_Model() : distance(std::make_shared<Node::Float>(0)) {}
 
+    /*
+     * Gets the unique name of the collider.
+     */
     virtual QString collider_name() const = 0;
+    /*
+     * Gets the number of input ports.
+     */
     virtual unsigned input_port_count() const = 0;
+
+    /*
+     * Gets the port data type for a given input port.
+     * @param idx Input port index
+     */
     virtual QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const = 0;
 
+    /*
+     * Called when a node is connected to a given input port.
+     * @param idx Input port index
+     * @param input_node Pointer to the node that was connected.
+     *
+     * @note `input_node` should implement the Ast_Node<T> interface. Use this
+     * fact to build the AST.
+     */
     virtual void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) = 0;
+
+    /*
+     * Called when a node is disconnected from a given input port.
+     * @param idx Input port index
+     */
     virtual void input_disconnected(QtNodes::PortIndex idx) = 0;
 private:
     QString caption() const override { return collider_name(); }
@@ -395,6 +420,111 @@ private:
     std::shared_ptr<Node::Float> distance;
 };
 
+class Base_Combination_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+public:
+    virtual ~Base_Combination_Data_Model() {}
+    Base_Combination_Data_Model() :
+        ast_lhs(NULL),
+        ast_rhs(NULL),
+        distance(std::make_shared<Node::Float>(0)) {}
+    virtual QString combination_name() const = 0;
+    virtual float evaluate(float lhs, float rhs) const = 0;
+private:
+    QString caption() const override { return combination_name(); }
+    QString name() const override { return combination_name(); }
+
+    unsigned nPorts(QtNodes::PortType type) const override {
+        switch (type) {
+        case QtNodes::PortType::In: return 2;
+        case QtNodes::PortType::Out: return 1;
+        default: assert(!"Unknown port type"); return 0;
+        }
+    }
+
+    QtNodes::NodeDataType dataType(QtNodes::PortType port_type, QtNodes::PortIndex idx) const override {
+        auto lhs = QtNodes::NodeDataType NODE_TYPE_FLOAT("LHS");
+        auto rhs = QtNodes::NodeDataType NODE_TYPE_FLOAT("LHS");
+        switch (port_type) {
+        // If the caller is asking about input ports, redirect the request to the subclass
+        case QtNodes::PortType::In: return (idx == 0) ? lhs : rhs;
+        // If the caller is asking about output ports, return the default
+        case QtNodes::PortType::Out: return NODE_TYPE_FLOAT("Distance");
+        default: assert(!"Unknown port type");
+        }
+    }
+
+    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {}
+
+    QWidget* embeddedWidget() override { return nullptr; }
+
+    QtNodes::NodeValidationState validationState() const override { return QtNodes::NodeValidationState::Valid; }
+
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override { return distance; }
+
+    void inputConnectionCreated(QtNodes::Connection const& conn) override {
+        auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+
+        if (idx == 0) {
+            NODE_TO_AST_NODE(ast_lhs, float);
+        } else {
+            NODE_TO_AST_NODE(ast_rhs, float);
+        }
+    }
+
+    void inputConnectionDeleted(QtNodes::Connection const& conn) override {
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+
+        if (idx == 0) {
+            RESET_AST_NODE(ast_lhs);
+        } else {
+            RESET_AST_NODE(ast_rhs);
+        }
+    }
+
+    float evaluate() override {
+        return evaluate(ast_lhs->evaluate(), ast_rhs->evaluate());
+    }
+
+private:
+    Ast_Node<float>* ast_lhs = NULL;
+    Ast_Node<float>* ast_rhs = NULL;
+    std::shared_ptr<Node::Float> distance;
+};
+
+class Union_Combination_Data_Model : public Base_Combination_Data_Model {
+public:
+    virtual ~Union_Combination_Data_Model() {}
+
+    QString combination_name() const override { return QStringLiteral("Sum"); }
+
+    virtual float evaluate(float lhs, float rhs) const override {
+        return sdf::opUnion(lhs, rhs);
+    }
+};
+
+class Subtract_Combination_Data_Model : public Base_Combination_Data_Model {
+public:
+    virtual ~Subtract_Combination_Data_Model() {}
+
+    QString combination_name() const override { return QStringLiteral("Subtract"); }
+
+    virtual float evaluate(float lhs, float rhs) const override {
+        return sdf::opSubtract(lhs, rhs);
+    }
+};
+
+class Intersect_Combination_Data_Model : public Base_Combination_Data_Model {
+public:
+    virtual ~Intersect_Combination_Data_Model() {}
+
+    QString combination_name() const override { return QStringLiteral("Intersect"); }
+
+    virtual float evaluate(float lhs, float rhs) const override {
+        return sdf::opIntersect(lhs, rhs);
+    }
+};
+
 class Box_Collider_Data_Model : public Base_Collider_Data_Model {
     Q_OBJECT;
 public:
@@ -432,8 +562,8 @@ public:
         return sdf::box(size, sp);
     }
 private:
-    Ast_Node<Vec3>* ast_sample_point;
-    Ast_Node<Vec3>* ast_size;
+    Ast_Node<Vec3>* ast_sample_point = NULL;
+    Ast_Node<Vec3>* ast_size = NULL;
 };
 
 class Sphere_Collider_Data_Model : public Base_Collider_Data_Model {
@@ -486,6 +616,10 @@ inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
     ret->registerModel<Distance_Sink>("Sinks");
     ret->registerModel<Vector3_Constant>("Constants");
     ret->registerModel<Float_Constant>("Constants");
+
+    ret->registerModel<Union_Combination_Data_Model>("Operations");
+    ret->registerModel<Subtract_Combination_Data_Model>("Operations");
+    ret->registerModel<Intersect_Combination_Data_Model>("Operations");
 
     return ret;
 }

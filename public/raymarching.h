@@ -172,4 +172,16 @@ namespace sdf {
             return f(q_inv * sp * rotation);
         };
     }
+
+    inline float opUnion(float lhs, float rhs) {
+        return glm::min(lhs, rhs);
+    }
+
+    inline float opSubtract(float lhs, float rhs) {
+        return glm::max(-lhs, rhs);
+    }
+
+    inline float opIntersect(float lhs, float rhs) {
+        return glm::max(lhs, rhs);
+    }
 }
