@@ -281,13 +281,8 @@ public:
         }
     }
 
-    QString caption() const override {
-        return QStringLiteral("Output");
-    }
-
-    QString name() const override {
-        return QStringLiteral("Output");
-    }
+    QString caption() const override { return QStringLiteral("Output"); }
+    QString name() const override { return QStringLiteral("Output"); }
 
     unsigned int nPorts(QtNodes::PortType type) const override {
         using QtNodes::PortType;
@@ -323,280 +318,163 @@ private:
     Ast_Node<float>* ast_distance;
 };
 
-class Box_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+/*
+ * Evaluate the value of an expression in AST form. If `node` is null, then
+ * return a default value.
+ * @param T Expression type
+ * @param node An AST node
+ * @param default_value Default value
+ * @return Value of expression or `default_value`
+ */
+template<typename T>
+T evaluate_ast_or_default(Ast_Node<T>* node, T default_value) {
+    if (node != NULL) {
+        return node->evaluate();
+    } else {
+        return default_value;
+    }
+}
+
+#define NODE_TO_AST_NODE(Dst, Type) Dst = dynamic_cast<Ast_Node<Type>*>(input_node)
+#define RESET_AST_NODE(Dst) Dst = NULL
+
+class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
-    virtual ~Box_Collider_Data_Model() {}
+    virtual ~Base_Collider_Data_Model() {}
+    Base_Collider_Data_Model() : distance(std::make_shared<Node::Float>(0)) {}
 
-    Box_Collider_Data_Model() : distance(std::make_shared<Node::Float>(INFINITY)) {}
+    virtual QString collider_name() const = 0;
+    virtual unsigned input_port_count() const = 0;
+    virtual QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const = 0;
 
-    QString caption() const override { return QStringLiteral("Box Collider"); }
-    QString name() const override { return QStringLiteral("Box Collider"); }
+    virtual void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) = 0;
+    virtual void input_disconnected(QtNodes::PortIndex idx) = 0;
+private:
+    QString caption() const override { return collider_name(); }
+    QString name() const override { return collider_name(); }
 
     unsigned nPorts(QtNodes::PortType type) const override {
         switch (type) {
-        case QtNodes::PortType::In: return 2;
+        case QtNodes::PortType::In: return input_port_count();
         case QtNodes::PortType::Out: return 1;
         default: assert(!"Unknown port type"); return 0;
         }
     }
 
     QtNodes::NodeDataType dataType(QtNodes::PortType port_type, QtNodes::PortIndex idx) const override {
-        using QtNodes::PortType;
         switch (port_type) {
-        case PortType::In:
-        {
-            switch (idx) {
-            case 0: return NODE_TYPE_VEC3("Sample point");
-            case 1: return NODE_TYPE_VEC3("Size");
-            default: assert(!"Unknown port index");
-            }
-            break;
-        }
-        case PortType::Out:
-        {
-            return NODE_TYPE_FLOAT("Distance");
-        }
-        default:
-        {
-            assert(!"Unknown port type");
-        }
+        // If the caller is asking about input ports, redirect the request to the subclass
+        case QtNodes::PortType::In: return input_port(idx);
+        // If the caller is asking about output ports, return the default
+        case QtNodes::PortType::Out: return NODE_TYPE_FLOAT("Distance");
+        default: assert(!"Unknown port type");
         }
     }
 
-    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {
-        switch (portIndex) {
-        case 0:
-        {
-            sample_point = std::static_pointer_cast<Node::Vec3, QtNodes::NodeData>(data);
-            break;
-        }
-        case 1:
-        {
-            size = std::static_pointer_cast<Node::Vec3, QtNodes::NodeData>(data);
-            break;
-        }
-        }
-    }
+    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {}
 
     QWidget* embeddedWidget() override { return nullptr; }
 
-    QtNodes::NodeValidationState validationState() const override {
-        if (!sample_point.expired() && !size.expired()) {
-            auto r = size.lock();
-            if (glm::length(r->value()) > 0.0f) {
-                return QtNodes::NodeValidationState::Valid;
-            } else {
-                return QtNodes::NodeValidationState::Warning;
-            }
-        } else {
-            return QtNodes::NodeValidationState::Error;
-        }
-    }
+    QtNodes::NodeValidationState validationState() const override { return QtNodes::NodeValidationState::Valid; }
 
-    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override {
-        return distance;
-    }
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override { return distance; }
 
     void inputConnectionCreated(QtNodes::Connection const& conn) override {
         auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
         auto idx = conn.getPortIndex(QtNodes::PortType::In);
-        switch (idx) {
-        case 0:
-        {
-            ast_sample_point = dynamic_cast<Ast_Node<Vec3>*>(input_node);
-            break;
-        }
-        case 1:
-        {
-            ast_size = dynamic_cast<Ast_Node<Vec3>*>(input_node);
-            break;
-        }
-        }
+        input_connected(idx, input_node);
     }
 
     void inputConnectionDeleted(QtNodes::Connection const& conn) override {
         auto idx = conn.getPortIndex(QtNodes::PortType::In);
+        input_disconnected(idx);
+    }
+
+private:
+    std::shared_ptr<Node::Float> distance;
+};
+
+class Box_Collider_Data_Model : public Base_Collider_Data_Model {
+    Q_OBJECT;
+public:
+    virtual ~Box_Collider_Data_Model() {}
+
+    QString collider_name() const override { return QStringLiteral("Box collider"); }
+    unsigned input_port_count() const { return 2; }
+
+    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const {
         switch (idx) {
-        case 0:
-        {
-            ast_sample_point = NULL;
-            break;
+        case 0: return NODE_TYPE_VEC3("Sample point");
+        case 1: return NODE_TYPE_VEC3("Size");
+        default: assert(!"Unknown port index");
         }
-        case 1:
-        {
-            ast_size = NULL;
-            break;
+    }
+
+    void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) override {
+        switch (idx) {
+        case 0: NODE_TO_AST_NODE(ast_sample_point, Vec3); break;
+        case 1: NODE_TO_AST_NODE(ast_size, Vec3); break;
         }
+    }
+
+    void input_disconnected(QtNodes::PortIndex idx) override {
+        switch (idx) {
+        case 0: RESET_AST_NODE(ast_sample_point); break;
+        case 1: RESET_AST_NODE(ast_size); break;
         }
     }
 
     float evaluate() override {
-        Vec3 size = {};
-        Vec3 sp = {};
-        if (ast_size != NULL) {
-            size = ast_size->evaluate();
-        }
-        if (ast_sample_point != NULL) {
-            sp = ast_sample_point->evaluate();
-        }
+        auto sp = evaluate_ast_or_default(ast_sample_point, {});
+        auto size = evaluate_ast_or_default(ast_size, {});
 
         return sdf::box(size, sp);
     }
 private:
-    std::weak_ptr<Node::Vec3> sample_point;
-    std::weak_ptr<Node::Vec3> size;
-
     Ast_Node<Vec3>* ast_sample_point;
     Ast_Node<Vec3>* ast_size;
-
-    std::shared_ptr<Node::Float> distance;
 };
 
-class Sphere_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+class Sphere_Collider_Data_Model : public Base_Collider_Data_Model {
     Q_OBJECT;
 public:
     virtual ~Sphere_Collider_Data_Model() {}
 
-    Sphere_Collider_Data_Model() {
-        distance = std::make_shared<Node::Float>(INFINITY);
-    }
+    QString collider_name() const override { return QStringLiteral("Sphere collider"); }
+    unsigned input_port_count() const { return 2; }
 
-    QString caption() const override {
-        return QStringLiteral("Sphere Collider");
-    }
-
-    QString name() const override {
-        return QStringLiteral("Sphere Collider");
-    }
-
-    unsigned int nPorts(QtNodes::PortType type) const override {
-        using QtNodes::PortType;
-        switch (type) {
-        case PortType::In: return 2;
-        case PortType::Out: return 1;
-        default: assert(!"Unknown port type"); return 0;
-        }
-    }
-
-    QtNodes::NodeDataType dataType(QtNodes::PortType port_type, QtNodes::PortIndex idx) const override {
-        using QtNodes::PortType;
-        switch (port_type) {
-        case PortType::In:
-        {
-            switch (idx) {
-            case 0: return NODE_TYPE_VEC3("Sample point");
-            case 1: return NODE_TYPE_FLOAT("Radius");
-            default: assert(!"Unknown port index");
-            }
-            break;
-        }
-        case PortType::Out:
-        {
-            return NODE_TYPE_FLOAT("Distance");
-        }
-        default:
-        {
-            assert(!"Unknown port type");
-        }
-        }
-    }
-
-    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {
-        switch (portIndex) {
-        case 0:
-        {
-            sample_point = std::static_pointer_cast<Node::Vec3, QtNodes::NodeData>(data);
-            break;
-        }
-        case 1:
-        {
-            radius = std::static_pointer_cast<Node::Float, QtNodes::NodeData>(data);
-            break;
-        }
-        }
-
-        auto r = radius.lock();
-        auto sp = sample_point.lock();
-        if (r != nullptr && sp != nullptr) {
-            distance->set_value(sdf::sphere(r->value(), sp->value()));
-
-            emit dataUpdated(0);
-        }
-    }
-
-    QWidget* embeddedWidget() override { return nullptr; }
-
-    QtNodes::NodeValidationState validationState() const override {
-        if (!sample_point.expired() && !radius.expired()) {
-            auto r = radius.lock();
-            if (r->value() > 0.0f) {
-                return QtNodes::NodeValidationState::Valid;
-            } else {
-                return QtNodes::NodeValidationState::Warning;
-            }
-        } else {
-            return QtNodes::NodeValidationState::Error;
-        }
-    }
-
-    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override {
-        return distance;
-    }
-
-    void inputConnectionCreated(QtNodes::Connection const& conn) override {
-        auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
-        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const {
         switch (idx) {
-        case 0:
-        {
-            ast_sample_point = dynamic_cast<Ast_Node<Vec3>*>(input_node);
-            break;
-        }
-        case 1:
-        {
-            ast_radius = dynamic_cast<Ast_Node<float>*>(input_node);
-            break;
-        }
+        case 0: return NODE_TYPE_VEC3("Sample point");
+        case 1: return NODE_TYPE_FLOAT("Radius");
+        default: assert(!"Unknown port index");
         }
     }
 
-    void inputConnectionDeleted(QtNodes::Connection const& conn) override {
-        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+    void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) override {
         switch (idx) {
-        case 0:
-        {
-            ast_sample_point = NULL;
-            break;
+        case 0: NODE_TO_AST_NODE(ast_sample_point, Vec3); break;
+        case 1: NODE_TO_AST_NODE(ast_radius, float); break;
         }
-        case 1:
-        {
-            ast_radius = NULL;
-            break;
-        }
+    }
+
+    void input_disconnected(QtNodes::PortIndex idx) override {
+        switch (idx) {
+        case 0: RESET_AST_NODE(ast_sample_point); break;
+        case 1: RESET_AST_NODE(ast_radius); break;
         }
     }
 
     float evaluate() override {
-        float radius = 0;
-        Vec3 sp = {};
-        if (ast_radius != NULL) {
-            radius = ast_radius->evaluate();
-        }
-        if (ast_sample_point != NULL) {
-            sp = ast_sample_point->evaluate();
-        }
+        auto sp = evaluate_ast_or_default(ast_sample_point, {});
+        auto radius = evaluate_ast_or_default(ast_radius, 0.0f);
 
         return sdf::sphere(radius, sp);
     }
 private:
-    std::weak_ptr<Node::Vec3> sample_point;
-    std::weak_ptr<Node::Float> radius;
-
     Ast_Node<Vec3>* ast_sample_point;
     Ast_Node<float>* ast_radius;
-
-    std::shared_ptr<Node::Float> distance;
 };
 
 inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
