@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>319</width>
-    <height>78</height>
+    <height>109</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -101,6 +101,24 @@
        </property>
        <property name="textFormat">
         <enum>Qt::AutoText</enum>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="layoutImageIO">
+     <item>
+      <widget class="QPushButton" name="btnSaveImage">
+       <property name="text">
+        <string>Save image</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnLoadImage">
+       <property name="text">
+        <string>Load image</string>
        </property>
       </widget>
      </item>

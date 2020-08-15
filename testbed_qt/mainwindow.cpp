@@ -7,6 +7,7 @@
 #include "mainwindow.h"
 #include <QVariant>
 #include <QMessageBox>
+#include <QFileDialog>
 #include "softbody_renderer.h"
 #include "raymarching.h"
 #include "colliders.h"
@@ -57,6 +58,9 @@
     BIND_DATA_VEC3_COMPONENT(vec, fieldx, x_changed, set_x);    \
     BIND_DATA_VEC3_COMPONENT(vec, fieldy, y_changed, set_y);    \
     BIND_DATA_VEC3_COMPONENT(vec, fieldz, z_changed, set_z);    \
+
+std::unique_ptr<sb::ISerializer> make_serializer(QString const& path);
+std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path);
 
 MainWindow::MainWindow(QWidget* parent) :
     QMainWindow(parent),
@@ -135,6 +139,31 @@ MainWindow::MainWindow(QWidget* parent) :
     sim_cfg.setProperty("branching_probability", 0.25f);
     sim_cfg.setProperty("branch_angle_variance", glm::pi<float>());
     sim_cfg.setProperty("particle_count_limit", 128u);
+
+    connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
+        stop_simulation();
+        auto path = QFileDialog::getSaveFileName(this, tr("Save simulation image"), QString(), "Simulation image (*.simg);;All files (*.*)");
+        auto ser = make_serializer(path);
+
+        if (!simulation->save_image(ser.get())) {
+            QMessageBox::critical(this, "Save image error", "Couldn't save simulation image!");
+        }
+    });
+
+    connect(sim_control->btnLoadImage, &QPushButton::released, [&]() {
+        stop_simulation();
+
+        auto path = QFileDialog::getOpenFileName(this, tr("Load simulation image"), QString(), "Simulation image (*.simg);;All files (*.*)");
+        auto ser = make_deserializer(path);
+
+        if (!simulation) {
+            simulation = sb::create_simulation(sim_cfg);
+        }
+
+        if (!simulation->load_image(ser.get())) {
+            QMessageBox::critical(this, "Load image error", "Couldn't load simulation image!");
+        }
+    });
 }
 
 void MainWindow::start_simulation() {

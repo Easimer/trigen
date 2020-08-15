@@ -26,6 +26,8 @@ set(SRC
     colliders.cpp
     colliders.h
 
+    file_serializer.cpp
+
     resources.qrc
 )
 

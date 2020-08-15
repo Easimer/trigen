@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include <cstdint>
+#include <cstdlib>
 #include "f_serialization.h"
 
 #define MAKE_4BYTE_ID(c0, c1, c2, c3) \
@@ -90,11 +91,11 @@ static void deserialize(sb::IDeserializer* deserializer, Map<unsigned, Vector<un
 
         deserializer->read(&pid, sizeof(pid));
         deserializer->read(&n, sizeof(n));
-        for (u64 j = 0; j < n; j++) {
-            Vector<unsigned> neighbors;
-            neighbors.resize(n);
-            deserializer->read(neighbors.data(), n * sizeof(unsigned));
-        }
+        Vector<unsigned> neighbors;
+        neighbors.resize(n);
+        deserializer->read(neighbors.data(), n * sizeof(unsigned));
+
+        m[pid] = std::move(neighbors);
     }
 }
 
@@ -123,6 +124,10 @@ static void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& 
         break;
     case CHUNK_EDGES:
         deserialize(deserializer, s.edges);
+        break;
+    default:
+        fprintf(stderr, "sb: UNKNOWN CHUCK ID %x\n", id);
+        abort();
         break;
     }
 }
@@ -162,6 +167,17 @@ Serialization_Result sim_load_image(System_State& s, sb::IDeserializer* deserial
                 break;
             }
         }
+
+        auto const N = s.bind_pose.size();
+
+        s.predicted_position.resize(N);
+        s.predicted_orientation.resize(N);
+        s.bind_pose_center_of_mass.resize(N);
+        s.bind_pose_inverse_bind_pose.resize(N);
+        s.center_of_mass.resize(N);
+        s.goal_position.resize(N);
+
+        return Serialization_Result::OK;
     } else {
         return Serialization_Result::Bad_Format;
     }
