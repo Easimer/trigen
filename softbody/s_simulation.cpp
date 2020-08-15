@@ -15,6 +15,7 @@
 #include <raymarching.h>
 #include <glm/gtx/matrix_operation.hpp>
 #include "s_compute_backend.h"
+#include "f_serialization.h"
 
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
@@ -565,6 +566,16 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
 void Softbody_Simulation::defer(std::function<void(IParticle_Manager* pman, System_State& s)> const& f) {
     std::lock_guard G(deferred_lock);
     deferred.push_back(f);
+}
+
+bool Softbody_Simulation::save_image(sb::ISerializer* serializer) {
+    return sim_save_image(s, serializer);
+}
+
+bool Softbody_Simulation::load_image(sb::IDeserializer* deserializer) {
+    auto res = sim_load_image(s, deserializer);
+
+    return res == Serialization_Result::OK;
 }
 
 void Softbody_Simulation::add_fixed_constraint(unsigned count, unsigned* pidx) {

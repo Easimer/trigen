@@ -61,6 +61,9 @@ public:
 
     virtual void add_fixed_constraint(unsigned count, unsigned* pidx) override;
 
+    bool save_image(sb::ISerializer* serializer) override;
+    bool load_image(sb::IDeserializer* deserializer) override;
+
     // Add a new particle to the simulation
     // This can be called when the system state has been already mutated, but
     // the caller must tell us who is this particle connected to.

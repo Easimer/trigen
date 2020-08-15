@@ -66,6 +66,26 @@ namespace sb {
         glm::vec3 origin, direction;
     };
 
+    class ISerializer {
+    public:
+        virtual ~ISerializer() {}
+
+        virtual size_t write(void const* ptr, size_t size) = 0;
+        virtual void seek_to(size_t file_point) = 0;
+        virtual void seek(int offset) = 0;
+        virtual size_t tell() = 0;
+    };
+
+    class IDeserializer {
+    public:
+        virtual ~IDeserializer() {}
+
+        virtual size_t read(void* ptr, size_t size) = 0;
+        virtual void seek_to(size_t file_point) = 0;
+        virtual void seek(int offset) = 0;
+        virtual size_t tell() = 0;
+    };
+
     template<typename T>
     class Iterator {
     public:
@@ -111,6 +131,9 @@ namespace sb {
         using Collider_Handle = size_t;
         virtual Collider_Handle add_collider(Signed_Distance_Function const& sdf) = 0;
         virtual void remove_collider(Collider_Handle handle) = 0;
+
+        virtual bool save_image(ISerializer* serializer) = 0;
+        virtual bool load_image(IDeserializer* deserializer) = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);
