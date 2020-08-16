@@ -11,8 +11,8 @@ set(SRC
     sim_control.ui
     sim_config.ui
 
-    mainwindow.cpp
-    mainwindow.h
+    wnd_main.cpp
+    wnd_main.h
 
     glviewport.cpp
     glviewport.h
