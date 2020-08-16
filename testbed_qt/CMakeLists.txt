@@ -14,6 +14,9 @@ set(SRC
     wnd_main.cpp
     wnd_main.h
 
+    wnd_meshgen.cpp
+    wnd_meshgen.h
+
     glviewport.cpp
     glviewport.h
 

@@ -4,7 +4,7 @@
 //
 
 #include "common.h"
-#include "mainwindow.h"
+#include "wnd_main.h"
 #include <QVariant>
 #include <QMessageBox>
 #include <QFileDialog>

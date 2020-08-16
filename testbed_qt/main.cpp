@@ -4,7 +4,7 @@
 //
 
 #include "common.h"
-#include "mainwindow.h"
+#include "wnd_main.h"
 #include <QApplication>
 
 int main(int argc, char** argv) {
