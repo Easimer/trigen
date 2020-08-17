@@ -107,6 +107,22 @@ enable_testing()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+set(SOFTBODY_CLANG_TIDY OFF CACHE BOOL "Run clang-tidy")
+
+if(${SOFTBODY_CLANG_TIDY})
+    if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+        message(FATAL_ERROR "SOFTBODY_CLANG_TIDY requires an out-of-source build!")
+    endif()
+    find_program(CLANG_TIDY NAMES clang-tidy)
+    if(NOT CLANG_TIDY)
+        message(WARNING "clang-tidy was not found!")
+        set(CMAKE_CXX_CLANG_TIDY "" CACHE STRING "" FORCE)
+    else()
+        set(CLANG_TIDY_CHECKS "-*,modernize-*")
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};-checks=${CLANG_TIDY_CHECKS}")
+    endif()
+endif()
+
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(OpenCL REQUIRED)
