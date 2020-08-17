@@ -8,9 +8,12 @@
 #include <QVariant>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QThread>
 #include "softbody_renderer.h"
 #include "raymarching.h"
 #include "colliders.h"
+#include "wnd_meshgen.h"
+#include <thread>
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
     connect(                                                                                                \
@@ -143,6 +146,11 @@ MainWindow::MainWindow(QWidget* parent) :
     connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
         stop_simulation();
         auto path = QFileDialog::getSaveFileName(this, tr("Save simulation image"), QString(), "Simulation image (*.simg);;All files (*.*)");
+
+        if (path.isEmpty()) {
+            return;
+        }
+
         auto ser = make_serializer(path);
 
         if (!simulation->save_image(ser.get())) {
@@ -154,6 +162,11 @@ MainWindow::MainWindow(QWidget* parent) :
         stop_simulation();
 
         auto path = QFileDialog::getOpenFileName(this, tr("Load simulation image"), QString(), "Simulation image (*.simg);;All files (*.*)");
+
+        if (path.isEmpty()) {
+            return;
+        }
+
         auto ser = make_deserializer(path);
 
         if (!simulation) {
@@ -163,6 +176,12 @@ MainWindow::MainWindow(QWidget* parent) :
         if (!simulation->load_image(ser.get())) {
             QMessageBox::critical(this, "Load image error", "Couldn't load simulation image!");
         }
+    });
+
+    connect(sim_control->btnMeshgen, &QPushButton::released, [&]() {
+        auto wnd = new Window_Meshgen(simulation);
+        connect(this, &MainWindow::render, wnd, &Window_Meshgen::render);
+        wnd->show();
     });
 }
 
@@ -178,6 +197,7 @@ void MainWindow::start_simulation() {
 void MainWindow::render_world(gfx::Render_Queue* rq) {
     assert(rq != NULL);
     render_softbody_simulation(rq, simulation.get(), render_params);
+    emit render(rq);
 }
 
 void MainWindow::stop_simulation() {

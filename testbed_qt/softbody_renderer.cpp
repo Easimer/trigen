@@ -29,9 +29,9 @@ private:
 
 class Command_Render_Particles : public gfx::IRender_Command {
 public:
-    Command_Render_Particles(sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const* params) : sim(sim), params(params) {}
+    Command_Render_Particles(sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params) : sim(sim), params(params) {}
 private:
-    Softbody_Render_Parameters const* params;
+    Softbody_Render_Parameters const params;
     sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
         std::vector<Vec3> lines;
@@ -76,17 +76,17 @@ private:
         assert(positions.size() == goal_positions.size());
 
         gfx::Render_Context_Supplement ctx;
-        ctx.sun = params->sun_position;
+        ctx.sun = params.sun_position;
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));
-        if (params->draw_positions) {
+        if (params.draw_positions) {
             renderer->draw_ellipsoids(ctx, positions.size(), positions.data(), sizes.data(), rotations.data());
             renderer->draw_ellipsoids(ctx, predicted_positions.size(), positions.data(), sizes.data(), rotations.data());
         }
-        if (params->draw_goal_position) {
+        if (params.draw_goal_position) {
             renderer->draw_ellipsoids(ctx, positions.size(), goal_positions.data(), sizes_virtual.data(), rotations.data(), Vec3(0.1, 0.8, 0.1));
         }
-        if (params->draw_center_of_mass) {
+        if (params.draw_center_of_mass) {
             renderer->draw_ellipsoids(ctx, positions.size(), centers_of_masses.data(), sizes_virtual.data(), rotations.data(), Vec3(0.8, 0.1, 0.1));
         }
     }
@@ -189,7 +189,7 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
 
     if (sim != NULL) {
         allocate_command_and_initialize<Command_Render_Points>(rq, sim);
-        allocate_command_and_initialize<Command_Render_Particles>(rq, sim, &params);
+        allocate_command_and_initialize<Command_Render_Particles>(rq, sim, params);
         allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
         if (params.draw_bind_pose) {

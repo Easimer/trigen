@@ -137,6 +137,9 @@ public:
 
     void render_world(gfx::Render_Queue* rq);
 
+signals:
+    void render(gfx::Render_Queue* rq);
+
 protected slots:
     void start_simulation();
     void stop_simulation();

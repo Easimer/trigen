@@ -26,10 +26,6 @@ static void* GLGetProcAddress(char const* pFun) {
 
 GLViewport::GLViewport(QWidget *parent) :
     QOpenGLWidget(parent) {
-    QSurfaceFormat fmt;
-    fmt.setVersion(4, 4);
-    fmt.setProfile(QSurfaceFormat::CoreProfile);
-    setFormat(fmt);
 
     camera = create_arcball_camera();
 }
@@ -38,9 +34,9 @@ void GLViewport::initializeGL() {
     QOpenGLWidget::initializeGL();
 
     if (!renderer) {
-        makeCurrent();
         assert(context() != NULL);
         gpCtx = context();
+        printf("GLViewport context=%p\n", gpCtx);
         renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress);
         gpCtx = NULL;
     }

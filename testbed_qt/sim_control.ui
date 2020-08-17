@@ -122,6 +122,13 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="btnMeshgen">
+       <property name="text">
+        <string>Meshgen</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>
