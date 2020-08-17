@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
 
     QApplication app(argc, argv);
 
-    MainWindow wnd;
+    Window_Main wnd;
     wnd.setAnimated(true);
     wnd.show();
     return app.exec();

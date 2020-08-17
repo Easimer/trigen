@@ -65,7 +65,7 @@
 std::unique_ptr<sb::ISerializer> make_serializer(QString const& path);
 std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path);
 
-MainWindow::MainWindow(QWidget* parent) :
+Window_Main::Window_Main(QWidget* parent) :
     QMainWindow(parent),
     render_timer(this),
     sim_cfg(),
@@ -126,7 +126,7 @@ MainWindow::MainWindow(QWidget* parent) :
     BIND_DATA_DBLSPINBOX(branch_angle_variance, sbBranchAngleVariance);
     BIND_DATA_VEC3(seed_position, sbOriginX, sbOriginY, sbOriginZ);
 
-    connect(sim_config->cbExtension, &QComboBox::currentTextChanged, this, &MainWindow::on_extension_changed);
+    connect(sim_config->cbExtension, &QComboBox::currentTextChanged, this, &Window_Main::on_extension_changed);
 
     // Default sim config
     auto extension = sim_cfg.property("ext");
@@ -180,12 +180,12 @@ MainWindow::MainWindow(QWidget* parent) :
 
     connect(sim_control->btnMeshgen, &QPushButton::released, [&]() {
         auto wnd = new Window_Meshgen(simulation);
-        connect(this, &MainWindow::render, wnd, &Window_Meshgen::render);
+        connect(this, &Window_Main::render, wnd, &Window_Meshgen::render);
         wnd->show();
     });
 }
 
-void MainWindow::start_simulation() {
+void Window_Main::start_simulation() {
     if (!is_simulation_running()) {
         if (!simulation) {
             reset_simulation();
@@ -194,34 +194,34 @@ void MainWindow::start_simulation() {
     }
 }
 
-void MainWindow::render_world(gfx::Render_Queue* rq) {
+void Window_Main::render_world(gfx::Render_Queue* rq) {
     assert(rq != NULL);
     render_softbody_simulation(rq, simulation.get(), render_params);
     emit render(rq);
 }
 
-void MainWindow::stop_simulation() {
+void Window_Main::stop_simulation() {
     if (is_simulation_running()) {
         disconnect(*conn_sim_step);
         conn_sim_step.reset();
     }
 }
 
-void MainWindow::reset_simulation() {
+void Window_Main::reset_simulation() {
     simulation = sb::create_simulation(sim_cfg);
     simulation->add_collider(Softbody_Collider_Proxy(collider_builder));
 }
 
-void MainWindow::step_simulation() {
+void Window_Main::step_simulation() {
     if (simulation) {
         simulation->step(sim_speed * render_timer.interval() / 1000.0f);
     }
 }
 
-void MainWindow::on_extension_changed(QString const& k) {
+void Window_Main::on_extension_changed(QString const& k) {
     sim_cfg.ext = extensions.value(sim_config->cbExtension->currentText(), sb::Extension::None);
 }
 
-bool MainWindow::is_simulation_running() {
+bool Window_Main::is_simulation_running() {
     return simulation != nullptr && conn_sim_step.has_value();
 }

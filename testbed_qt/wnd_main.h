@@ -127,10 +127,10 @@ private:
     Unique_Ptr<QWidget> widget;
 };
 
-class MainWindow : public QMainWindow {
+class Window_Main : public QMainWindow {
     Q_OBJECT
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit Window_Main(QWidget *parent = nullptr);
     void set_render_queue_filler(Fun<void(gfx::Render_Queue* rq)> const& f) {
         viewport->set_render_queue_filler(f);
     }
