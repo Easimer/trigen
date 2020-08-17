@@ -72,7 +72,7 @@ struct System_State {
     Vector<float> density;
     // Particle ages
     //Vector<float> age;
-    Map<unsigned, Vector<unsigned>> edges;
+    Map<index_t, Vector<index_t>> edges;
 
     Vector<Vec4> bind_pose_center_of_mass;
     Vector<Mat4> bind_pose_inverse_bind_pose;
@@ -89,5 +89,5 @@ struct System_State {
     Vector<Vec4> center_of_mass;
     Vector<Vec4> goal_position;
 
-    Set<unsigned> fixed_particles;
+    Set<index_t> fixed_particles;
 };

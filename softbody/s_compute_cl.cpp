@@ -284,8 +284,8 @@ private:
         std::vector<Vec4> h_centers_of_masses;
         h_centers_of_masses.reserve(N);
 
-        for (unsigned i = 0; i < N; i++) {
-            std::array<unsigned, 1> me{ i };
+        for (index_t i = 0; i < N; i++) {
+            std::array<index_t , 1> me{ i };
             auto& neighbors = s.edges[i];
             auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
 

@@ -13,7 +13,7 @@
 
 #define IMAGE_MAGIC0 MAKE_4BYTE_ID('E', 'A', 'S', 'I')
 #define IMAGE_MAGIC1 MAKE_4BYTE_ID('s', 'S', 'I', 'M')
-#define IMAGE_VERSION (0)
+#define IMAGE_VERSION (1)
 
 using u8  = uint8_t;
 using u32 = uint32_t;
@@ -61,7 +61,7 @@ static void deserialize(sb::IDeserializer* deserializer, Vector<T>& v) {
     deserializer->read(v.data(), count * sizeof(T));
 }
 
-static void serialize(sb::ISerializer* serializer, Map<unsigned, Vector<unsigned>> const& m, u32 id) {
+static void serialize(sb::ISerializer* serializer, Map<index_t, Vector<index_t>> const& m, u32 id) {
     u32 count = m.size();
 
     // Write chunk id
@@ -78,11 +78,14 @@ static void serialize(sb::ISerializer* serializer, Map<unsigned, Vector<unsigned
         u64 n = kv.second.size();
         serializer->write(&n, sizeof(n));
         // Write neighbor IDs
-        serializer->write(kv.second.data(), n * sizeof(unsigned));
+        for(auto pidx : kv.second) {
+            auto pidx64 = (u64)pidx;
+            serializer->write(&pidx64, sizeof(pidx64));
+        }
     }
 }
 
-static void deserialize(sb::IDeserializer* deserializer, Map<unsigned, Vector<unsigned>>& m) {
+static void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<index_t>>& m) {
     u32 count;
     deserializer->read(&count, sizeof(count));
 
@@ -91,9 +94,14 @@ static void deserialize(sb::IDeserializer* deserializer, Map<unsigned, Vector<un
 
         deserializer->read(&pid, sizeof(pid));
         deserializer->read(&n, sizeof(n));
-        Vector<unsigned> neighbors;
-        neighbors.resize(n);
+        Vector<index_t> neighbors;
+        neighbors.reserve(n);
         deserializer->read(neighbors.data(), n * sizeof(unsigned));
+        for(u64 i = 0; i < n; i++) {
+            u64 pidx64;
+            deserializer->read(&pidx64, sizeof(pidx64));
+            neighbors.push_back(pidx64);
+        }
 
         m[pid] = std::move(neighbors);
     }

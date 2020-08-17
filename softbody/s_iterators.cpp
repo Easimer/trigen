@@ -11,12 +11,12 @@
 /**
  * A base class for iterating over one-to-many maps like a Map<K, Vector<V>>.
  *
- * TODO(danielm): this is currently hard-coded for Map<unsigned, Vector<unsigned>>
+ * TODO(danielm): this is currently hard-coded for Map<index_t, Vector<index_t>>
  */
 class One_To_Many_Relation_Iterator : public sb::Relation_Iterator {
 public:
-    using Map_Getter = std::function<Map<unsigned, Vector<unsigned>>&()>;
-    using Relation_Factory = std::function<sb::Relation(unsigned lhs, unsigned rhs)>;
+    using Map_Getter = std::function<Map<index_t, Vector<index_t>>&()>;
+    using Relation_Factory = std::function<sb::Relation(index_t lhs, index_t rhs)>;
     One_To_Many_Relation_Iterator(Map_Getter mg, Relation_Factory rf)
         : get_map(mg), make_relation(rf) {
         p_iter = get_map().cbegin();
@@ -65,8 +65,8 @@ private:
         return make_relation(p_iter->first, *pv_iter);
     }
 
-    using Particle_Iter = Map<unsigned, Vector<unsigned>>::const_iterator;
-    using Particle_Vector_Iter = Vector<unsigned>::const_iterator;
+    using Particle_Iter = Map<index_t, Vector<index_t>>::const_iterator;
+    using Particle_Vector_Iter = Vector<index_t>::const_iterator;
 
     Map_Getter get_map;
     Relation_Factory make_relation;
@@ -78,12 +78,12 @@ private:
 /**
  * A base class for iterating over one-to-one maps like a Map<K, V>.
  *
- * TODO(danielm): this is currently hard-coded for Map<unsigned, unsigned>
+ * TODO(danielm): this is currently hard-coded for Map<index_t, index_t>
  */
 class One_To_One_Relation_Iterator : public sb::Relation_Iterator {
 public:
-    using Map_Getter = std::function<Map<unsigned, unsigned>& ()>;
-    using Relation_Factory = std::function<sb::Relation(unsigned, unsigned)>;
+    using Map_Getter = std::function<Map<index_t, index_t>& ()>;
+    using Relation_Factory = std::function<sb::Relation(index_t, index_t)>;
     One_To_One_Relation_Iterator(Map_Getter mg, Relation_Factory rf) : make_relation(rf) {
         iter = mg().cbegin();
         end = mg().cend();
@@ -104,7 +104,7 @@ private:
         return make_relation(iter->first, iter->second);
     }
 
-    using Iterator = Map<unsigned, unsigned>::const_iterator;
+    using Iterator = Map<index_t, index_t>::const_iterator;
     Iterator iter, end;
     Relation_Factory make_relation;
 };
@@ -150,9 +150,9 @@ private:
 };
 
 #define MAKE_PARTICLE_FACTORY(position_source) \
-    [&](size_t pidx) {                                                          \
+    [&](index_t pidx) {                                                         \
         sb::Particle ret;                                                       \
-        ret.id = pidx;                                                          \
+        ret.id = (unsigned)pidx;                                                \
         ret.position = s.position_source[pidx];                                 \
         ret.orientation = s.orientation[pidx];                                  \
         ret.size = s.size[pidx];                                                \

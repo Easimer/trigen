@@ -140,7 +140,7 @@ void Softbody_Simulation::velocity_damping(float dt) {
 
     auto k_damping = 0.5f;
     for (index_t i = 0; i < N; i++) {
-        std::array<unsigned, 1> me{ i };
+        std::array<index_t, 1> me{ i };
         auto& neighbors = s.edges[i];
         auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
         auto x_cm = s.center_of_mass[i];

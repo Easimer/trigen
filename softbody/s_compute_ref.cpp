@@ -39,8 +39,8 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
         BEGIN_BENCHMARK();
 
         // shape matching constraint
-        for (unsigned i = 0; i < particle_count(s); i++) {
-            std::array<unsigned, 1> me{ i };
+        for (index_t i = 0; i < particle_count(s); i++) {
+            std::array<index_t , 1> me{ i };
             auto& neighbors = s.edges[i];
             auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
 
