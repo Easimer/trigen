@@ -293,7 +293,7 @@ private:
             auto M = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i),
-                [&](float acc, unsigned idx) {
+                [&](float acc, index_t idx) {
                     return acc + mass_of_particle(s, idx);
                 }
             );
@@ -307,7 +307,7 @@ private:
             auto com_cur = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec4 const& acc, unsigned idx) {
+                [&](Vec4 const& acc, index_t idx) {
                     return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
                 }
             ) / M;
@@ -344,7 +344,7 @@ private:
 #if CALC_A_I_PARANOID
         // Check if the matrix calculated by the GPU kernel and the matrix
         // calculated by the reference implementations match.
-        auto calc_A_i = [&](unsigned i) -> glm::mat4 {
+        auto calc_A_i = [&](index_t i) -> glm::mat4 {
             auto m_i = mass_of_particle(s, i);
             auto diag = glm::diagonal4x4(Vec4(s.size[i], 0) * Vec4(s.size[i], 0));
             auto orient = glm::mat4(s.predicted_orientation[i]);
@@ -366,13 +366,13 @@ private:
         auto test_kernel = cl::KernelFunctor<cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "test_calculate_A_i");
         test_kernel(cl::EnqueueArgs(queue, cl::NDRange(1)), d_test_out, N, d_masses, d_predicted_orientations, d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses, d_bind_pose_centers_of_masses);
 
-        for (unsigned i = 0; i < N; i++) {
+        for (index_t i = 0; i < N; i++) {
             expected[i] = calc_A_i(i);
         }
 
         queue.enqueueReadBuffer(d_test_out, CL_TRUE, 0, SIZE_N_MAT4(N), h_test_out.data());
 
-        for (unsigned i = 0; i < N; i++) {
+        for (index_t i = 0; i < N; i++) {
             auto diff = matrix_difference(expected[i], h_test_out[i]);
             if (diff > glm::epsilon<float>()) {
                 assert(!"Calculated A_i matrix doesn't match expected value!");

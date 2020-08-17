@@ -46,15 +46,17 @@ namespace sb {
         unsigned particle_count_limit;
     };
 
+    using index_t = typename std::make_signed<size_t>::type;
+
     struct Relation {
-        size_t parent;
+        index_t parent;
         glm::vec3 parent_position;
-        size_t child;
+        index_t child;
         glm::vec3 child_position;
     };
 
     struct Particle {
-        size_t id;
+        index_t id;
         glm::vec3 position;
         glm::quat orientation;
         glm::vec3 size;

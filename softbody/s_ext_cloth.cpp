@@ -37,7 +37,7 @@ private:
                 }
             }
 
-            unsigned fixed[2] = { 0, N - 1 };
+            index_t fixed[2] = { 0, N - 1 };
             pman->add_fixed_constraint(2, fixed);
         });
     }

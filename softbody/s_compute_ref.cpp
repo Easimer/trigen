@@ -18,7 +18,7 @@
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
-    float mass_of_particle(System_State& s, unsigned i) const {
+    float mass_of_particle(System_State& s, index_t i) const {
         auto const d_i = s.density[i];
         auto const s_i = s.size[i];
         auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
@@ -48,7 +48,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             auto M = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i),
-                [&](float acc, unsigned idx) {
+                [&](float acc, index_t idx) {
                     return acc + mass_of_particle(s, idx);
                 }
             );
@@ -62,7 +62,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             auto com_cur = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec4 const& acc, unsigned idx) {
+                [&](Vec4 const& acc, index_t idx) {
                     return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
                 }
             ) / M;
@@ -70,7 +70,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             s.center_of_mass[i] = com_cur;
 
             // Calculates the moment matrix of a single particle
-            auto calc_A_i = [&](unsigned i) -> Mat4 {
+            auto calc_A_i = [&](index_t i) -> Mat4 {
                 auto m_i = mass_of_particle(s, i);
                 auto A_i = 1.0f / 5.0f * glm::diagonal4x4(s.size[i] * s.size[i]) * Mat4(s.orientation[i]);
 
@@ -81,7 +81,7 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             auto A = std::accumulate(
                 neighbors.begin(), neighbors.end(),
                 calc_A_i(i),
-                [&](Mat4 const& acc, unsigned idx) -> Mat4 {
+                [&](Mat4 const& acc, index_t idx) -> Mat4 {
                     return acc + calc_A_i(idx);
                 }
             ) * invRest;

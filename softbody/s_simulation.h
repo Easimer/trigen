@@ -52,14 +52,14 @@ public:
 
     // Add a new particle to the simulation
     // This must only be called in the initial state.
-    unsigned add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
+    index_t add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) override;
 
     // Connect two particles. This has two effects to be exact:
     // - There will be a distance constraint between these two particles
     // - Both particles will be added to the other particle's cluster
-    void connect_particles(unsigned a, unsigned b) override;
+    void connect_particles(index_t a, index_t b) override;
 
-    virtual void add_fixed_constraint(unsigned count, unsigned* pidx) override;
+    virtual void add_fixed_constraint(unsigned count, index_t* pidx) override;
 
     bool save_image(sb::ISerializer* serializer) override;
     bool load_image(sb::IDeserializer* deserializer) override;
@@ -67,10 +67,10 @@ public:
     // Add a new particle to the simulation
     // This can be called when the system state has been already mutated, but
     // the caller must tell us who is this particle connected to.
-    unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) override;
-    float mass_of_particle(unsigned i);
+    index_t add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, index_t parent) override;
+    float mass_of_particle(index_t i);
 
-    void invalidate_particle_cache(unsigned pidx);
+    void invalidate_particle_cache(index_t pidx);
     void invalidate_particle_cache() override;
 
     sb::Unique_Ptr<ICompute_Backend> compute;

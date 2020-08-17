@@ -415,11 +415,11 @@ void Softbody_Simulation::remove_collider(Collider_Handle h) {
     }
 }
 
-unsigned Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
+index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
     Vec4 zero(0, 0, 0, 0);
-    unsigned const index = particle_count();
+    index_t const index = particle_count();
     auto pos = Vec4(p_pos, 0);
     auto size = Vec4(p_size, 0);
     s.bind_pose.push_back(pos);
@@ -440,7 +440,7 @@ unsigned Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p
     return index;
 }
 
-void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
+void Softbody_Simulation::connect_particles(index_t a, index_t b) {
     assert(!assert_parallel);
     assert(a != b);
     assert(a < particle_count());
@@ -453,11 +453,11 @@ void Softbody_Simulation::connect_particles(unsigned a, unsigned b) {
     invalidate_particle_cache(b);
 }
 
-unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) {
+index_t Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, index_t parent) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
     Vec4 zero(0, 0, 0, 0);
-    unsigned const index = particle_count();
+    index_t const index = particle_count();
     assert(parent < index);
 
     auto pos = Vec4(p_pos, 0);
@@ -492,10 +492,10 @@ unsigned Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size
     // this particle and its parent
     connect_particles(index, parent);
 
-    return 0;
+    return index;
 }
 
-float Softbody_Simulation::mass_of_particle(unsigned i) {
+float Softbody_Simulation::mass_of_particle(index_t i) {
     auto const d_i = s.density[i];
     auto const s_i = s.size[i];
     auto const m_i = (4.f / 3.f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
@@ -509,13 +509,13 @@ void Softbody_Simulation::invalidate_particle_cache() {
     }
 }
 
-void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
+void Softbody_Simulation::invalidate_particle_cache(index_t pidx) {
     auto& neighbors = s.edges[pidx];
 
     auto M = std::accumulate(
         neighbors.begin(), neighbors.end(),
         mass_of_particle(pidx),
-        [&](float acc, unsigned idx) {
+        [&](float acc, index_t idx) {
             return acc + mass_of_particle(idx);
         }
     );
@@ -523,12 +523,12 @@ void Softbody_Simulation::invalidate_particle_cache(unsigned pidx) {
     auto com0 = std::accumulate(
         neighbors.begin(), neighbors.end(),
         mass_of_particle(pidx) * s.bind_pose[pidx],
-        [&](Vec4 const& acc, unsigned idx) {
+        [&](Vec4 const& acc, index_t idx) {
             return acc + mass_of_particle(idx) * s.bind_pose[idx];
         }
     ) / M;
 
-    auto calc_A_0_i = [&](unsigned i) -> Mat3 {
+    auto calc_A_0_i = [&](index_t i) -> Mat3 {
         auto q_i = s.bind_pose[i] - com0;
         auto m_i = mass_of_particle(i);
 
@@ -578,7 +578,7 @@ bool Softbody_Simulation::load_image(sb::IDeserializer* deserializer) {
     return res == Serialization_Result::OK;
 }
 
-void Softbody_Simulation::add_fixed_constraint(unsigned count, unsigned* pidx) {
+void Softbody_Simulation::add_fixed_constraint(unsigned count, index_t* pidx) {
     assert(!assert_parallel);
     assert(pidx != NULL);
 

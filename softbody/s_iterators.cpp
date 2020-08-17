@@ -194,7 +194,7 @@ sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_centers_of_masses
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {
     auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
-    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+    auto make_relation = [&](index_t lhs, index_t rhs) {
         return sb::Relation {
             lhs,
             s.position[lhs],
@@ -208,7 +208,7 @@ sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections() {
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_predicted_connections() {
     auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
-    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+    auto make_relation = [&](index_t lhs, index_t rhs) {
         return sb::Relation {
             lhs,
             s.predicted_position[lhs],
@@ -229,7 +229,7 @@ sb::Unique_Ptr<sb::Particle_Iterator> Softbody_Simulation::get_particles_in_bind
 
 sb::Unique_Ptr<sb::Relation_Iterator> Softbody_Simulation::get_connections_in_bind_pose() {
     auto get_map = [&]() -> decltype(s.edges)& { return s.edges; };
-    auto make_relation = [&](unsigned lhs, unsigned rhs) {
+    auto make_relation = [&](index_t lhs, index_t rhs) {
         return sb::Relation {
             lhs,
             s.bind_pose[lhs],

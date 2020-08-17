@@ -11,12 +11,12 @@
 
 class IParticle_Manager {
 public:
-    virtual unsigned add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) = 0;
-    virtual void connect_particles(unsigned a, unsigned b) = 0;
+    virtual index_t add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) = 0;
+    virtual void connect_particles(index_t a, index_t b) = 0;
 
-    virtual unsigned add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, unsigned parent) = 0;
+    virtual index_t add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, index_t parent) = 0;
 
-    virtual void add_fixed_constraint(unsigned count, unsigned* pidx) = 0;
+    virtual void add_fixed_constraint(unsigned count, index_t* pidx) = 0;
 
     virtual void invalidate_particle_cache() = 0;
 };

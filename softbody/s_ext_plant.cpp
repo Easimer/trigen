@@ -32,7 +32,7 @@ private:
             auto root1 = pman->add_init_particle(o, new_size, 1);
             pman->connect_particles(root0, root1);
 
-            unsigned indices[] = { root0, root1 };
+            index_t indices[] = { root0, root1 };
 
             pman->add_fixed_constraint(2, indices);
         });
