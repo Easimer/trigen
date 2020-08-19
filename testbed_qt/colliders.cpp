@@ -6,6 +6,7 @@
 #include "common.h"
 #include "colliders.h"
 #include "raymarching.h"
+#include <array>
 #include <nodes/NodeData>
 #include <nodes/FlowScene>
 #include <nodes/FlowView>
@@ -25,7 +26,7 @@
 template<typename Output>
 class Ast_Node {
 public:
-    virtual ~Ast_Node() {}
+    virtual ~Ast_Node() = default;
 
     virtual Output evaluate() = 0;
 };
@@ -33,7 +34,7 @@ public:
 namespace Node {
     class Vec3 : public QtNodes::NodeData {
     public:
-        virtual ~Vec3() {}
+        ~Vec3() override = default;
 
         Vec3() : v() {}
         Vec3(glm::vec3 const& other) : v(other) {}
@@ -51,9 +52,9 @@ namespace Node {
 
     class Float : public QtNodes::NodeData {
     public:
-        virtual ~Float() {}
+        ~Float() override = default;
 
-        Float() : v(0.0f) {}
+        Float() : v() {}
         Float(float other) : v(other) {}
 
         QtNodes::NodeDataType type() const override {
@@ -71,7 +72,7 @@ template<size_t N>
 class Vector_Constant : public QtNodes::NodeDataModel, public Ast_Node<glm::vec<N, float>> {
 public:
     using vec_t = glm::vec<N, float>;
-    virtual ~Vector_Constant() {}
+    ~Vector_Constant() override = default;
 
     Vector_Constant() : Vector_Constant(vec_t()) {}
 
@@ -96,9 +97,9 @@ public:
         }
 
         // Generate name
-        char buf[32];
-        auto i = snprintf(buf, 31, "Vector%zu", N);
-        type_name = QString((char const*)buf);
+        std::array<char, 32> buf;
+        auto i = snprintf(buf.data(), 31, "Vector%zu", N);
+        type_name = QString((char const*)buf.data());
     }
 
     QString caption() const override {
@@ -144,7 +145,7 @@ using Vector3_Constant = Vector_Constant<3>;
 class Float_Constant : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
-    virtual ~Float_Constant() {}
+    ~Float_Constant() override = default;
 
     Float_Constant() : Float_Constant(0.0f) {}
 
@@ -207,7 +208,7 @@ private:
 class Sample_Point_Data_Source : public QtNodes::NodeDataModel, public Ast_Node<Vec3> {
     Q_OBJECT;
 public:
-    virtual ~Sample_Point_Data_Source() {}
+    ~Sample_Point_Data_Source() override = default;
 
     Sample_Point_Data_Source() {
         data = std::make_shared<Node::Vec3>(glm::vec3());
@@ -258,7 +259,7 @@ private:
 class Distance_Sink : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
-    virtual ~Distance_Sink() {}
+    ~Distance_Sink() override = default;
 
     void setInData(std::shared_ptr<QtNodes::NodeData> data, int) override {
         this->data = std::static_pointer_cast<Node::Float>(data);
@@ -342,7 +343,7 @@ T evaluate_ast_or_default(Ast_Node<T>* node, T default_value) {
 class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
     Q_OBJECT;
 public:
-    virtual ~Base_Collider_Data_Model() {}
+    ~Base_Collider_Data_Model() override = default;
     Base_Collider_Data_Model() : distance(std::make_shared<Node::Float>(0)) {}
 
     /*
@@ -422,7 +423,7 @@ private:
 
 class Base_Combination_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
 public:
-    virtual ~Base_Combination_Data_Model() {}
+    ~Base_Combination_Data_Model() override = default;
     Base_Combination_Data_Model() :
         ast_lhs(NULL),
         ast_rhs(NULL),
@@ -494,33 +495,33 @@ private:
 
 class Union_Combination_Data_Model : public Base_Combination_Data_Model {
 public:
-    virtual ~Union_Combination_Data_Model() {}
+    ~Union_Combination_Data_Model() override = default;
 
     QString combination_name() const override { return QStringLiteral("Sum"); }
 
-    virtual float evaluate(float lhs, float rhs) const override {
+    float evaluate(float lhs, float rhs) const override {
         return sdf::opUnion(lhs, rhs);
     }
 };
 
 class Subtract_Combination_Data_Model : public Base_Combination_Data_Model {
 public:
-    virtual ~Subtract_Combination_Data_Model() {}
+    ~Subtract_Combination_Data_Model() override = default;
 
     QString combination_name() const override { return QStringLiteral("Subtract"); }
 
-    virtual float evaluate(float lhs, float rhs) const override {
+    float evaluate(float lhs, float rhs) const override {
         return sdf::opSubtract(lhs, rhs);
     }
 };
 
 class Intersect_Combination_Data_Model : public Base_Combination_Data_Model {
 public:
-    virtual ~Intersect_Combination_Data_Model() {}
+    ~Intersect_Combination_Data_Model() override = default;
 
     QString combination_name() const override { return QStringLiteral("Intersect"); }
 
-    virtual float evaluate(float lhs, float rhs) const override {
+    float evaluate(float lhs, float rhs) const override {
         return sdf::opIntersect(lhs, rhs);
     }
 };
@@ -528,12 +529,12 @@ public:
 class Box_Collider_Data_Model : public Base_Collider_Data_Model {
     Q_OBJECT;
 public:
-    virtual ~Box_Collider_Data_Model() {}
+    ~Box_Collider_Data_Model() override = default;
 
     QString collider_name() const override { return QStringLiteral("Box collider"); }
-    unsigned input_port_count() const { return 2; }
+    unsigned input_port_count() const override { return 2; }
 
-    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const {
+    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const override {
         switch (idx) {
         case 0: return NODE_TYPE_VEC3("Sample point");
         case 1: return NODE_TYPE_VEC3("Size");
@@ -569,12 +570,12 @@ private:
 class Sphere_Collider_Data_Model : public Base_Collider_Data_Model {
     Q_OBJECT;
 public:
-    virtual ~Sphere_Collider_Data_Model() {}
+    ~Sphere_Collider_Data_Model() override = default;
 
     QString collider_name() const override { return QStringLiteral("Sphere collider"); }
-    unsigned input_port_count() const { return 2; }
+    unsigned input_port_count() const override { return 2; }
 
-    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const {
+    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const override {
         switch (idx) {
         case 0: return NODE_TYPE_VEC3("Sample point");
         case 1: return NODE_TYPE_FLOAT("Radius");
@@ -626,7 +627,7 @@ inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
 
 class Collider_Builder_Widget_Impl : public Collider_Builder_Widget {
 public:
-    virtual ~Collider_Builder_Widget_Impl() {}
+    ~Collider_Builder_Widget_Impl() override = default;
 
     Collider_Builder_Widget_Impl(QWidget* parent = nullptr) :
     collider_scene(register_data_models(), parent),
