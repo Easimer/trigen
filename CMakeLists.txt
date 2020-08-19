@@ -118,10 +118,14 @@ if(${SOFTBODY_CLANG_TIDY})
         message(WARNING "clang-tidy was not found!")
         set(CMAKE_CXX_CLANG_TIDY "" CACHE STRING "" FORCE)
     else()
-        set(CLANG_TIDY_CHECKS "-*,performance-*,readability-*,portability-*,bugprone-*,hicpp-*,cert-*,modernize-*,-modernize-use-trailing-return-type")
+        set(CLANG_TIDY_CHECKS "-*,performance-*,readability-*,portability-*,bugprone-*,hicpp-*,cert-*,modernize-*,-modernize-use-trailing-return-type,-readability-magic-numbers")
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};-checks=${CLANG_TIDY_CHECKS}")
     endif()
 endif()
+
+macro(target_disable_clang_tidy TGT)
+	set_target_properties(${TGT} PROPERTIES C_CLANG_TIDY "" CXX_CLANG_TIDY "")
+endmacro()
 
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
@@ -143,6 +147,7 @@ if(${SOFTBODY_TESTBED_QT})
 add_subdirectory(nodeeditor)
 # NOTE(danielm): nodeeditor doesn't seem to work with unity builds
 set_target_properties(nodes PROPERTIES UNITY_BUILD OFF)
+target_disable_clang_tidy(nodes)
 # Precompile some headers for nodeeditor.
 target_precompile_headers(
 	nodes PRIVATE

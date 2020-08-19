@@ -6,3 +6,5 @@ add_library(glad STATIC ${SRC_GLAD})
 if(NOT WIN32)
     target_link_libraries(glad PUBLIC dl)
 endif()
+
+target_disable_clang_tidy(glad)
