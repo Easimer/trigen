@@ -96,8 +96,7 @@ static void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<ind
         deserializer->read(&n, sizeof(n));
         Vector<index_t> neighbors;
         neighbors.reserve(n);
-        deserializer->read(neighbors.data(), n * sizeof(unsigned));
-        for(u64 i = 0; i < n; i++) {
+        for(u64 j = 0; j < n; j++) {
             u64 pidx64;
             deserializer->read(&pidx64, sizeof(pidx64));
             neighbors.push_back(pidx64);
