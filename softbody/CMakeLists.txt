@@ -15,6 +15,7 @@ set(SRC_IMPL
     l_iterators.h
     l_random.h
     s_iterators.cpp
+    s_iterators.h
 
     c_particle.cpp
     c_particle.h
