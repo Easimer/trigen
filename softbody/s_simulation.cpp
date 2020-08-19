@@ -509,6 +509,16 @@ void Softbody_Simulation::invalidate_particle_cache() {
     }
 }
 
+sb::IPlant_Simulation* Softbody_Simulation::get_extension_plant_simulation() {
+    if (params.ext == sb::Extension::Plant_Simulation) {
+        // TODO(danielm): we should be storing the extension in a tagged union,
+        // so we dont have to downcast
+        return dynamic_cast<sb::IPlant_Simulation*>(ext.get());
+    } else {
+        return nullptr;
+    }
+}
+
 void Softbody_Simulation::invalidate_particle_cache(index_t pidx) {
     auto& neighbors = s.edges[pidx];
 

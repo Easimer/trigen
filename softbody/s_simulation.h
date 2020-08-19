@@ -73,6 +73,8 @@ public:
     void invalidate_particle_cache(index_t pidx);
     void invalidate_particle_cache() override;
 
+    sb::IPlant_Simulation* get_extension_plant_simulation() override;
+
     sb::Unique_Ptr<ICompute_Backend> compute;
     sb::Unique_Ptr<ISimulation_Extension> ext;
 

@@ -10,7 +10,6 @@
 #include <QMainWindow>
 #include <QTimer>
 #include <QSplitter>
-#include <QToolBar>
 #include "glviewport.h"
 #include "r_queue.h"
 #include "ui_sim_control.h"

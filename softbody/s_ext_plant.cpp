@@ -9,17 +9,18 @@
 #include "s_ext.h"
 #include "m_utils.h"
 #include "l_random.h"
+#include "s_iterators.h"
 
-class Plant_Simulation : public ISimulation_Extension {
+class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
     Plant_Simulation(sb::Config const& params) : params(params) {
     }
 private:
     sb::Config params;
     Rand_Float rnd;
-    Map<unsigned, unsigned> parents;
-    Map<unsigned, unsigned> apical_child;
-    Map<unsigned, unsigned> lateral_bud;
+    Map<index_t, index_t> parents;
+    Map<index_t, index_t> apical_child;
+    Map<index_t, index_t> lateral_bud;
     Map<index_t, Vec4> anchor_points;
     Dequeue<index_t> growing;
 
@@ -68,7 +69,7 @@ private:
                 }
 
                 // If the surface is close enough, move towards it
-                if (surface_dist < surface_adaption_min_dist) {
+                if (surface != NULL && surface_dist < surface_adaption_min_dist) {
                     auto normal = sdf::normal(surface->fun, p);
                     auto surface = p - surface_dist * normal;
 
@@ -156,6 +157,20 @@ private:
                 growing.push_back(pidx);
             }
         }
+    }
+
+    sb::Unique_Ptr<sb::Relation_Iterator> get_parental_relations() override {
+        auto get_map = [&]() -> decltype(parents)& { return parents; };
+        auto make_relation = [&](index_t child, index_t parent) {
+            return sb::Relation {
+                parent,
+                Vec4(),
+                child,
+                Vec4(),
+            };
+        };
+
+        return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
     }
 };
 

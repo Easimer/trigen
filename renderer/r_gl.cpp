@@ -64,6 +64,11 @@ struct Point {
     gl::VBO buf;
 };
 
+struct Element_Model {
+    gl::VAO arr;
+    gl::VBO vertices, elements;
+};
+
 /**
  * VAO and VBO recycler for stream drawing.
  */
@@ -240,6 +245,16 @@ public:
                 auto locColor0 = gl::Uniform_Location<Vec3>(*program, "vColor0");
                 auto locColor1 = gl::Uniform_Location<Vec3>(*program, "vColor1");
                 m_line_shader = { std::move(program.value()), locMVP, locColor0, locColor1 };
+            }
+        }
+        {
+            auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
+            auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
+            auto builder = gl::Shader_Program_Builder();
+            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
+            if (program) {
+                auto locMVP = gl::Uniform_Location<Mat4>(*program, "matMVP");
+                m_element_model_shader = { std::move(program.value()), locMVP };
             }
         }
 
@@ -484,11 +499,49 @@ public:
         }
     }
 
+    void draw_triangle_elements(
+        size_t vertex_count,
+        std::array<float, 3> const* vertices,
+        size_t element_count,
+        unsigned const* elements,
+        glm::vec3 const& vWorldPosition
+    ) override {
+        if (element_count == 0) return;
+
+        if (m_element_model_shader.has_value()) {
+            Element_Model* mdl;
+            auto mdl_h = element_model_recycler.get(&mdl);
+
+            glBindVertexArray(mdl->arr);
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl->vertices);
+            glBufferData(GL_ARRAY_BUFFER, vertex_count, vertices, GL_STREAM_DRAW);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl->elements);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, element_count, elements, GL_STREAM_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+
+            auto& shader = *m_element_model_shader;
+            auto matModel = glm::translate(vWorldPosition);
+            auto matMVP = m_proj * m_view * matModel;
+            gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            glDrawElements(GL_TRIANGLES, mdl->elements, GL_UNSIGNED_INT, 0);
+
+            element_model_recycler.put_back(mdl_h);
+        } else {
+            printf("renderer: can't draw triangle elements: no shader!\n");
+        }
+    }
+
 private:
     Mat4 m_proj, m_view;
 
     Array_Recycler<Line> line_recycler;
     Array_Recycler<Point> point_recycler;
+    Array_Recycler<Element_Model> element_model_recycler;
 
     struct Line_Shader {
         gl::Shader_Program program;
@@ -501,8 +554,14 @@ private:
         gl::Uniform_Location<Mat4> locMatView, locMatProj, locMatModel;
     };
 
+    struct Element_Model_Shader {
+        gl::Shader_Program program;
+        gl::Uniform_Location<Mat4> locMVP;
+    };
+
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
+    std::optional<Element_Model_Shader> m_element_model_shader;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 };

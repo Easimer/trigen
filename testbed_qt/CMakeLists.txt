@@ -35,7 +35,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes)
+target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes tree_meshifier)
 
 add_custom_command(
     TARGET testbed_qt POST_BUILD

@@ -111,6 +111,11 @@ namespace sb {
 
     using Signed_Distance_Function = sdf::Function;
 
+    class IPlant_Simulation {
+    public:
+        virtual Unique_Ptr<Relation_Iterator> get_parental_relations() = 0;
+    };
+
     class ISoftbody_Simulation {
     public:
         virtual ~ISoftbody_Simulation() {}
@@ -136,6 +141,8 @@ namespace sb {
 
         virtual bool save_image(ISerializer* serializer) = 0;
         virtual bool load_image(IDeserializer* deserializer) = 0;
+
+        virtual IPlant_Simulation* get_extension_plant_simulation() = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);
