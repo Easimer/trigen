@@ -27,9 +27,11 @@
 
 #include <QApplication>
 #include <QWidget>
+#include <QLayout>
 #include <QDebug>
 #include <QVariant>
 #include <QMainWindow>
+#include <QDialog>
 #include <QTimer>
 #include <QSplitter>
 #include <QToolBar>
@@ -38,6 +40,25 @@
 #include <QOpenGLContext>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QComboBox>
+#include <QLabel>
+
+#include <nodes/NodeData>
+#include <nodes/FlowScene>
+#include <nodes/FlowView>
+#include <nodes/ConnectionStyle>
+#include <nodes/TypeConverter>
+#include <nodes/DataModelRegistry>
+#include <nodes/NodeDataModel>
+#include <nodes/Connection>
+#include <nodes/Node>
+
+#include "r_queue.h"
 
 template<typename T>
 using Unique_Ptr = std::unique_ptr<T>;

@@ -7,3 +7,4 @@ set(SRC_TM
 
 add_library(tree_meshifier STATIC ${SRC_TM})
 target_compile_options(tree_meshifier PRIVATE "-mfma")
+target_compile_definitions(tree_meshifier PRIVATE -D_USE_MATH_DEFINES)

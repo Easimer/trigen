@@ -7,5 +7,5 @@ set(SRC
 )
 
 add_library(renderer STATIC ${SRC})
-target_link_libraries(renderer glad ${SDL2_LIBRARIES})
+target_link_libraries(renderer glad ${SDL2_LIBRARIES} imgui)
 target_include_directories(renderer PRIVATE ${SDL2_INCLUDE_DIRS})

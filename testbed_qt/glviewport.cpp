@@ -5,7 +5,6 @@
 
 #include "common.h"
 #include "glviewport.h"
-#include "ui_glviewport.h"
 #include "r_queue.h"
 
 #include <QOpenGLContext>

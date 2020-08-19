@@ -198,12 +198,16 @@ namespace lm {
         }
     }
 
-    inline void Perspective(Matrix4& forward, Matrix4& inverse, float width, float height, float fov, float near, float far) {
+    inline void Perspective(Matrix4& forward, Matrix4& inverse, float width, float height, float fov, float flNear, float flFar) {
         float aspect = height / width;
         float e = 1.0f / tan(fov / 2.0f);
 
-        float F = ((far + near) / (near - far));
-        float f = (2 * far * near) / (near - far);
+        // TODO(danielm): when doing unity builds, something #defines
+        // `far` and `near` to something that causes these lines to become
+        // syntactically invalid. Renaming them to flNear and flFar
+        // fixed this, but we should find out who does the defs.
+        float F = ((flFar + flNear) / (flNear - flFar));
+        float f = (2 * flFar * flNear) / (flNear - flFar);
 
         float m[16] = {
             e, 0, 0, 0,

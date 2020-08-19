@@ -141,5 +141,7 @@ add_subdirectory(editor)
 set(SOFTBODY_TESTBED_QT OFF CACHE BOOL "Build the Qt5-based testbed")
 if(${SOFTBODY_TESTBED_QT})
 add_subdirectory(nodeeditor)
+# NOTE(danielm): nodeeditor doesn't seem to work with unity builds
+set_target_properties(nodes PROPERTIES UNITY_BUILD OFF)
 add_subdirectory(testbed_qt)
 endif()
