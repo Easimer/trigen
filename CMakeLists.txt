@@ -143,5 +143,90 @@ if(${SOFTBODY_TESTBED_QT})
 add_subdirectory(nodeeditor)
 # NOTE(danielm): nodeeditor doesn't seem to work with unity builds
 set_target_properties(nodes PROPERTIES UNITY_BUILD OFF)
+# Precompile some headers for nodeeditor.
+target_precompile_headers(
+	nodes PRIVATE
+	<QApplication>
+	<QDebug>
+	<QPainter>
+	<QtCore/QBuffer>
+	<QtCore/QByteArray>
+	<QtCore/QDataStream>
+	<QtCore/QDebug>
+	<QtCore/QDir>
+	<QtCore/QEvent>
+	<QtCore/QFile>
+	<QtCore/QJsonArray>
+	<QtCore/QJsonDocument>
+	<QtCore/QJsonObject>
+	<QtCore/QJsonValue>
+	<QtCore/QJsonValueRef>
+	<QtCore/QMargins>
+	<QtCore/QObject>
+	<QtCore/QPoint>
+	<QtCore/QPointF>
+	<QtCore/QRectF>
+	<QtCore/QString>
+	<QtCore/QUuid>
+	<QtCore/QVariant>
+	<QtCore/QVariantMap>
+	<QtCore/QtGlobal>
+	<QtGlobal>
+	<QtGui/QBrush>
+	<QtGui/QColor>
+	<QtGui/QDoubleValidator>
+	<QtGui/QFontMetrics>
+	<QtGui/QIcon>
+	<QtGui/QPainter>
+	<QtGui/QPen>
+	<QtGui/QPixmap>
+	<QtGui/QTransform>
+	<QtOpenGL>
+	<QtWidgets/QApplication>
+	<QtWidgets/QFileDialog>
+	<QtWidgets/QGraphicsBlurEffect>
+	<QtWidgets/QGraphicsDropShadowEffect>
+	<QtWidgets/QGraphicsEffect>
+	<QtWidgets/QGraphicsItem>
+	<QtWidgets/QGraphicsObject>
+	<QtWidgets/QGraphicsScene>
+	<QtWidgets/QGraphicsSceneMouseEvent>
+	<QtWidgets/QGraphicsSceneMoveEvent>
+	<QtWidgets/QGraphicsView>
+	<QtWidgets/QLabel>
+	<QtWidgets/QLineEdit>
+	<QtWidgets/QMenu>
+	<QtWidgets/QMenuBar>
+	<QtWidgets/QMessageBox>
+	<QtWidgets/QStyleOptionGraphicsItem>
+	<QtWidgets/QVBoxLayout>
+	<QtWidgets/QWidget>
+	<QtWidgets/QtWidgets>
+	<QtWidgets>
+	<catch2/catch.hpp>
+	<cmath>
+	<cstdlib>
+	<functional>
+	<iostream>
+	<memory>
+	<nodes/Connection>
+	<nodes/ConnectionStyle>
+	<nodes/DataModelRegistry>
+	<nodes/FlowScene>
+	<nodes/FlowView>
+	<nodes/FlowViewStyle>
+	<nodes/Node>
+	<nodes/NodeData>
+	<nodes/NodeDataModel>
+	<nodes/NodeStyle>
+	<nodes/TypeConverter>
+	<set>
+	<stdexcept>
+	<tuple>
+	<unordered_map>
+	<utility>
+	<vector>
+)
+
 add_subdirectory(testbed_qt)
 endif()
