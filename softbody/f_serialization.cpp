@@ -9,27 +9,6 @@
 #include "f_serialization.h"
 #include "f_serialization.internal.h"
 
-template<typename T>
-void serialize(sb::ISerializer* serializer, Vector<T> const& v, u32 id) {
-    u32 count = v.size();
-    // Write chunk id
-    serializer->write(&id, sizeof(id));
-    // Write particle count
-    serializer->write(&count, sizeof(count));
-    // Write particle data
-    serializer->write(v.data(), count * sizeof(T));
-}
-
-template<typename T>
-void deserialize(sb::IDeserializer* deserializer, Vector<T>& v) {
-    u32 count;
-    // Read particle count
-    deserializer->read(&count, sizeof(count));
-    // Write particle data
-    v.resize(count);
-    deserializer->read(v.data(), count * sizeof(T));
-}
-
 void serialize(sb::ISerializer* serializer, Map<index_t, Vector<index_t>> const& m, u32 id) {
     u32 count = m.size();
 
