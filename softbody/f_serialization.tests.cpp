@@ -187,3 +187,60 @@ TEST_CASE("Vector<Vec3> serialization-deserialization") {
         REQUIRE(test_data[i] == deser_data[i]);
     }
 }
+
+TEST_CASE("Map<index_t, Vector<index_t>> serialization-deserialization") {
+    Map<index_t, Vector<index_t>> test_data;
+    for (index_t i = 0; i < 100; i++) {
+        auto& v = (test_data[i] = {});
+        for (index_t j = 0; j < 100; j++) {
+            v.push_back(j);
+        }
+    }
+
+    Memory_Serializer ser;
+
+    serialize(&ser, test_data, CHUNK_TEST);
+
+    Memory_Deserializer deser(std::move(ser.get_buffer()));
+
+    uint32_t id;
+    deser.read(&id, sizeof(id));
+    REQUIRE(id == CHUNK_TEST);
+
+    Map<index_t, Vector<index_t>> deser_data;
+    deserialize(&deser, deser_data);
+
+    for (index_t i = 0; i < 100; i++) {
+        REQUIRE(deser_data.count(i) == 1);
+        auto& v = deser_data[i];
+
+        for (index_t j = 0; j < 100; j++) {
+            REQUIRE(v[j] == j);
+        }
+    }
+}
+
+TEST_CASE("Map<index_t, index_t> serialization-deserialization") {
+    Map<index_t, index_t> test_data;
+    for (index_t i = 0; i < 100; i++) {
+        test_data[i] = 1000 + i;
+    }
+
+    Memory_Serializer ser;
+
+    serialize(&ser, test_data, CHUNK_TEST);
+
+    Memory_Deserializer deser(std::move(ser.get_buffer()));
+
+    uint32_t id;
+    deser.read(&id, sizeof(id));
+    REQUIRE(id == CHUNK_TEST);
+
+    Map<index_t, index_t> deser_data;
+    deserialize(&deser, deser_data);
+
+    for (index_t i = 0; i < 100; i++) {
+        REQUIRE(deser_data.count(i) == 1);
+        REQUIRE(deser_data[i] == test_data[i]);
+    }
+}

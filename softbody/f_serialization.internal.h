@@ -50,4 +50,7 @@ void deserialize(sb::IDeserializer* deserializer, Vector<T>& v);
 void serialize(sb::ISerializer* serializer, Map<index_t, Vector<index_t>> const& m, u32 id);
 void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<index_t>>& m);
 
+void serialize(sb::ISerializer* serializer, Map<index_t, index_t> const& m, u32 id);
+void deserialize(sb::IDeserializer* deserializer, Map<index_t, index_t>& m);
+
 void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& s, u32 id);
