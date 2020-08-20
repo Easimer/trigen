@@ -7,6 +7,7 @@
 #include <cassert>
 #include <type_traits>
 #include <vector>
+#include <cstdint>
 
 #define GENSTEP(asgn, t, t0, t1, p0, p1) \
 Point const asgn([=]() { \
