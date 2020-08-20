@@ -97,13 +97,25 @@
          </widget>
         </item>
         <item>
-         <widget class="QDoubleSpinBox" name="sbOriginX"/>
+         <widget class="QDoubleSpinBox" name="sbOriginX">
+          <property name="minimum">
+           <double>-99.000000000000000</double>
+          </property>
+         </widget>
         </item>
         <item>
-         <widget class="QDoubleSpinBox" name="sbOriginY"/>
+         <widget class="QDoubleSpinBox" name="sbOriginY">
+          <property name="minimum">
+           <double>-99.000000000000000</double>
+          </property>
+         </widget>
         </item>
         <item>
-         <widget class="QDoubleSpinBox" name="sbOriginZ"/>
+         <widget class="QDoubleSpinBox" name="sbOriginZ">
+          <property name="minimum">
+           <double>-99.000000000000000</double>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>

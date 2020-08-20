@@ -132,7 +132,7 @@ Window_Main::Window_Main(QWidget* parent) :
     auto extension = sim_cfg.property("ext");
     sim_cfg.setProperty("ext", "Plant_Simulation");
     extension = sim_cfg.property("ext");
-    sim_cfg.seed_position = Vec3(1, 2, 3);
+    sim_cfg.seed_position = Vec3(0, 0, 0);
     sim_cfg.setProperty("density", 1.0f);
     sim_cfg.setProperty("attachment_strength", 1.0f);
     sim_cfg.setProperty("surface_adaption_strength", 1.0f);
