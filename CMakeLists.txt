@@ -107,7 +107,7 @@ enable_testing()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
-set(SOFTBODY_CLANG_TIDY OFF CACHE BOOL "Run clang-tidy")
+option(SOFTBODY_CLANG_TIDY "Run clang-tidy")
 
 if(${SOFTBODY_CLANG_TIDY})
     if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
@@ -143,7 +143,7 @@ add_subdirectory(cylindergen)
 add_subdirectory(softbody_testbed)
 add_subdirectory(editor)
 
-set(SOFTBODY_TESTBED_QT OFF CACHE BOOL "Build the Qt5-based testbed")
+option(SOFTBODY_TESTBED_QT "Build the Qt5-based testbed")
 if(${SOFTBODY_TESTBED_QT})
 message("Will build Qt testbed")
 add_subdirectory(nodeeditor)
