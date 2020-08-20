@@ -75,6 +75,38 @@ void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<index_t>>&
     }
 }
 
+void serialize(sb::ISerializer* serializer, Map<index_t, index_t> const& m, u32 id) {
+    u32 count = m.size();
+
+    // Write chunk id
+    serializer->write(&id, sizeof(id));
+    // Write particle count
+    serializer->write(&count, sizeof(count));
+
+    for (auto& kv : m) {
+        u64 first = kv.first;
+        u64 second = kv.second;
+        serializer->write(&first, sizeof(first));
+        serializer->write(&second, sizeof(second));
+    }
+}
+
+void deserialize(sb::IDeserializer* deserializer, Map<index_t, index_t>& m) {
+    m.clear();
+
+    u32 count;
+    deserializer->read(&count, sizeof(count));
+
+    for (u32 i = 0; i < count; i++) {
+        u64 k, v;
+
+        deserializer->read(&k, sizeof(k));
+        deserializer->read(&v, sizeof(v));
+
+        m[k] = v;
+    }
+}
+
 void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& s, u32 id) {
     switch (id) {
     case CHUNK_BIND_POSITION:     
