@@ -120,6 +120,7 @@ if(${SOFTBODY_CLANG_TIDY})
     else()
         set(CLANG_TIDY_CHECKS "-*,performance-*,readability-*,portability-*,bugprone-*,hicpp-*,cert-*,modernize-*,-modernize-use-trailing-return-type,-readability-magic-numbers,-hicpp-uppercase-literal-suffix,-readability-uppercase-literal-suffix")
         set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY};-checks=${CLANG_TIDY_CHECKS}")
+		message("Clang-Tidy enabled!")
     endif()
 endif()
 
@@ -144,6 +145,7 @@ add_subdirectory(editor)
 
 set(SOFTBODY_TESTBED_QT OFF CACHE BOOL "Build the Qt5-based testbed")
 if(${SOFTBODY_TESTBED_QT})
+message("Will build Qt testbed")
 add_subdirectory(nodeeditor)
 # NOTE(danielm): nodeeditor doesn't seem to work with unity builds
 set_target_properties(nodes PROPERTIES UNITY_BUILD OFF)
