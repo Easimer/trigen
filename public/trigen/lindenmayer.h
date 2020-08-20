@@ -116,6 +116,7 @@ namespace Lindenmayer {
                 auto& nextNode = pool.Allocate(nextNodeIdx);
                 auto& curNode = pool.GetNode(state.uiNodeCurrent);
                 nextNode.vPosition = curNode.vPosition + params.flStep * dir;
+                nextNode.unUser = 0;
                 printf("Node: (%f, %f, %f)\n", nextNode.vPosition[0], nextNode.vPosition[1], nextNode.vPosition[2]);
                 curNode.AddChild(nextNodeIdx);
                 state.uiNodeCurrent = nextNodeIdx;

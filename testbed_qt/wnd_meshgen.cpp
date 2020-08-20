@@ -38,6 +38,7 @@ void Window_Meshgen::update_mesh() {
             assert(p.id == node_idx);
 
             node.vPosition = lm::Vector4(p.position.x, p.position.y, p.position.z);
+            node.unUser = 0; // TODO(danielm): size
         }
 
         for (auto iter = plant_sim->get_parental_relations(); !iter->ended(); iter->step()) {
@@ -46,7 +47,7 @@ void Window_Meshgen::update_mesh() {
             parent.AddChild(rel.child);
         }
 
-        mesh = ProcessTree(tree);
+        mesh = ProcessTree(tree, [](auto, auto, auto, auto, auto, auto) { return 0.25f; });
     }
 }
 

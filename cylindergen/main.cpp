@@ -374,7 +374,7 @@ int main(int argc, char** argv) {
                         tree = Lindenmayer::Execute(sys.Iterate(unDesiredIterationCount), params);
                         mdlTree.reset();
                         meshTree = std::async(std::launch::async, [=]() {
-                            return ProcessTree(tree);
+                            return ProcessTree(tree, [](auto i, auto, auto, auto, auto, auto) -> float { return 4.0f * powf(0.99f, i + 0); });
                         });
                         unCurrentIterationCount = unDesiredIterationCount;
                     }

@@ -8,14 +8,20 @@
 #include <cstdint>
 #include <cassert>
 #include <vector>
+#include <functional>
 #include <trigen/linear_math.h>
 #include <trigen/meshbuilder.h>
 
 constexpr uint32_t gunTreeNodeMaxChildren = 11;
 
 struct Tree_Node {
+    // Node's position in the world
     lm::Vector4 vPosition;
+    // User data
+    uint64_t unUser;
+    // Array of child nodes
     uint32_t aiChildren[gunTreeNodeMaxChildren];
+    // Number of child nodes in the array above
     uint32_t unChildCount = 0;
 
     bool AddChild(uint32_t uiIndex) {
@@ -32,12 +38,6 @@ struct Tree_Node {
 
 class Tree_Node_Pool {
 public:
-    Tree_Node_Pool() = default;
-
-    Tree_Node_Pool(Tree_Node const&) {
-        // TODO(danielm): copy the other tree
-    }
-
     Tree_Node& GetNode(uint32_t uiIndex) {
         assert(uiIndex < pool.size());
         return pool[uiIndex];
@@ -57,4 +57,6 @@ private:
     std::vector<Tree_Node> pool;
 };
 
-Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree);
+using TM_RadiusFunc = std::function<float(size_t iIndex, lm::Vector4 const& vPosition, uint64_t user0, float weight0, uint64_t user1, float weight1)>;
+
+Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree, TM_RadiusFunc const& radius_func);

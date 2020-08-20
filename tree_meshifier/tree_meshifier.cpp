@@ -9,8 +9,9 @@
 #include <trigen/future_union_mesh.h>
 #include "trunk_generator.h"
 
-Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd) {
+Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t const uiStart, uint32_t const uiBranch, uint32_t const uiEnd, TM_RadiusFunc const& radius_func) {
     std::vector<lm::Vector4> points;
+    std::vector<uint64_t> user_data;
 
     // start node might have multiple children.
     // the code below won't handle that properly, so we add
@@ -18,12 +19,15 @@ Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t c
     auto const& pStart = tree.GetNode(uiStart);
     auto const& pSecond = tree.GetNode(uiBranch);
     points.push_back(pStart.vPosition - (pSecond.vPosition - pStart.vPosition));
+    user_data.push_back(pStart.unUser);
     points.push_back(pStart.vPosition);
+    user_data.push_back(pStart.unUser);
     uint32_t uiCursor = uiBranch;
     uint32_t uiPrev = uiStart;
     while(1) {
         auto const& cur = tree.GetNode(uiCursor);
         points.push_back(cur.vPosition);
+        user_data.push_back(cur.unUser);
 
         if (uiCursor == uiEnd) {
             break;
@@ -36,6 +40,7 @@ Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t c
     auto const& pEnd = tree.GetNode(uiEnd);
     auto const& pPenultimate = tree.GetNode(uiPrev);
     points.push_back(pEnd.vPosition + (pEnd.vPosition - pPenultimate.vPosition));
+    user_data.push_back(pPenultimate.unUser);
 
     /*
     printf("(%f, %f, %f) -> (%f, %f, %f)\n",
@@ -44,11 +49,11 @@ Mesh_Builder::Optimized_Mesh ProcessNodes(Tree_Node_Pool const& tree, uint32_t c
         );
     */
 
-    Catmull_Rom_Composite<lm::Vector4> cr(points.size(), points.data());
-    return MeshFromSpline(cr, [](auto i, auto const& p) { return 4.0f; });
+    Catmull_Rom_Composite<lm::Vector4> cr(points.size(), points.data(), user_data.data());
+    return MeshFromSpline(cr, radius_func);
 }
 
-static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t const uiNode) {
+static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t const uiNode, TM_RadiusFunc const& radius_func) {
     Future_Union_Mesh ret;
 
     auto const& node = tree.GetNode(uiNode);
@@ -62,19 +67,19 @@ static Future_Union_Mesh ProcessMultiNode(Tree_Node_Pool const& tree, uint32_t c
             pCurrent = &tree.GetNode(uiCurrent);
         }
 
-        Union(ret, std::async(std::launch::async, &ProcessNodes, tree, uiNode, uiBranchHead, uiCurrent));
+        Union(ret, std::async(std::launch::async, &ProcessNodes, tree, uiNode, uiBranchHead, uiCurrent, radius_func));
         if (pCurrent->unChildCount > 1) {
-            Union(ret, ProcessMultiNode(tree, uiCurrent));
+            Union(ret, ProcessMultiNode(tree, uiCurrent, radius_func));
         }
     }
 
     return ret;
 }
 
-Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree) {
+Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree, TM_RadiusFunc const& radius_func) {
     auto const& root = tree.GetNode(0);
     assert(root.unChildCount > 0);
 
-    return (Mesh_Builder::Optimized_Mesh)ProcessMultiNode(tree, 0);
+    return (Mesh_Builder::Optimized_Mesh)ProcessMultiNode(tree, 0, radius_func);
 }
 

@@ -18,6 +18,11 @@ Point const asgn([=]() { \
     return Point(x, y, z); \
 }());
 
+struct Interpolated_User_Data {
+    uint64_t user0; float weight0;
+    uint64_t user1; float weight1;
+};
+
 class Float_Iterator {
 public:
     constexpr Float_Iterator(float v) : it(v) {}
@@ -40,8 +45,8 @@ private:
 template<typename Point>
 class Catmull_Rom {
 public:
-    Catmull_Rom(Point const& p0, Point const& p1, Point const& p2, Point const& p3)
-        : p{ p0, p1, p2, p3 } {
+    Catmull_Rom(Point const& p0, Point const& p1, Point const& p2, Point const& p3, uint64_t user1 = 0, uint64_t user2 = 0)
+        : p{ p0, p1, p2, p3 }, user1(user1), user2(user2) {
         t[0] = GetT(0.0f, p0, p1);
         t[1] = GetT(t[0], p1, p2);
         t[2] = GetT(t[1], p2, p3);
@@ -67,7 +72,7 @@ public:
         }
     }
 
-    std::vector<Point> GeneratePoints(size_t unSubdivisions) const {
+    std::vector<Point> GeneratePoints(size_t unSubdivisions, std::vector<Interpolated_User_Data>& aUserData) const {
         std::vector<Point> ret;
 
         float const flStep = (t[1] - t[0]) / (unSubdivisions + 1);
@@ -78,7 +83,11 @@ public:
             GENSTEP(b1, T, 0.0f, t[1], a1, a2);
             GENSTEP(b2, T, t[0], t[2], a2, a3);
             GENSTEP(c0, T, t[0], t[1], b1, b2);
+
+            auto w0 = (T - t[0]) / (t[1] - t[0]);
+            auto w1 = 1 - w0;
             ret.push_back(c0);
+            aUserData.push_back({ user1, w0, user2, w1 });
         }
 
         assert(ret.size() == unSubdivisions + 2);
@@ -116,14 +125,15 @@ private:
 private:
     float t[3];
     Point p[4];
+    uint64_t user1, user2;
 };
 
 template<typename Point>
 class Catmull_Rom_Composite {
 public:
     Catmull_Rom_Composite() : m_unPoints(0), m_pPoints(0) {}
-    Catmull_Rom_Composite(size_t unPoints, Point const* pPoints)
-        : m_unPoints(unPoints), m_pPoints(pPoints) {}
+    Catmull_Rom_Composite(size_t unPoints, Point const* pPoints, uint64_t const* pUser)
+        : m_unPoints(unPoints), m_pPoints(pPoints), m_pUser(pUser) {}
 
     void GeneratePoints(size_t unBufCount, Point* pOutBuf) const {
         assert(m_unPoints >= 4);
@@ -143,17 +153,21 @@ public:
         }
     }
 
-    std::vector<Point> GeneratePoints(size_t unSubdivisions) const {
+    std::vector<Point> GeneratePoints(size_t unSubdivisions, std::vector<Interpolated_User_Data>& aUserData) const {
         assert(m_unPoints >= 4);
         assert(m_pPoints != NULL);
         std::vector<Point> ret;
 
         auto const unCurveCount = m_unPoints - 3;
         for (size_t iCurve = 0; iCurve < unCurveCount; iCurve++) {
-            auto const cr = Catmull_Rom<Point>(m_pPoints[iCurve + 0], m_pPoints[iCurve + 1], m_pPoints[iCurve + 2], m_pPoints[iCurve + 3]);
-            auto const res = cr.GeneratePoints(unSubdivisions);
+            auto const cr = Catmull_Rom<Point>(m_pPoints[iCurve + 0], m_pPoints[iCurve + 1], m_pPoints[iCurve + 2], m_pPoints[iCurve + 3], m_pUser[iCurve + 1], m_pUser[iCurve + 2]);
+            std::vector<Interpolated_User_Data> aUserDataBuffer;
+            auto const res = cr.GeneratePoints(unSubdivisions, aUserDataBuffer);
             ret.insert(ret.end(), res.cbegin(), res.cend() - 1);
+            aUserData.insert(aUserData.end(), aUserDataBuffer.cbegin(), aUserDataBuffer.cend() - 1);
         }
+
+        assert(ret.size() == aUserData.size());
 
         return ret;
     }
@@ -161,4 +175,5 @@ public:
 private:
     size_t m_unPoints;
     Point const* m_pPoints;
+    uint64_t const* m_pUser;
 };

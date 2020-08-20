@@ -12,14 +12,12 @@
 
 // =============================================
 // Purpose: a callback that calculates the radius
-// around a given point in the curve.
+// of the cylinder around a given point in the curve.
 // =============================================
-using TG_RadiusFunc = std::function<float(size_t iPoint, lm::Vector4 const& vPoint)>;
+using TG_RadiusFunc = std::function<float(size_t iPoint, lm::Vector4 const& vPoint, uint64_t user0, float weight0, uint64_t user1, float weight1)>;
 
 // =============================================
 // Purpose: build a 3D mesh from a Catmull-Rom spline.
 // =============================================
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom<lm::Vector4> const& cr);
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr);
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc radiusFunc);
+Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc const& radiusFunc);
 
