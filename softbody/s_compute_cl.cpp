@@ -436,10 +436,10 @@ static std::optional<cl::Program> from_file_load_program(
 
     FILE* f = fopen(pszPath, "rb");
     if (f != NULL) {
-        std::string chunk("");
         while (!feof(f)) {
-            chunk.resize(1024);
-            auto res = fread(chunk.data(), 1, 1024, f);
+            std::string chunk("");
+            chunk.resize(4096);
+            auto res = fread(chunk.data(), 1, 4096, f);
             if (res > 0) {
                 chunk.resize(res);
                 chunks.push_back(std::move(chunk));
