@@ -37,6 +37,7 @@ set(SRC_IMPL
 set(SRC_TESTS
     tests.main.cpp
     c_particle.tests.cpp
+    f_serialization.tests.cpp
     m_utils.tests.cpp
 )
 
