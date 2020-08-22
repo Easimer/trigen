@@ -9,6 +9,8 @@
 #include "f_serialization.h"
 #include "f_serialization.internal.h"
 
+#include "s_ext.h"
+
 void serialize(sb::ISerializer* serializer, Map<index_t, Vector<index_t>> const& m, u32 id) {
     u32 count = m.size();
 
@@ -54,39 +56,7 @@ void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<index_t>>&
     }
 }
 
-void serialize(sb::ISerializer* serializer, Map<index_t, index_t> const& m, u32 id) {
-    u32 count = m.size();
-
-    // Write chunk id
-    serializer->write(&id, sizeof(id));
-    // Write particle count
-    serializer->write(&count, sizeof(count));
-
-    for (auto& kv : m) {
-        u64 first = kv.first;
-        u64 second = kv.second;
-        serializer->write(&first, sizeof(first));
-        serializer->write(&second, sizeof(second));
-    }
-}
-
-void deserialize(sb::IDeserializer* deserializer, Map<index_t, index_t>& m) {
-    m.clear();
-
-    u32 count;
-    deserializer->read(&count, sizeof(count));
-
-    for (u32 i = 0; i < count; i++) {
-        u64 k, v;
-
-        deserializer->read(&k, sizeof(k));
-        deserializer->read(&v, sizeof(v));
-
-        m[k] = v;
-    }
-}
-
-void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& s, u32 id) {
+void deserialize_dispatch(Softbody_Simulation* sim, sb::IDeserializer* deserializer, System_State& s, u32 id, sb::Config const& params) noexcept {
     switch (id) {
     case CHUNK_BIND_POSITION:     
         deserialize(deserializer, s.bind_pose);
@@ -113,13 +83,19 @@ void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& s, u32 
         deserialize(deserializer, s.edges);
         break;
     default:
-        fprintf(stderr, "sb: UNKNOWN CHUCK ID %x\n", id);
-        abort();
+        try {
+            auto ext_kind = Extension_Lookup_Extension_Kind(id);
+            auto ext = sim->create_extension(ext_kind, params);
+            ext->load_image(deserializer, s);
+        } catch (std::range_error const&) {
+            fprintf(stderr, "sb: UNKNOWN CHUCK ID %x\n", id);
+            abort();
+        }
         break;
     }
 }
 
-bool sim_save_image(System_State const& s, sb::ISerializer* serializer) {
+bool sim_save_image(System_State const& s, sb::ISerializer* serializer, ISimulation_Extension* ext) {
     Image_Header const hdr = { {IMAGE_MAGIC0, IMAGE_MAGIC1}, IMAGE_VERSION, 0 };
     serializer->write(&hdr, sizeof(hdr));
     serialize(serializer, s.bind_pose, CHUNK_BIND_POSITION);
@@ -131,10 +107,16 @@ bool sim_save_image(System_State const& s, sb::ISerializer* serializer) {
     serialize(serializer, s.density, CHUNK_DENSITY);
     serialize(serializer, s.edges, CHUNK_EDGES);
 
+    if (ext != nullptr && ext->wants_to_serialize()) {
+        if (!ext->save_image(serializer, s)) {
+            return false;
+        }
+    }
+
     return true;
 }
 
-Serialization_Result sim_load_image(System_State& s, sb::IDeserializer* deserializer) {
+Serialization_Result sim_load_image(Softbody_Simulation* sim, System_State& s, sb::IDeserializer* deserializer, sb::Config const& config) {
     Image_Header hdr;
     deserializer->read(&hdr, sizeof(hdr));
 
@@ -149,7 +131,7 @@ Serialization_Result sim_load_image(System_State& s, sb::IDeserializer* deserial
         for(;;) {
             res = deserializer->read(&id, sizeof(id));
             if (res != 0) {
-                deserialize_dispatch(deserializer, s, id);
+                deserialize_dispatch(sim, deserializer, s, id, config);
             } else {
                 break;
             }

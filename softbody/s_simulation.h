@@ -64,6 +64,8 @@ public:
     bool save_image(sb::ISerializer* serializer) override;
     bool load_image(sb::IDeserializer* deserializer) override;
 
+    ISimulation_Extension* create_extension(sb::Extension ext, sb::Config const& config);
+
     // Add a new particle to the simulation
     // This can be called when the system state has been already mutated, but
     // the caller must tell us who is this particle connected to.

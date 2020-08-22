@@ -10,6 +10,7 @@
 #include "m_utils.h"
 #include "l_random.h"
 #include "s_iterators.h"
+#include "f_serialization.internal.h"
 
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
@@ -171,6 +172,71 @@ private:
         };
 
         return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
+    }
+
+#define MAX_POSSIBLE_CHUNK_COUNT (4)
+#define VERSION (0x00000000)
+#define CHUNK_PARENTS       MAKE_4BYTE_ID('P', 'S', 'p', 'a')
+#define CHUNK_APICAL_CHILD  MAKE_4BYTE_ID('P', 'S', 'a', 'c')
+#define CHUNK_LATERAL_BUD   MAKE_4BYTE_ID('P', 'S', 'l', 'b')
+#define CHUNK_ANCHOR_POINTS MAKE_4BYTE_ID('P', 'S', 'a', 'p')
+
+    bool save_image(sb::ISerializer* serializer, System_State const& s) override {
+        uint32_t id = Extension_Lookup_Chunk_Identifier(sb::Extension::Plant_Simulation);
+        uint32_t sentinel = MAKE_4BYTE_ID('P', 'S', 's', 'n');
+        uint32_t version = VERSION;
+        uint32_t chunk_count = MAX_POSSIBLE_CHUNK_COUNT;
+
+        serializer->write(&id, sizeof(id));
+        serializer->write(&sentinel, sizeof(sentinel));
+        serializer->write(&version, sizeof(version));
+        serializer->write(&chunk_count, sizeof(chunk_count));
+
+        serialize(serializer, parents, CHUNK_PARENTS);
+        serialize(serializer, apical_child, CHUNK_APICAL_CHILD);
+        serialize(serializer, lateral_bud, CHUNK_LATERAL_BUD);
+        serialize(serializer, anchor_points, CHUNK_ANCHOR_POINTS);
+
+        return true;
+    }
+
+    bool load_image(sb::IDeserializer* deserializer, System_State& s) override {
+        uint32_t sentinel, chunk_count, version;
+
+        deserializer->read(&sentinel, sizeof(sentinel));
+        if (sentinel != MAKE_4BYTE_ID('P', 'S', 's', 'n')) {
+            return false;
+        }
+
+        deserializer->read(&version, sizeof(version));
+        if (version != VERSION) {
+            return false;
+        }
+
+        deserializer->read(&chunk_count, sizeof(chunk_count));
+        if (chunk_count <= MAX_POSSIBLE_CHUNK_COUNT) {
+            uint32_t id;
+
+            for (uint32_t chunk = 0; chunk < chunk_count; chunk++) {
+                deserializer->read(&id, sizeof(id));
+
+                switch (id) {
+                case CHUNK_PARENTS: deserialize(deserializer, parents); break;
+                case CHUNK_APICAL_CHILD: deserialize(deserializer, apical_child); break;
+                case CHUNK_LATERAL_BUD: deserialize(deserializer, lateral_bud); break;
+                case CHUNK_ANCHOR_POINTS: deserialize(deserializer, anchor_points); break;
+                default: printf("UNKNOWN CHUNK ID %x\n", id); std::terminate(); break;
+                }
+            }
+        } else {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool wants_to_serialize() override {
+        return true;
     }
 };
 

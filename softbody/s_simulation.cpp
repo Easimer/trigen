@@ -120,9 +120,7 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     s.center_of_mass.resize(particle_count());
 
     compute = Make_Compute_Backend();
-    ext = Create_Extension(params.ext, params);
-
-    ext->init(this, s, 0.0f);
+    create_extension(params.ext, params);
     pump_deferred_requests();
 }
 
@@ -579,13 +577,22 @@ void Softbody_Simulation::defer(std::function<void(IParticle_Manager* pman, Syst
 }
 
 bool Softbody_Simulation::save_image(sb::ISerializer* serializer) {
-    return sim_save_image(s, serializer);
+    return sim_save_image(s, serializer, ext.get());
 }
 
 bool Softbody_Simulation::load_image(sb::IDeserializer* deserializer) {
-    auto res = sim_load_image(s, deserializer);
+    auto res = sim_load_image(this, s, deserializer, params);
 
     return res == Serialization_Result::OK;
+}
+
+ISimulation_Extension* Softbody_Simulation::create_extension(sb::Extension kind, sb::Config const& config) {
+    ext = Create_Extension(kind, config);
+    params = config;
+    params.ext = kind;
+    ext->init(this, s, 0.0f);
+
+    return ext.get();
 }
 
 void Softbody_Simulation::add_fixed_constraint(unsigned count, index_t* pidx) {

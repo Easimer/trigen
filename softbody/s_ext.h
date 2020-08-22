@@ -8,6 +8,7 @@
 #include "common.h"
 #include "softbody.h"
 #include <array>
+#include "l_constexpr_map.h"
 
 class IParticle_Manager {
 public:
@@ -37,6 +38,10 @@ public:
     SIMEXT_CALLBACK(post_constraint)
     SIMEXT_CALLBACK(pre_integration)
     SIMEXT_CALLBACK(post_integration)
+
+    virtual bool wants_to_serialize() { return false; }
+    virtual bool save_image(sb::ISerializer* serializer, System_State const& s) { return true; }
+    virtual bool load_image(sb::IDeserializer* serializer, System_State& s) { return true; }
 };
 
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params);
@@ -48,4 +53,39 @@ inline sb::Unique_Ptr<ISimulation_Extension> Create_Extension(sb::Extension kind
     case sb::Extension::Debug_Cloth: return Create_Extension_Cloth_Demo(kind, params);
     default: return std::make_unique<ISimulation_Extension>();
     }
+}
+
+namespace detail {
+    // TODO(danielm): duplicate of macro in f_serialization.internal.h!
+    inline constexpr uint32_t make_4byte_id(char c0, char c1, char c2, char c3) {
+        auto const u0 = static_cast<unsigned char>(c0);
+        auto const u1 = static_cast<unsigned char>(c1);
+        auto const u2 = static_cast<unsigned char>(c2);
+        auto const u3 = static_cast<unsigned char>(c3);
+
+        return (u0 << 24) | (u1 << 16) | (u2 << 8) | (u3 << 0);
+    }
+
+    using Ext_Chunk_Id_Map = Bijective_Constexpr_Map<sb::Extension, uint32_t, 4>;
+
+    inline constexpr Ext_Chunk_Id_Map::Data_Source extension_chunk_ids {
+        {
+            { sb::Extension::None,              make_4byte_id('E', 'x', 'N', 'o') },
+            { sb::Extension::Debug_Rope,        make_4byte_id('E', 'x', 'D', 'r') },
+            { sb::Extension::Debug_Cloth,       make_4byte_id('E', 'x', 'D', 'c') },
+            { sb::Extension::Plant_Simulation,  make_4byte_id('E', 'x', 'P', 'l') },
+        }
+    };
+}
+
+inline uint32_t Extension_Lookup_Chunk_Identifier(sb::Extension ext) {
+    static constexpr auto map = detail::Ext_Chunk_Id_Map({ detail::extension_chunk_ids });
+
+    return map.at(ext);
+}
+
+inline sb::Extension Extension_Lookup_Extension_Kind(uint32_t chunk_id) {
+    static constexpr auto map = detail::Ext_Chunk_Id_Map({ detail::extension_chunk_ids });
+
+    return map.at(chunk_id);
 }

@@ -12,6 +12,9 @@
 class Impl : public sb::ISerializer, public sb::IDeserializer {
 public:
     Impl(FILE* f) : f(f) {}
+    ~Impl() {
+        fclose(f);
+    }
 
 private:
     FILE* f;

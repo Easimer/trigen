@@ -42,7 +42,9 @@ static_assert(sizeof(Image_Header) == 8 + 4 + 4);
 #define CHUNK_EDGES             MAKE_4BYTE_ID('E', 'D', 'G', 'E')
 
 template<typename T>
-void serialize(sb::ISerializer* serializer, Vector<T> const& v, u32 id) {
+std::enable_if_t<
+    std::is_standard_layout_v<T>
+> serialize(sb::ISerializer* serializer, Vector<T> const& v, u32 id) {
     u32 count = v.size();
     // Write chunk id
     serializer->write(&id, sizeof(id));
@@ -53,7 +55,9 @@ void serialize(sb::ISerializer* serializer, Vector<T> const& v, u32 id) {
 }
 
 template<typename T>
-void deserialize(sb::IDeserializer* deserializer, Vector<T>& v) {
+std::enable_if_t<
+    std::is_standard_layout_v<T>
+> deserialize(sb::IDeserializer* deserializer, Vector<T>& v) {
     u32 count;
     // Read particle count
     deserializer->read(&count, sizeof(count));
@@ -65,7 +69,45 @@ void deserialize(sb::IDeserializer* deserializer, Vector<T>& v) {
 void serialize(sb::ISerializer* serializer, Map<index_t, Vector<index_t>> const& m, u32 id);
 void deserialize(sb::IDeserializer* deserializer, Map<index_t, Vector<index_t>>& m);
 
-void serialize(sb::ISerializer* serializer, Map<index_t, index_t> const& m, u32 id);
-void deserialize(sb::IDeserializer* deserializer, Map<index_t, index_t>& m);
+template<typename K, typename V>
+std::enable_if_t<
+    std::is_standard_layout_v<K> &&
+    std::is_standard_layout_v<V>
+> serialize(sb::ISerializer* serializer, Map<K, V> const& m, u32 id) {
+    u32 count = m.size();
+
+    // Write chunk id
+    serializer->write(&id, sizeof(id));
+    // Write particle count
+    serializer->write(&count, sizeof(count));
+
+    for (auto& kv : m) {
+        auto const& first = kv.first;
+        auto const& second = kv.second;
+        serializer->write(&first, sizeof(first));
+        serializer->write(&second, sizeof(second));
+    }
+}
+
+template<typename K, typename V>
+std::enable_if_t<
+    std::is_standard_layout_v<K> &&
+    std::is_standard_layout_v<V>
+> deserialize(sb::IDeserializer* deserializer, Map<K, V>& m) {
+    m.clear();
+
+    u32 count;
+    deserializer->read(&count, sizeof(count));
+
+    for (u32 i = 0; i < count; i++) {
+        K k;
+        V v;
+
+        deserializer->read(&k, sizeof(k));
+        deserializer->read(&v, sizeof(v));
+
+        m[k] = v;
+    }
+}
 
 void deserialize_dispatch(sb::IDeserializer* deserializer, System_State& s, u32 id);

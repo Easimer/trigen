@@ -7,6 +7,7 @@
 
 #include "softbody.h"
 #include "common.h"
+#include "s_simulation.h"
 
 enum class Serialization_Result {
     OK = 0,
@@ -14,5 +15,5 @@ enum class Serialization_Result {
     Bad_Version,
 };
 
-bool sim_save_image(System_State const& s, sb::ISerializer* serializer);
-Serialization_Result sim_load_image(System_State& s, sb::IDeserializer* deserializer);
+bool sim_save_image(System_State const& s, sb::ISerializer* serializer, ISimulation_Extension* ext);
+Serialization_Result sim_load_image(Softbody_Simulation* sim, System_State& s, sb::IDeserializer* deserializer, sb::Config const& config);
