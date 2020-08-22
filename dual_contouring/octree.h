@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include <glm/common.hpp>
 #include <glm/vec3.hpp>
 #include <glm/exponential.hpp>
@@ -32,11 +33,11 @@ public:
             auto child_idx = (unsigned)octant;
             auto& child = node->children[child_idx];
 
-            if (!child.has_value()) {
+            if (!child) {
                 return false;
             }
 
-            node = &child.value();
+            node = child.get();
 
             level++;
         }
@@ -62,7 +63,7 @@ private:
 
     struct Node {
         glm::vec4 center;
-        std::array<std::optional<Node>, (size_t)Octant::Max> children;
+        std::array<std::unique_ptr<Node>, (size_t)Octant::Max> children;
     };
 
     void add_point(int level, Node& node, glm::vec4 const& p) {
@@ -74,11 +75,11 @@ private:
             auto child_idx = (unsigned)octant;
 
             auto& child = node.children[child_idx];
-            child.emplace(get_new_node_center(level + 1, node.center, delta, octant), {});
+            node.children[child_idx] = std::make_unique<Node>(Node({ get_new_node_center(level + 1, node.center, delta), {} }));
 
-            assert(child.has_value());
+            assert(child);
 
-            if (child.has_value()) {
+            if (child) {
                 add_point(level + 1, *child, p);
             }
         }
@@ -116,7 +117,7 @@ private:
         }
     }
 
-    glm::vec4 get_new_node_center(int level, glm::vec4 const& parent_center, glm::vec4 delta, Octant octant) const {
+    glm::vec4 get_new_node_center(int level, glm::vec4 const& parent_center, glm::vec4 delta) const {
         auto step = glm::pow(0.5f, level);
 
         delta.x /= glm::abs(delta.x);
