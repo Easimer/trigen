@@ -1,5 +1,6 @@
 set(SRC_DC
     dual_contouring.cpp
+    octree.h
     ../public/dual_contouring.h
 )
 
