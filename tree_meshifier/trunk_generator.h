@@ -19,5 +19,5 @@ using TG_RadiusFunc = std::function<float(size_t iPoint, lm::Vector4 const& vPoi
 // =============================================
 // Purpose: build a 3D mesh from a Catmull-Rom spline.
 // =============================================
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc const& radiusFunc);
+Optimized_Mesh<TG_Vertex> MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc const& radiusFunc);
 

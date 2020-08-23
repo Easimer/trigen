@@ -59,4 +59,17 @@ private:
 
 using TM_RadiusFunc = std::function<float(size_t iIndex, lm::Vector4 const& vPosition, uint64_t user0, float weight0, uint64_t user1, float weight1)>;
 
-Mesh_Builder::Optimized_Mesh ProcessTree(Tree_Node_Pool const& tree, TM_RadiusFunc const& radius_func);
+struct TG_Vertex {
+    std::array<float, 4> position;
+    std::array<float, 2> uv;
+
+    float metric(TG_Vertex const& other) const {
+        auto dx = other.position[0] - position[0];
+        auto dy = other.position[1] - position[1];
+        auto dz = other.position[2] - position[2];
+
+        return dx * dx + dy * dy + dz * dz;
+    }
+};
+
+Optimized_Mesh<TG_Vertex> ProcessTree(Tree_Node_Pool const& tree, TM_RadiusFunc const& radius_func);

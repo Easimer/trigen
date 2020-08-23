@@ -7,6 +7,7 @@
 #include <cmath>
 #include <trigen/linear_math.h>
 #include <trigen/catmull_rom.h>
+#include <trigen/tree_meshifier.h>
 #include "trunk_generator.h"
 
 struct Mesh_From_Spline_Params {
@@ -23,13 +24,13 @@ static lm::Vector4 Perpendicular(lm::Vector4 const& v) {
     return idx ? v1 : v0;
 }
 
-static Mesh_Builder::Optimized_Mesh MeshFromSpline_impl(Mesh_From_Spline_Params const& params, TG_RadiusFunc radiusFunc) {
+static Optimized_Mesh<TG_Vertex> MeshFromSpline_impl(Mesh_From_Spline_Params const& params, TG_RadiusFunc radiusFunc) {
     auto const& avPoints = params.avPoints;
     auto const unPoints = params.unPoints;
     auto const unSides = params.unSides;
     auto const& aUserData = params.aUserData;
 
-    Mesh_Builder mb(0.00001f);
+    Mesh_Builder<TG_Vertex> mb(0.00001f);
 
     auto const flHalfAlpha = M_PI / unSides;
     auto const flAlpha = 2 * flHalfAlpha;
@@ -61,8 +62,21 @@ static Mesh_Builder::Optimized_Mesh MeshFromSpline_impl(Mesh_From_Spline_Params 
             // auto const p4 = p1;
             auto const p5 = p1 + flSideLength1 * rgt;
 
-            mb.PushTriangle(p0, p1, p2);
-            mb.PushTriangle(p2, p1, p5);
+            float t0 = Length(p0 - sp0) / Length(up);
+            float t1 = Length(p1 - sp0) / Length(up);
+            float t2 = Length(p2 - sp0) / Length(up);
+            float t5 = Length(p5 - sp0) / Length(up);
+
+            float x0 = (iSide + 0) / (float)unSides;
+            float x1 = (iSide + 1) / (float)unSides;
+
+            TG_Vertex v0 = { { p0[0], p0[1], p0[2], p0[3] }, { x0, t0 } };
+            TG_Vertex v1 = { { p1[0], p1[1], p1[2], p1[3] }, { x0, t1 } };
+            TG_Vertex v2 = { { p2[0], p2[1], p2[2], p2[3] }, { x1, t2 } };
+            TG_Vertex v5 = { { p5[0], p5[1], p5[2], p5[3] }, { x1, t5 } };
+
+            mb.PushTriangle(v0, v1, v2);
+            mb.PushTriangle(v2, v1, v5);
 
             starter0 = p2;
             starter1 = p5;
@@ -79,10 +93,10 @@ static float LegacyRadiusFunction(size_t i, lm::Vector4 const& p, uint64_t user0
     return 4.0f * powf(0.99, i + 0);
 }
 
-Mesh_Builder::Optimized_Mesh MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc const& radiusFunc) {
+Optimized_Mesh<TG_Vertex> MeshFromSpline(Catmull_Rom_Composite<lm::Vector4> const& cr, TG_RadiusFunc const& radiusFunc) {
     size_t const unSubdivisions = 8; // Number of subdivisions in the spline
     size_t const unSides = 5; // Number of cylinder sides
-    Mesh_Builder mb(0.00001f);
+    Mesh_Builder<TG_Vertex> mb(0.00001f);
     /*
     auto const avPoints = [unPoints, cr]() {
         std::vector<lm::Vector4> buf;

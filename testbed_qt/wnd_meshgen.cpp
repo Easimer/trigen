@@ -19,6 +19,31 @@ Window_Meshgen::Window_Meshgen(
     update_mesh();
 }
 
+static Generated_Mesh unpack_mesh(Optimized_Mesh<TG_Vertex> const& orig) {
+    Generated_Mesh ret;
+
+    ret.element_count = orig.ElementsCount();
+    ret.vertex_count = orig.VerticesCount();
+
+    ret.position = std::make_unique<std::array<float, 3>[]>(orig.VerticesCount());
+    ret.uv = std::make_unique<glm::vec2[]>(orig.VerticesCount());
+    ret.element_indices = std::make_unique<unsigned[]>(orig.ElementsCount());
+
+    for (size_t i = 0; i < orig.VerticesCount(); i++) {
+        auto& pos = orig.vertices[i].position;
+        auto& uv = orig.vertices[i].uv;
+
+        ret.position[i] = { pos[0], pos[1], pos[2] };
+        ret.uv[i] = { uv[0], uv[1] };
+    }
+
+    for (size_t i = 0; i < orig.ElementsCount(); i++) {
+        ret.element_indices[i] = orig.elements[i];
+    }
+
+    return ret;
+}
+
 void Window_Meshgen::update_mesh() {
     auto plant_sim = simulation->get_extension_plant_simulation();
 
@@ -47,19 +72,19 @@ void Window_Meshgen::update_mesh() {
             parent.AddChild(rel.child);
         }
 
-        mesh = ProcessTree(tree, [](auto, auto, auto, auto, auto, auto) { return 0.25f; });
+        mesh = unpack_mesh(ProcessTree(tree, [](auto, auto, auto, auto, auto, auto) { return 0.25f; }));
     }
 }
 
 class Render_Generated_Mesh : public gfx::IRender_Command {
 public:
-    Render_Generated_Mesh(Mesh_Builder::Optimized_Mesh const& mesh) : mesh(mesh) {}
+    Render_Generated_Mesh(Generated_Mesh const& mesh) : mesh(mesh) {}
 
 private:
-    Mesh_Builder::Optimized_Mesh const& mesh;
+    Generated_Mesh const& mesh;
 
     void execute(gfx::IRenderer* renderer) override {
-        renderer->draw_triangle_elements(mesh.VerticesSize(), mesh.vertices.data(), mesh.ElementsSize(), mesh.elements.data(), Vec3());
+        renderer->draw_triangle_elements(mesh.vertex_count * sizeof(glm::vec3), mesh.position.get(), mesh.element_count * sizeof(unsigned), mesh.element_indices.get(), Vec3());
     }
 };
 

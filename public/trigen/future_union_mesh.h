@@ -14,8 +14,9 @@
 // Purpose: a union of two or more meshes that are results of an asynchronous
 // operation
 // =============================================
+template<typename Vertex>
 struct Future_Union_Mesh {
-    using FM = std::future<Mesh_Builder::Optimized_Mesh>;
+    using FM = std::future<Optimized_Mesh<Vertex>>;
     using OT = std::unique_ptr<Future_Union_Mesh>;
     using OFM = std::optional<FM>;
     using V = std::variant <std::monostate, FM, OT>;
@@ -24,26 +25,26 @@ struct Future_Union_Mesh {
     OT rhs;
 
 
-    Mesh_Builder::Optimized_Mesh operator()(FM& x) {
+    Optimized_Mesh<Vertex> operator()(FM& x) {
         return x.get();
     }
 
-    Mesh_Builder::Optimized_Mesh operator()(OT& x) {
+    Optimized_Mesh<Vertex> operator()(OT& x) {
         if (x != NULL) {
-            return (Mesh_Builder::Optimized_Mesh)*x;
+            return (Optimized_Mesh<Vertex>)*x;
         } else {
             return {};
         }
     }
 
-    Mesh_Builder::Optimized_Mesh operator()(std::monostate const&) {
+    Optimized_Mesh<Vertex> operator()(std::monostate const&) {
         return {};
     }
 
-    explicit operator Mesh_Builder::Optimized_Mesh() {
+    explicit operator Optimized_Mesh<Vertex>() {
         auto const x = std::visit(*this, lhs);
         if (rhs != NULL) {
-            return x + (Mesh_Builder::Optimized_Mesh)*rhs;
+            return x + (Optimized_Mesh<Vertex>)*rhs;
         } else {
             return x;
         }
@@ -54,16 +55,18 @@ struct Future_Union_Mesh {
 // Purpose: create the union of two FUMs, moving the right-hand side inside the
 // left-hand side. 
 // =============================================
-inline void Union(Future_Union_Mesh& lhs, Future_Union_Mesh&& rhs) {
-    auto x = std::make_unique<Future_Union_Mesh>(std::move(lhs));
-    auto y = std::make_unique<Future_Union_Mesh>(std::move(rhs));
-    lhs = Future_Union_Mesh { std::move(x), std::move(y) };
+template<typename Vertex>
+inline void Union(Future_Union_Mesh<Vertex>& lhs, Future_Union_Mesh<Vertex>&& rhs) {
+    auto x = std::make_unique<Future_Union_Mesh<Vertex>>(std::move(lhs));
+    auto y = std::make_unique<Future_Union_Mesh<Vertex>>(std::move(rhs));
+    lhs = Future_Union_Mesh<Vertex> { std::move(x), std::move(y) };
 }
 
 // =============================================
 // Purpose: create the union of a FUM and a future Optimized_Mesh.
 // =============================================
-inline void Union(Future_Union_Mesh& lhs, Future_Union_Mesh::FM&& fm) {
-    auto y = std::make_unique<Future_Union_Mesh>(std::move(lhs));
-    lhs = Future_Union_Mesh{ std::move(fm), std::move(y) };
+template<typename Vertex>
+inline void Union(Future_Union_Mesh<Vertex>& lhs, std::future<Optimized_Mesh<Vertex>>&& fm) {
+    auto y = std::make_unique<Future_Union_Mesh<Vertex>>(std::move(lhs));
+    lhs = Future_Union_Mesh<Vertex> { std::move(fm), std::move(y) };
 }

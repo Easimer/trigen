@@ -13,6 +13,16 @@
 #include "glviewport.h"
 
 #include <trigen/meshbuilder.h>
+#include <trigen/tree_meshifier.h>
+
+struct Generated_Mesh {
+    size_t vertex_count, element_count;
+
+    std::unique_ptr<std::array<float, 3>[]> position;
+    std::unique_ptr<glm::vec2[]> uv;
+
+    std::unique_ptr<unsigned[]> element_indices;
+};
 
 class Window_Meshgen : public QDialog {
     Q_OBJECT;
@@ -29,5 +39,5 @@ public slots:
 private:
     QHBoxLayout layout;
     sb::Unique_Ptr<sb::ISoftbody_Simulation>& simulation;
-    Mesh_Builder::Optimized_Mesh mesh;
+    Generated_Mesh mesh;
 };
