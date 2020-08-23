@@ -7,6 +7,8 @@
 #include "wnd_meshgen.h"
 #include "softbody_renderer.h"
 
+#include <glm/common.hpp>
+#include <glm/vec3.hpp>
 #include <trigen/tree_meshifier.h>
 
 using namespace std::placeholders;
@@ -49,6 +51,7 @@ void Window_Meshgen::update_mesh() {
 
     if (plant_sim != nullptr) {
         Tree_Node_Pool tree;
+        std::unordered_map<sb::index_t, glm::vec3> sizes;
 
         for (auto iter = simulation->get_particles(); !iter->ended(); iter->step()) {
             /*
@@ -59,6 +62,8 @@ void Window_Meshgen::update_mesh() {
             auto p = iter->get();
             uint32_t node_idx;
             auto& node = tree.Allocate(node_idx);
+
+            sizes[p.id] = p.size;
 
             assert(p.id == node_idx);
 
@@ -72,7 +77,17 @@ void Window_Meshgen::update_mesh() {
             parent.AddChild(rel.child);
         }
 
-        mesh = unpack_mesh(ProcessTree(tree, [](auto, auto, auto, auto, auto, auto) { return 0.25f; }));
+        auto radius_func = [&](
+            size_t idx, lm::Vector4 const& pos,
+            uint64_t user0, float weight0,
+            uint64_t user1, float weight1) -> float {
+                auto size0 = sizes.at(user0);
+                auto size1 = sizes.at(user1);
+
+                return 0.125f * (weight0 * glm::length(size0) + weight1 * glm::length(size1));
+        };
+
+        mesh = unpack_mesh(ProcessTree(tree, radius_func));
     }
 }
 
