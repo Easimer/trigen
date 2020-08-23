@@ -9,8 +9,6 @@
 
 #include <trigen/tree_meshifier.h>
 
-#include <dual_contouring.h>
-
 using namespace std::placeholders;
 
 Window_Meshgen::Window_Meshgen(

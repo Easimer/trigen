@@ -137,7 +137,6 @@ add_subdirectory(imgui)
 add_subdirectory(renderer)
 add_subdirectory(tree_meshifier)
 add_subdirectory(softbody)
-add_subdirectory(dual_contouring)
 
 add_subdirectory(bark_test)
 add_subdirectory(ifs_test)
