@@ -3,6 +3,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
+find_package(FBXSDK REQUIRED)
 
 set(SRC
     common.h
@@ -31,11 +32,15 @@ set(SRC
 
     file_serializer.cpp
 
+    model_export.h
+    model_export_fbx.cpp
+
     resources.qrc
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes tree_meshifier)
+target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes tree_meshifier ${FBX_SDK_LIBRARY})
+target_include_directories(testbed_qt PRIVATE ${FBX_SDK_INCLUDE_DIR})
 
 add_custom_command(
     TARGET testbed_qt POST_BUILD
