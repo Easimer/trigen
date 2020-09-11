@@ -7,7 +7,7 @@ Acquire these:
 - SDL2_ttf development libraries
 - OpenCL development libraries
 - Qt5 development libraries
-- Autodesk FBX SDK
+- [Autodesk FBX SDK](https://www.autodesk.com/developer-network/platform-technologies/fbx-sdk-2020-0)
 
 *NOTE: you won't need Qt5 or the FBX SDK unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
 
@@ -23,10 +23,11 @@ To install OpenCL you'll need the development package appropriate for your platf
 
 ## Linux
 On Linux, download and install CMake, SDL2, SDL2_ttf, OpenCL and Qt5 from your package manager.
+If you're building the Qt testbed as well, then you'll need to install the libxml2 and zlib development libraries too.
 
-On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev ocl-icd-opencl-dev qtbase5-dev`.
+On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev ocl-icd-opencl-dev qtbase5-dev libxml2-dev zlib-dev libz-dev`.
 
-On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-devel SDL2_ttf-devel SDL2-static ocl-icd-devel qt5-devel`.
+On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-devel SDL2_ttf-devel SDL2-static ocl-icd-devel qt5-devel libxml2-devel zlib-devel`.
 
 ## Generate build files
 
