@@ -2,6 +2,7 @@
 
 if(NOT FBX_SDK_DIR)
 	set(FBX_SDK_DIR "" CACHE PATH "FBX SDK directory (the one that contains 'include', 'lib' and 'samples'")
+	message("Please set FBX_SDK_DIR")
 else()
 	if(NOT FBX_SDK_BUILD_TYPE)
 		# Default to using the release library, even in debug mode, but let users
