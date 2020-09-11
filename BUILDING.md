@@ -7,8 +7,9 @@ Acquire these:
 - SDL2_ttf development libraries
 - OpenCL development libraries
 - Qt5 development libraries
+- Autodesk FBX SDK
 
-*NOTE: you won't need Qt5 unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
+*NOTE: you won't need Qt5 or the FBX SDK unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
 
 ## Windows
 
@@ -44,7 +45,8 @@ On Windows these are:
 - `SDL2TTF_INCLUDE_DIR` should point to the SDL2_ttf header directory (`X:\SDL2_ttf-2.0.15\include`)
 - `SDL2TTF_LIBRARY` should point to the SDL2_ttf library directory (`X:\SDL2_ttf-2.0.15\lib\x64`)
 - `Qt5_DIR` should point to the directory that contains the `Qt5Config.cmake` file (`X:\Qt\Qt5.12.9\5.12.9\msvc2017_64\lib\cmake\Qt5`)
-On Windows CMake will probably only ask for `SDL2_DIR`, `SDL2TTF_LIBRARY`, `SDL2TTF_INCLUDE_DIR` and `Qt5_DIR`, as the rest of them will be inferred from these three arguments.
+- `FBX_SDK_DIR` should point to the directory where you've installed the FBX SDK; it contains directories like `include` and `lib` (`X:\Autodesk\FBX\FBX SDK\2020.1.1`)
+On Windows CMake will probably only ask for `SDL2_DIR`, `SDL2TTF_LIBRARY`, `SDL2TTF_INCLUDE_DIR`, `FBX_SDK_DIR` and `Qt5_DIR`, as the rest of them will be inferred from these three arguments.
 
 # Running
 Right now the build system doesn't copy all the files to the build directory that are needed to run the programs and you must do this manually.
