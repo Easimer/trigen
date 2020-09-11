@@ -1,3 +1,13 @@
+# List of build configuration options
+| Identifier             |   Type   | Description                                                                     |
+|------------------------|----------|---------------------------------------------------------------------------------|
+| `BUILD_LEGACY_STUFF`   |  `BOOL`  | Should old projects like `bark_test`, `ifs_test` be built                       |
+| `FBX_SDK_DIR`          |  `BOOL`  | Path to the Autodesk FBX SDK                                                    |
+| `FBX_SDK_BUILD_TYPE`   | `STRING` | What kind of FBX SDK lib to link against (debug, release)                       |
+| `SOFTBODY_CLANG_TIDY`  |  `BOOL`  | Execute clang-tidy on the code base                                             |
+| `SOFTBODY_ENABLE_CUDA` |  `BOOL`  | Enable CUDA backend in the softbody library                                     |
+| `SOFTBODY_TESTBED_QT`  |  `BOOL`  | Build the Qt testbed                                                            |
+
 # Building
 
 Acquire these:
@@ -8,6 +18,7 @@ Acquire these:
 - OpenCL development libraries
 - Qt5 development libraries
 - [Autodesk FBX SDK](https://www.autodesk.com/developer-network/platform-technologies/fbx-sdk-2020-0)
+- NVIDIA CUDA Toolkit (if you want to build the CUDA compute backend of the softbody library)
 
 *NOTE: you won't need Qt5 or the FBX SDK unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
 
@@ -31,7 +42,7 @@ On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-
 
 ## Generate build files
 
-Now, configure and generate the build scripts using CMake. You can build either out-of-tree or in-tree. 
+Now, configure and generate the build scripts using CMake.
 
 If you've installed SDL2 and SDL2_ttf from your package manager, then CMake will automatically find them.
 However, if you're building on Windows or your SDL2 binaries are built from source, then you'll need to provide
@@ -48,6 +59,20 @@ On Windows these are:
 - `Qt5_DIR` should point to the directory that contains the `Qt5Config.cmake` file (`X:\Qt\Qt5.12.9\5.12.9\msvc2017_64\lib\cmake\Qt5`)
 - `FBX_SDK_DIR` should point to the directory where you've installed the FBX SDK; it contains directories like `include` and `lib` (`X:\Autodesk\FBX\FBX SDK\2020.1.1`)
 On Windows CMake will probably only ask for `SDL2_DIR`, `SDL2TTF_LIBRARY`, `SDL2TTF_INCLUDE_DIR`, `FBX_SDK_DIR` and `Qt5_DIR`, as the rest of them will be inferred from these three arguments.
+
+## CUDA
+To enable the CUDA compute backend in the softbody library, set the configuration option `SOFTBODY_ENABLE_CUDA` to `ON`.
+
+CMake may ask for the path to nvcc (`CMAKE_CUDA_COMPILER`).
+Now if CMake fails to configure the project and tells you that it still can't find the compiler (despite telling it the exact location) that means that the GCC compiler on your platform is not yet supported by NVIDIA.
+
+You can check whether this is the case by trying to manually compile a CUDA program. 
+
+If nvcc says that your GCC is unsupported, then you'll need an older version (for CUDA 11.0 it's GCC 8), then set `CMAKE_CUDA_FLAGS` to `-ccbin cuda-g++`.
+
+## Example CMake invocation on Fedora 32
+
+`cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_CUDA_FLAGS="-ccbin cuda-g++" -DSOFTBODY_TESTBED_QT=ON -DSOFTBODY_ENABLE_CUDA=ON -DSOFTBODY_CLANG_TIDY=ON -DFBX_SDK_DIR=/fbxsdk/ -GNinja /trigen/`
 
 # Running
 Right now the build system doesn't copy all the files to the build directory that are needed to run the programs and you must do this manually.

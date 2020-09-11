@@ -1,3 +1,9 @@
+option(SOFTBODY_ENABLE_CUDA "Enable CUDA backend")
+
+if(${SOFTBODY_ENABLE_CUDA})
+    enable_language(CUDA)
+endif()
+
 set(SRC_PUBLIC
     ../public/softbody.h
 )
