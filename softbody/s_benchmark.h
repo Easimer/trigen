@@ -7,33 +7,25 @@
 
 #if SB_BENCHMARK
 
-
-#if _WIN32
-#define cpu_rdtsc() (__rdtsc())
-#else
-#define cpu_rdtsc() (0)
-#endif /* PLATFORM */
-
+#include <chrono>
 #define DECLARE_BENCHMARK_BLOCK() \
-    static decltype(cpu_rdtsc()) rdtsc = 0; \
-    static size_t rdtsc_count = 0;
+    static std::chrono::milliseconds sbbm_dur; \
+    static size_t sbbm_count = 0;
 
 #define BEGIN_BENCHMARK() \
-    auto const rdtsc_begin = cpu_rdtsc();
+    auto const sbbm_begin = std::chrono::high_resolution_clock::now();
 
 #define END_BENCHMARK() \
-    auto const rdtsc_end = cpu_rdtsc();
+    auto const sbbm_end = std::chrono::high_resolution_clock::now();
 
 #define PRINT_BENCHMARK_RESULT_MASKED(mask) \
-    auto const rdtsc_diff = rdtsc_end - rdtsc_begin; \
-    rdtsc = rdtsc_diff; \
-    rdtsc_count++; \
-    if((rdtsc_count & (mask)) == 0) { \
-        printf("sb: benchmark: %s %f kilocycles\n", __func__, (double)rdtsc / 1000.0f); \
+    auto const sbbm_diff = sbbm_end - sbbm_begin; \
+    sbbm_dur = std::chrono::duration_cast<std::chrono::milliseconds>(sbbm_diff); \
+    sbbm_count++; \
+    if((sbbm_count & (mask)) == 0) { \
+        printf("sb: benchmark: %s %llu ms\n", __func__, sbbm_dur.count()); \
     }
 
 #define PRINT_BENCHMARK_RESULT() PRINT_BENCHMARK_RESULT_MASKED(0x00000000)
 
-#else
-#define cpu_rdtsc() (0)
 #endif /* SB_BENCHMARK */
