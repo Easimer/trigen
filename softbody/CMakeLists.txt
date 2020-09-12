@@ -1,7 +1,15 @@
 option(SOFTBODY_ENABLE_CUDA "Enable CUDA backend")
 
 if(${SOFTBODY_ENABLE_CUDA})
+    # find_package(CUDA 11.0 REQUIRED)
+    find_package(CUDAToolkit 11.0 REQUIRED)
+
     enable_language(CUDA)
+    set(SRC_CUDA
+        s_compute_cuda.cu
+    )
+    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 endif()
 
 set(SRC_PUBLIC
@@ -48,9 +56,9 @@ set(SRC_TESTS
     m_utils.tests.cpp
 )
 
-add_library(softbody STATIC ${SRC_PUBLIC} ${SRC_IMPL})
+add_library(softbody STATIC ${SRC_PUBLIC} ${SRC_IMPL} ${SRC_CUDA})
 target_precompile_headers(softbody PRIVATE stdafx.h)
-target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES})
+target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} CUDA::cudart_static)
 target_include_directories(softbody PRIVATE ${OpenCL_INCLUDE_DIRS})
 add_compile_definitions(CL_HPP_TARGET_OPENCL_VERSION=120)
 add_compile_definitions(CL_HPP_MINIMUM_OPENCL_VERSION=120)
@@ -61,3 +69,7 @@ tri_builddir(softbody_tests)
 add_test(NAME softbody_tests COMMAND softbody_tests)
 target_link_libraries(softbody_tests PRIVATE ${OpenCL_LIBRARIES})
 target_include_directories(softbody_tests PRIVATE ${OpenCL_INCLUDE_DIRS})
+
+if(${SOFTBODY_ENABLE_CUDA})
+    target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_ENABLED=1 _GLIBCXX_USE_CXX11_ABI=0)
+endif()

@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include "softbody.h"
-#include "s_simulation.h"
+#include "common.h"
 
 class Softbody_Simulation;
+class ICompute_Backend_Complete;
 
 class ICompute_Backend {
 public:
@@ -20,11 +20,23 @@ public:
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
 sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend();
+sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend();
 
 inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend() {
+#if SOFTBODY_CUDA_ENABLED
+    // Try creating a CUDA compute backend
+    auto ret = Make_CUDA_Backend();
+
+    if(ret == NULL) {
+        // Try to fallback to OpenCL
+        ret = Make_CL_Backend();
+    }
+#else
     auto ret = Make_CL_Backend();
+#endif
 
     if (ret == NULL) {
+        // Fallback to CPU backend
         ret = Make_Reference_Backend();
     }
 
