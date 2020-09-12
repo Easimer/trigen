@@ -5,9 +5,11 @@
 
 #define GLM_FORCE_CUDA
 #include <cassert>
+#include <array>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#include "device_launch_parameters.h"
 #include <numeric>
 #include "l_iterators.h"
 #include <glm/glm.hpp>
@@ -240,7 +242,7 @@ __global__ void k_calculate_particle_masses(unsigned N, float* d_masses, float4 
     if(i < N) {
         float d_i = d_densities[i];
         float4 s_i = d_sizes[i];
-        d_masses[i] = (4.0f / 3.0f) * M_PI * s_i.x * s_i.y * s_i.z * d_i;
+        d_masses[i] = (4.0f / 3.0f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
     }
 }
 
