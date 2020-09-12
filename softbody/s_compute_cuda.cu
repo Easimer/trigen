@@ -10,6 +10,8 @@
 #include <cuda_runtime_api.h>
 #include <glm/glm.hpp>
 #include "softbody.h"
+#define SB_BENCHMARK 1
+#include "s_benchmark.h"
 #include "s_compute_backend.h"
 #define CUDA_SUCCEEDED(HR, APICALL) ((HR = APICALL) == cudaSuccess)
 #define ASSERT_CUDA_SUCCEEDED(APICALL) ((APICALL) == cudaSuccess)
@@ -124,6 +126,8 @@ public:
         // TODO: allocate buffers here
 
         calculate_particle_masses(s);
+
+        d_adjacency = make_adjacency_matrix(s);
     }
 
     void calculate_particle_masses(System_State const& s) {
@@ -138,6 +142,33 @@ public:
         cudaMemcpyAsync(h_masses.data(), d_masses, d_masses.bytes(), cudaMemcpyDeviceToHost, stream);
     }
 
+    CUDA_Array<float> make_adjacency_matrix(System_State const& s) {
+        DECLARE_BENCHMARK_BLOCK();
+
+        BEGIN_BENCHMARK();
+        auto const N = particle_count(s);
+        CUDA_Array<float> d_ret(N * N);
+        Vector<float> h_ret;
+
+        // TODO(danielm): are we sure that this fills the vector with 0.0f values?
+        h_ret.resize(N * N);
+
+        for(index_t i = 0; i < N; i++) {
+            float* i_row = h_ret.data() + i * N;
+            auto const& neighbors = s.edges.at(i);
+            for(auto neighbor : neighbors) {
+                i_row[neighbor] = 1.0f;
+            }
+        }
+
+        cudaMemcpyAsync(d_ret, h_ret.data(), d_ret.bytes(), cudaMemcpyHostToDevice, stream);
+
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT_MASKED(0xF);
+
+        return d_ret;
+    }
+
     void do_one_iteration_of_shape_matching_constraint_resolution(System_State& sim, float dt) override {
     }
 
@@ -146,6 +177,7 @@ private:
 
     Vector<float> h_masses;
 
+    CUDA_Array<float> d_adjacency;
     CUDA_Array<float> d_masses;
     CUDA_Array<float> d_densities;
     CUDA_Array<float4> d_sizes;
