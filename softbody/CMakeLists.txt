@@ -10,6 +10,8 @@ if(${SOFTBODY_ENABLE_CUDA})
     )
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
+
+    set(SOFTBODY_CUDA_LIBS CUDA::cudart_static)
 endif()
 
 set(SRC_PUBLIC
@@ -58,7 +60,7 @@ set(SRC_TESTS
 
 add_library(softbody STATIC ${SRC_PUBLIC} ${SRC_IMPL} ${SRC_CUDA})
 target_precompile_headers(softbody PRIVATE stdafx.h)
-target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} CUDA::cudart_static)
+target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} ${SOFTBODY_CUDA_LIBS})
 target_include_directories(softbody PRIVATE ${OpenCL_INCLUDE_DIRS})
 add_compile_definitions(CL_HPP_TARGET_OPENCL_VERSION=120)
 add_compile_definitions(CL_HPP_MINIMUM_OPENCL_VERSION=120)
