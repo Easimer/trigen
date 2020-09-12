@@ -22,7 +22,7 @@
 #define SIM_SIZE_LIMIT (4096)
 #define SOLVER_ITERATIONS (12)
 
-// #define DEBUG_TETRAHEDRON
+#define DEBUG_TETRAHEDRON
 #ifdef DEBUG_TETRAHEDRON
 #define DISABLE_GROWTH
 #define DISABLE_PHOTOTROPISM
@@ -88,6 +88,8 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
     auto idx_t0 = add_init_particle(o + Vec3(-4,  8,  4), siz, 1);
     auto idx_t1 = add_init_particle(o + Vec3(+4,  8,  4), siz, 1);
     auto idx_t2 = add_init_particle(o + Vec3( 0,  8, -4), siz, 1);
+
+    s.fixed_particles.insert(idx_root);
 
     connect_particles(idx_root, idx_t0);
     connect_particles(idx_root, idx_t1);
