@@ -134,21 +134,24 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
     std::vector<std::string> defines_fmt;
     std::vector<char const*> sources;
 
-    bool is_intel_gpu = false;
+    bool is_mesa_gpu = false;
 
     // Detect open-source Intel drivers
-    is_intel_gpu = (strcmp((char*)glGetString(GL_VENDOR), "Intel Open Source Technology Center") == 0);
+    char const* vendor = (char*)glGetString(GL_VENDOR);
+    printf("[GFX] GPU vendor: '%s'\n", vendor);
+    is_mesa_gpu |= (strcmp(vendor, "Intel Open Source Technology Center") == 0);
+    is_mesa_gpu |= (strcmp(vendor, "VMware, Inc.") == 0);
 
     char const* pszVersion = "#version 330 core\n";
     char const* pszLineReset = "#line -1\n";
 
-    if (is_intel_gpu) {
+    if (is_mesa_gpu) {
         pszVersion = "#version 130\n";
     }
 
     sources.push_back(pszVersion);
 
-    if (is_intel_gpu) {
+    if (is_mesa_gpu) {
         sources.push_back("#define VAO_LAYOUT(i)\n");
     }
 
@@ -159,7 +162,7 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
         sources.push_back(defines_fmt.back().c_str());
     }
 
-    if (!is_intel_gpu) {
+    if (!is_mesa_gpu) {
         sources.push_back(pszLineReset);
     }
 
