@@ -12,6 +12,7 @@
 #include <QSplitter>
 #include "glviewport.h"
 #include "r_queue.h"
+#include "helper_ui_widget.h"
 #include "ui_sim_control.h"
 #include "ui_sim_config.h"
 
@@ -104,26 +105,6 @@ signals:
     void branch_angle_variance_changed(float value);
     void particle_count_limit_changed(unsigned value);
     void ext_changed(sb::Extension value);
-};
-
-template<typename UI>
-class Ui_Widget {
-public:
-    Ui_Widget(QWidget* parent = nullptr)
-        : ui(), widget(std::make_unique<QWidget>(parent)) {
-        ui.setupUi(widget.get());
-    }
-
-    explicit operator QWidget* () {
-        return widget.get();
-    }
-
-    UI* operator->() {
-        return &ui;
-    }
-private:
-    UI ui;
-    Unique_Ptr<QWidget> widget;
 };
 
 class Window_Main : public QMainWindow {

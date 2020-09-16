@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>319</width>
-    <height>109</height>
+    <height>138</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -130,6 +130,13 @@
       </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btnFaultDetector">
+     <property name="text">
+      <string>Start fault detector</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>

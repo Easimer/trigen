@@ -12,11 +12,19 @@ set(SRC
     sim_control.ui
     sim_config.ui
 
+    helper_ui_widget.h
+
     wnd_main.cpp
     wnd_main.h
 
     wnd_meshgen.cpp
     wnd_meshgen.h
+
+    wnd_fault_detector.cpp
+    wnd_fault_detector.h
+    fault_detector.cpp
+    fault_detector.h
+    sb_fault_detector_exception.ui
 
     glviewport.cpp
     glviewport.h

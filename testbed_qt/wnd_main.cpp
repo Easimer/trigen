@@ -13,6 +13,7 @@
 #include "raymarching.h"
 #include "colliders.h"
 #include "wnd_meshgen.h"
+#include "wnd_fault_detector.h"
 #include <thread>
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
@@ -142,6 +143,9 @@ Window_Main::Window_Main(QWidget* parent) :
     sim_cfg.setProperty("branching_probability", 0.25f);
     sim_cfg.setProperty("branch_angle_variance", glm::pi<float>());
     sim_cfg.setProperty("particle_count_limit", 128u);
+    
+    // Not settable from UI
+    sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
 
     connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
         stop_simulation();
@@ -181,6 +185,11 @@ Window_Main::Window_Main(QWidget* parent) :
     connect(sim_control->btnMeshgen, &QPushButton::released, [&]() {
         auto wnd = new Window_Meshgen(simulation);
         connect(this, &Window_Main::render, wnd, &Window_Meshgen::render);
+        wnd->show();
+    });
+
+    connect(sim_control->btnFaultDetector, &QPushButton::released, [&]() {
+        auto wnd = new Window_Fault_Detector(this);
         wnd->show();
     });
 }
