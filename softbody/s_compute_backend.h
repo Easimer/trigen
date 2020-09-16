@@ -22,23 +22,28 @@ sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
 sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend();
 sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend();
 
-inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend() {
+inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Preference pref) {
+    bool np = pref == sb::Compute_Preference::None;
+
+    if (pref == sb::Compute_Preference::Reference) {
+        return Make_Reference_Backend();
+    }
+
 #if SOFTBODY_CUDA_ENABLED
-    // Try creating a CUDA compute backend
-    auto ret = Make_CUDA_Backend();
-
-    if(ret == NULL) {
-        // Try to fallback to OpenCL
-        ret = Make_CL_Backend();
+    if (pref == sb::Compute_Preference::GPU_Proprietary || np) {
+        auto ret = Make_CUDA_Backend();
+        if (ret != nullptr) {
+            return ret;
+        }
     }
-#else
-    auto ret = Make_CL_Backend();
-#endif
+#endif /* SOFTBODY_CUDA_ENABLED */
 
-    if (ret == NULL) {
-        // Fallback to CPU backend
-        ret = Make_Reference_Backend();
+    if (pref == sb::Compute_Preference::GPU_OpenCL || np) {
+        auto ret = Make_CL_Backend();
+        if (ret != nullptr) {
+            return ret;
+        }
     }
 
-    return ret;
+    return Make_Reference_Backend();
 }

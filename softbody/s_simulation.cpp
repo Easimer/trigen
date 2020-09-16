@@ -121,7 +121,7 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
 
     s.center_of_mass.resize(particle_count());
 
-    compute = Make_Compute_Backend();
+    compute = Make_Compute_Backend(configuration.compute_preference);
     create_extension(params.ext, params);
     pump_deferred_requests();
 }

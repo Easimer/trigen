@@ -27,7 +27,8 @@ namespace sb {
     enum class Compute_Preference {
         None = 0,
         Reference,
-        GPU,
+        GPU_OpenCL,
+        GPU_Proprietary,
     };
 
     struct Config {
@@ -44,6 +45,8 @@ namespace sb {
         float branch_angle_variance;
 
         unsigned particle_count_limit;
+
+        Compute_Preference compute_preference;
     };
 
     using index_t = typename std::make_signed<size_t>::type;
