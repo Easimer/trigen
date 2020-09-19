@@ -1,18 +1,18 @@
 // === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
 //
-// Purpose: fault detector
+// Purpose: cross-checker
 //
 
-#include "common.h"
+#include "stdafx.h"
 #include <softbody.h>
-#include "fault_detector.h"
+#include "cross_check.h"
 
 #define SIM_REF (0)
 #define SIM_OCL (1)
 #define SIM_PRP (2)
 
-static Fault_Detector::Simulation_Instance create_sim_instance(sb::Compute_Preference pref) {
-	Fault_Detector::Simulation_Instance ret;
+static Cross_Check::Simulation_Instance create_sim_instance(sb::Compute_Preference pref) {
+	Cross_Check::Simulation_Instance ret;
 	sb::Config cfg;
 	cfg.ext = sb::Extension::Debug_Cloth;
 	cfg.compute_preference = pref;
@@ -23,13 +23,13 @@ static Fault_Detector::Simulation_Instance create_sim_instance(sb::Compute_Prefe
 	return ret;
 }
 
-Fault_Detector::Fault_Detector() {
+Cross_Check::Cross_Check() {
 	simulations[SIM_REF] = create_sim_instance(sb::Compute_Preference::Reference);
 	simulations[SIM_OCL] = create_sim_instance(sb::Compute_Preference::GPU_OpenCL);
 	simulations[SIM_PRP] = create_sim_instance(sb::Compute_Preference::GPU_Proprietary);
 }
 
-static std::map<sb::index_t, sb::Particle> gather_particles(sb::Unique_Ptr<sb::Particle_Iterator>& it) {
+static std::map<sb::index_t, sb::Particle> gather_particles(sb::Unique_Ptr<sb::Particle_Iterator> const& it) {
 	std::map<sb::index_t, sb::Particle> ret;
 
 	for (; !it->ended(); it->step()) {
@@ -40,7 +40,7 @@ static std::map<sb::index_t, sb::Particle> gather_particles(sb::Unique_Ptr<sb::P
 	return ret;
 }
 
-void Fault_Detector::step() {
+void Cross_Check::step() {
 	char msgbuf[512];
 	char stepbuf[128];
 
@@ -54,7 +54,7 @@ void Fault_Detector::step() {
 	auto it_max = std::max_element(particles_ref.begin(), particles_ref.end(), [&](auto lhs, auto rhs) {
 		return lhs.first < rhs.first;
 	});
-	assert(it_max != particles_ref.end && "Is the simulation empty?");
+	assert(it_max != particles_ref.end() && "Is the simulation empty?");
 	
 	auto idx_max = it_max->first;
 
@@ -66,23 +66,13 @@ void Fault_Detector::step() {
 		auto eq0 = glm::epsilonEqual(p_ref.position, p_ocl.position, 0.1f);
 		if (!eq0[0] || !eq0[1] || !eq0[2]) {
 			simulations[SIM_OCL].step->get_state_description(128, stepbuf);
-			throw Fault_Detector_Exception(
-				sb::Compute_Preference::GPU_OpenCL,
-				i, p_ref, p_ocl,
-				"Particle positions don't match between reference and OpenCL implementations!",
-				stepbuf
-			);
+            // TODO: call
 		}
 
 		auto eq1 = glm::epsilonEqual(p_ref.position, p_prp.position, 0.1f);
 		if (!eq1[0] || !eq1[1] || !eq1[2]) {
 			simulations[SIM_OCL].step->get_state_description(128, stepbuf);
-			throw Fault_Detector_Exception(
-				sb::Compute_Preference::GPU_Proprietary,
-				i, p_ref, p_ocl,
-				"Particle positions don't match between reference and proprietary implementations!",
-				stepbuf
-			);
+            // TODO: call
 		}
 	}
 }

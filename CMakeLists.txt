@@ -146,6 +146,7 @@ if(${BUILD_LEGACY_STUFF})
 	add_subdirectory(cylindergen)
 	add_subdirectory(editor)
 endif()
+add_subdirectory(softbody_crosscheck)
 add_subdirectory(softbody_testbed)
 
 option(SOFTBODY_TESTBED_QT "Build the Qt5-based testbed")
