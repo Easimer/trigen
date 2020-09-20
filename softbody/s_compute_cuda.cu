@@ -193,15 +193,15 @@ __hybrid__ void calculate_A_i(
 __hybrid__ void calculate_cluster_moment_matrix(
     float4* A,
     unsigned i,
-    float* adjacency, unsigned N,
-    float* masses,
-    float4* predicted_orientations,
-    float4* sizes,
-    float4* predicted_positions,
-    float4* bind_pose,
-    float4* centers_of_masses,
-    float4* bind_pose_centers_of_masses,
-    float4* bind_pose_inverse_bind_pose
+    float const* adjacency, unsigned N,
+    float const* masses,
+    float4 const* predicted_orientations,
+    float4 const* sizes,
+    float4 const* predicted_positions,
+    float4 const* bind_pose,
+    float4 const* centers_of_masses,
+    float4 const* bind_pose_centers_of_masses,
+    float4 const* bind_pose_inverse_bind_pose
 ) {
     float4 acc[4];
 
@@ -246,32 +246,42 @@ __global__ void k_calculate_particle_masses(unsigned N, float* d_masses, float4 
     }
 }
 
-__global__ void k_do_shape_matching(
+__global__ void k_calculate_cluster_moment_matrices(
         float4* out, unsigned N,
-        float* adjacency,
-        float* masses,
-        float4* predicted_orientations,
-        float4* sizes,
-        float4* predicted_positions,
-        float4* bind_pose,
-        float4* centers_of_masses,
-        float4* bind_pose_centers_of_masses,
-        float4* bind_pose_inverse_bind_pose) {
+        float const* adjacency,
+        float const* masses,
+        float4 const* predicted_orientations,
+        float4 const* sizes,
+        float4 const* predicted_positions,
+        float4 const* bind_pose,
+        float4 const* centers_of_masses,
+        float4 const* bind_pose_centers_of_masses,
+        float4 const* bind_pose_inverse_bind_pose) {
     unsigned id = threadIdx.x + blockDim.x * blockIdx.x;
-    if(id < N) {
-        float4 A[4];
-
-        calculate_cluster_moment_matrix(
-                A, id,
-                adjacency, N,
-                masses, predicted_orientations, sizes,
-                predicted_positions, bind_pose,
-                centers_of_masses, bind_pose_centers_of_masses,
-                bind_pose_inverse_bind_pose
-        );
-
-        out[id] = mueller_rotation_extraction_impl(A, predicted_orientations[id]);
+    if(id >= N) {
+        return;
     }
+
+    calculate_cluster_moment_matrix(
+            &out[4 * id], id,
+            adjacency, N,
+            masses, predicted_orientations, sizes,
+            predicted_positions, bind_pose,
+            centers_of_masses, bind_pose_centers_of_masses,
+            bind_pose_inverse_bind_pose
+    );
+}
+
+__global__ void k_extract_rotations(
+        float4* out, unsigned N,
+        float4 const* A, float4 const* predicted_orientations
+        ) {
+    unsigned id = threadIdx.x + blockDim.x * blockIdx.x;
+    if(id >= N) {
+        return;
+    }
+
+    out[id] = mueller_rotation_extraction_impl(&A[id * 4], predicted_orientations[id]);
 }
 
 template<long threads_per_block>
@@ -428,12 +438,24 @@ public:
         Vector<Quat> h_out;
         h_out.resize(N);
 
+        float4* d_tmp_cluster_moment_matrices = NULL;
+        ASSERT_CUDA_SUCCEEDED(cudaMalloc(&d_tmp_cluster_moment_matrices, N * 16 * sizeof(float)));
+
 #define SHPMTCH_THREADS_PER_BLOCK (8)
         auto const blocks = get_block_count<SHPMTCH_THREADS_PER_BLOCK>(N);
-        k_do_shape_matching<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
-            d_out, N, d_adjacency, d_masses, d_predicted_orientations, d_sizes, d_predicted_positions, d_bind_pose,
-            d_centers_of_masses, d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
+
+        k_calculate_cluster_moment_matrices<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
+            d_tmp_cluster_moment_matrices, N, d_adjacency, d_masses, d_predicted_orientations,
+            d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
+            d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
         );
+
+        k_extract_rotations<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
+            d_out, N,
+            d_tmp_cluster_moment_matrices, d_predicted_orientations
+        );
+
+        cudaFree(d_tmp_cluster_moment_matrices);
         
         // Calculate what we can on the CPU while we're waiting for the GPU
 
