@@ -300,6 +300,8 @@ public:
         printf("sb: CUDA compute backend created\n");
         // TODO(danielm): not sure if cudaEventBlockingSync would be a good idea for this event
         ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev_h_masses_ready, cudaEventDefault));
+
+        compute_ref = Make_Reference_Backend();
     }
 
     ~Compute_CUDA() override {
@@ -380,6 +382,14 @@ public:
 
     float mass_of_particle(System_State const&, index_t i) const {
         return h_masses[i];
+    }
+
+    void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
+        compute_ref->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
+    }
+
+    void do_one_iteration_of_distance_constraint_resolution(System_State& s, float phdt) override {
+        compute_ref->do_one_iteration_of_distance_constraint_resolution(s, phdt);
     }
 
     void do_one_iteration_of_shape_matching_constraint_resolution(System_State& s, float dt) override {
@@ -507,6 +517,8 @@ public:
 
 private:
     cudaStream_t stream;
+
+    sb::Unique_Ptr<ICompute_Backend> compute_ref;
 
     cudaEvent_t ev_h_masses_ready;
     Vector<float> h_masses;

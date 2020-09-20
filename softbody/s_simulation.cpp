@@ -257,33 +257,12 @@ float Softbody_Simulation::get_phdt() {
 }
 
 void Softbody_Simulation::do_one_iteration_of_distance_constraint_resolution(float phdt) {
-    for (unsigned i = 0; i < particle_count(); i++) {
-        auto& neighbors = s.edges[i];
-        auto w1 = 1 / mass_of_particle(i);
-        for (auto j : neighbors) {
-            auto w2 = 1 / mass_of_particle(j);
-            auto w = w1 + w2;
-
-            auto n = s.predicted_position[j] - s.predicted_position[i];
-            auto d = glm::length(n);
-            n = glm::normalize(n);
-            auto restLength = glm::length(s.bind_pose[j] - s.bind_pose[i]);
-
-            auto stiffness = params.stiffness;
-            auto corr = stiffness * n * (d - restLength) / w;
-
-            s.predicted_position[i] += w1 * corr;
-            s.predicted_position[j] += -w2 * corr;
-        }
-    }
+    compute->do_one_iteration_of_distance_constraint_resolution(s, phdt);
 }
 
 void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float phdt) {
     // force particles to stay in their bind pose
-
-    for (auto i : s.fixed_particles) {
-        s.predicted_position[i] = s.bind_pose[i];
-    }
+    compute->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
 }
 
 void Softbody_Simulation::constraint_resolution(float dt) {

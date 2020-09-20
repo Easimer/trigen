@@ -46,6 +46,8 @@ public:
         printf("\tLocal memory size: %llu\n", local_mem_size);
         printf("\tPrivate memory size: %llu\n", private_mem_size);
         printf("\tPreferred work-group size multiple: %zu\n\n", preferred_work_group_size_multiple);
+
+        compute_ref = Make_Reference_Backend();
     }
 private:
     cl::Context ctx;
@@ -57,6 +59,8 @@ private:
     using Test_Rotation_Extraction = cl::KernelFunctor<cl::Buffer, cl::Buffer>;
     using Calculate_Particle_Masses = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>;
     using Do_Shape_Matching = cl::KernelFunctor<cl::Buffer, cl::Buffer, unsigned, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer >;
+
+    sb::Unique_Ptr<ICompute_Backend> compute_ref;
 
     Vector<float> particle_masses;
     cl::Buffer d_masses, d_predicted_orientations, d_sizes, d_predicted_positions;
@@ -97,6 +101,14 @@ private:
         d_out = cl::Buffer(ctx, CL_MEM_READ_WRITE, SIZE_N_VEC4(N));
 
         particle_masses = calculate_particle_masses(sim);
+    }
+
+    void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
+        compute_ref->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
+    }
+
+    void do_one_iteration_of_distance_constraint_resolution(System_State& s, float phdt) override {
+        compute_ref->do_one_iteration_of_distance_constraint_resolution(s, phdt);
     }
 
     Vector<float> calculate_particle_masses(System_State const& s) {
