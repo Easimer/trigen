@@ -73,7 +73,7 @@ void Cross_Check::step(Cross_Check_Listener* listener) {
         auto p_ocl = particles_ocl[i];
         auto p_prp = particles_prp[i];
 
-        auto eq0 = glm::epsilonEqual(p_ref.position, p_ocl.position, 0.1f);
+        auto eq0 = epsilonEqual(p_ref.position, p_ocl.position, 0.1f);
         if (!eq0[0] || !eq0[1] || !eq0[2]) {
             simulations[SIM_OCL].step->get_state_description(128, stepbuf);
             listener->fault(
@@ -83,12 +83,12 @@ void Cross_Check::step(Cross_Check_Listener* listener) {
                     stepbuf);
         }
 
-        auto eq1 = glm::epsilonEqual(p_ref.position, p_prp.position, 0.1f);
+        auto eq1 = epsilonEqual(p_ref.position, p_prp.position, 0.1f);
         if (!eq1[0] || !eq1[1] || !eq1[2]) {
             simulations[SIM_OCL].step->get_state_description(128, stepbuf);
             listener->fault(
                     sb::Compute_Preference::GPU_Proprietary,
-                    i, p_ref, p_ocl,
+                    i, p_ref, p_prp,
                     "Particle positions don't match between reference and proprietary implementations!",
                     stepbuf);
         }
