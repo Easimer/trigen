@@ -217,8 +217,8 @@ __hybrid__ void calculate_cluster_moment_matrix(
 
         calculate_A_i(
             temp,
-            masses[i], predicted_orientations[i], sizes[i],
-            predicted_positions[i], bind_pose[i],
+            masses[ni], predicted_orientations[ni], sizes[ni],
+            predicted_positions[ni], bind_pose[ni],
             cm, cm_0
         );
 
