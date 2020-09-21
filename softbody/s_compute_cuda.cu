@@ -182,8 +182,11 @@ __hybrid__ void calculate_A_i(
     float4 center_of_mass,
     float4 bind_pose_center_of_mass,
 
-    float4* temp, float4* diag, float4* orient
+    Cluster_Matrix_Shared_Memory* shmem
 ) {
+    float4* temp = shmem->temp;
+    float4* diag = shmem->diag;
+    float4* orient = shmem->orient;
     float const s = 1.0f / 5.0f;
 
     quat_to_mat(orient, orientation);
@@ -211,20 +214,10 @@ __hybrid__ void calculate_cluster_moment_matrix(
     float4 const* bind_pose_centers_of_masses,
     float4 const* bind_pose_inverse_bind_pose,
 
-    float4* shmem,
-    int bdim, int tidx
+    Cluster_Matrix_Shared_Memory* shmem
 ) {
-
-    float4* acc = (float4*)shmem + tidx * 4;
-    float4* invRest_base = (float4*)shmem + bdim * 4;
-    float4* invRest = invRest_base + tidx * 4;
-
-    float4* temp_base = invRest_base + bdim * 4;
-    float4* temp = temp_base + tidx * 4;
-    float4* diag_base = temp_base + bdim * 4;
-    float4* diag = diag_base + tidx * 4;
-    float4* orient_base = diag_base + bdim * 4;
-    float4* orient = orient_base + tidx * 4;
+    float4* acc = shmem->acc;
+    float4* invRest = shmem->invRest;
 
     float4 cm = centers_of_masses[i];
     float4 cm_0 = bind_pose_centers_of_masses[i];
@@ -234,7 +227,7 @@ __hybrid__ void calculate_cluster_moment_matrix(
             masses[i], predicted_orientations[i], sizes[i],
             predicted_positions[i], bind_pose[i],
             cm, cm_0,
-            temp, diag, orient
+            shmem
     );
 
     unsigned base = i * N;
@@ -248,7 +241,7 @@ __hybrid__ void calculate_cluster_moment_matrix(
             masses[ni], predicted_orientations[ni], sizes[ni],
             predicted_positions[ni], bind_pose[ni],
             cm, cm_0,
-            temp, diag, orient
+            shmem
         );
 
         acc[0] = acc[0] + w * ntemp[0];
@@ -290,7 +283,7 @@ __global__ void k_calculate_cluster_moment_matrices(
         return;
     }
 
-    extern __shared__ float4 shmem[];
+    extern __shared__ Cluster_Matrix_Shared_Memory shmem[];
 
     calculate_cluster_moment_matrix(
             &out[4 * id], id,
@@ -299,8 +292,7 @@ __global__ void k_calculate_cluster_moment_matrices(
             predicted_positions, bind_pose,
             centers_of_masses, bind_pose_centers_of_masses,
             bind_pose_inverse_bind_pose,
-            shmem,
-            blockDim.x, threadIdx.x
+            &shmem[threadIdx.x]
     );
 }
 
