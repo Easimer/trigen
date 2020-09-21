@@ -4,6 +4,9 @@ set(SRC
 
     cross_check.cpp
     cross_check.h
+
+    benchmark.cpp
+    benchmark.h
 )
 
 add_executable(sb_crosscheck ${SRC})

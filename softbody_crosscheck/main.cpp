@@ -6,7 +6,9 @@
 #include "stdafx.h"
 #include <cassert>
 #include <cstdio>
+#include <cstring>
 #include "cross_check.h"
+#include "benchmark.h"
 
 class Stdio_Serializer : public sb::ISerializer {
 public:
@@ -93,7 +95,21 @@ static void dump_images(Cross_Check& cc) {
     cc.dump_images(io);
 }
 
-int main(int argc, char** argv) {
+static int find_arg_flag(int argc, char** argv, char const* flag, bool* out) {
+    *out = false;
+    for(int i = 1; i < argc; i++) {
+        if(strcmp(argv[i], flag) == 0) {
+            *out = true;
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static int run_crosscheck(int argc, char** argv) {
+    printf("mode: cross-check\n");
+
     CCL ccl;
     Cross_Check cc;
 
@@ -101,10 +117,41 @@ int main(int argc, char** argv) {
         cc.step(&ccl);
     }
 
-
     if(ccl.is_error()) {
         dump_images(cc);
     }
 
     return 0;
+}
+
+static int run_benchmark(int argc, char** argv) {
+    printf("mode: benchmark\n");
+    bool _;
+
+    auto backend_flag_idx = find_arg_flag(argc, argv, "-B", &_);
+    assert(backend_flag_idx != -1);
+    if(argc > backend_flag_idx + 1) {
+        int backend_idx = 0;
+        sscanf(argv[backend_flag_idx + 1], "%d", &backend_idx);
+        printf("mode: benchmark backend=%d\n", backend_idx);
+        auto B = Benchmark::make_benchmark((sb::Compute_Preference)backend_idx);
+
+        B.run(5.0f, 1/60.0f);
+    } else {
+        printf("argument -B requires a parameter (compute backend id like 1, 2 or 3)\n");
+    }
+
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    bool should_run_benchmark = false;
+
+    find_arg_flag(argc, argv, "-B", &should_run_benchmark);
+
+    if(should_run_benchmark) {
+        return run_benchmark(argc, argv);
+    } else {
+        return run_crosscheck(argc, argv);
+    }
 }
