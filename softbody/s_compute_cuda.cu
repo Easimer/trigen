@@ -163,6 +163,15 @@ __hybrid__ float4 mueller_rotation_extraction_impl(
     return t;
 }
 
+struct Cluster_Matrix_Shared_Memory {
+    float4 acc[4];
+    float4 invRest[4];
+
+    float4 temp[4];
+    float4 diag[4];
+    float4 orient[4];
+};
+
 __hybrid__ void calculate_A_i(
     float4* A_i,
     float mass,
@@ -171,11 +180,10 @@ __hybrid__ void calculate_A_i(
     float4 predicted_position,
     float4 bind_pose,
     float4 center_of_mass,
-    float4 bind_pose_center_of_mass
+    float4 bind_pose_center_of_mass,
+
+    float4* temp, float4* diag, float4* orient
 ) {
-    float4 temp[4];
-    float4 diag[4];
-    float4 orient[4];
     float const s = 1.0f / 5.0f;
 
     quat_to_mat(orient, orientation);
@@ -201,34 +209,54 @@ __hybrid__ void calculate_cluster_moment_matrix(
     float4 const* bind_pose,
     float4 const* centers_of_masses,
     float4 const* bind_pose_centers_of_masses,
-    float4 const* bind_pose_inverse_bind_pose
+    float4 const* bind_pose_inverse_bind_pose,
+
+    float4* shmem,
+    int bdim, int tidx
 ) {
-    float4 acc[4];
+
+    float4* acc = (float4*)shmem + tidx * 4;
+    float4* invRest_base = (float4*)shmem + bdim * 4;
+    float4* invRest = invRest_base + tidx * 4;
+
+    float4* temp_base = invRest_base + bdim * 4;
+    float4* temp = temp_base + tidx * 4;
+    float4* diag_base = temp_base + bdim * 4;
+    float4* diag = diag_base + tidx * 4;
+    float4* orient_base = diag_base + bdim * 4;
+    float4* orient = orient_base + tidx * 4;
 
     float4 cm = centers_of_masses[i];
     float4 cm_0 = bind_pose_centers_of_masses[i];
 
-    calculate_A_i(acc, masses[i], predicted_orientations[i], sizes[i], predicted_positions[i], bind_pose[i], cm, cm_0);
+    calculate_A_i(
+            acc,
+            masses[i], predicted_orientations[i], sizes[i],
+            predicted_positions[i], bind_pose[i],
+            cm, cm_0,
+            temp, diag, orient
+    );
 
     unsigned base = i * N;
+    // TODO(danielm): 2D
     for(unsigned ni = 0; ni < N; ni++) {
-        float4 temp[4];
+        float4 ntemp[4];
         float w = adjacency[base + ni];
 
         calculate_A_i(
-            temp,
+            ntemp,
             masses[ni], predicted_orientations[ni], sizes[ni],
             predicted_positions[ni], bind_pose[ni],
-            cm, cm_0
+            cm, cm_0,
+            temp, diag, orient
         );
 
-        acc[0] = acc[0] + w * temp[0];
-        acc[1] = acc[1] + w * temp[1];
-        acc[2] = acc[2] + w * temp[2];
-        acc[3] = acc[3] + w * temp[3];
+        acc[0] = acc[0] + w * ntemp[0];
+        acc[1] = acc[1] + w * ntemp[1];
+        acc[2] = acc[2] + w * ntemp[2];
+        acc[3] = acc[3] + w * ntemp[3];
     }
 
-    float4 invRest[4];
     invRest[0] = bind_pose_inverse_bind_pose[i * 4 + 0];
     invRest[1] = bind_pose_inverse_bind_pose[i * 4 + 1];
     invRest[2] = bind_pose_inverse_bind_pose[i * 4 + 2];
@@ -262,13 +290,17 @@ __global__ void k_calculate_cluster_moment_matrices(
         return;
     }
 
+    extern __shared__ float4 shmem[];
+
     calculate_cluster_moment_matrix(
             &out[4 * id], id,
             adjacency, N,
             masses, predicted_orientations, sizes,
             predicted_positions, bind_pose,
             centers_of_masses, bind_pose_centers_of_masses,
-            bind_pose_inverse_bind_pose
+            bind_pose_inverse_bind_pose,
+            shmem,
+            blockDim.x, threadIdx.x
     );
 }
 
@@ -453,8 +485,9 @@ public:
 
 #define SHPMTCH_THREADS_PER_BLOCK (8)
         auto const blocks = get_block_count<SHPMTCH_THREADS_PER_BLOCK>(N);
+        auto shared_memory_count = SHPMTCH_THREADS_PER_BLOCK * sizeof(Cluster_Matrix_Shared_Memory);
 
-        k_calculate_cluster_moment_matrices<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
+        k_calculate_cluster_moment_matrices<<<blocks, SHPMTCH_THREADS_PER_BLOCK, shared_memory_count, stream>>>(
             d_tmp_cluster_moment_matrices, N, d_adjacency, d_masses, d_predicted_orientations,
             d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
             d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
@@ -512,7 +545,7 @@ public:
         }
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(0xFF);
+        PRINT_BENCHMARK_RESULT();
     }
 
 private:

@@ -435,7 +435,7 @@ private:
         }
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(0xFF);
+        PRINT_BENCHMARK_RESULT();
     }
 };
 

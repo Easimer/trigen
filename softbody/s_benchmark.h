@@ -23,7 +23,7 @@
     sbbm_dur = std::chrono::duration_cast<std::chrono::milliseconds>(sbbm_diff); \
     sbbm_count++; \
     if((sbbm_count & (mask)) == 0) { \
-        printf("sb: benchmark: %s %llu ms\n", __func__, sbbm_dur.count()); \
+        printf("sb: [%s] benchmark: %s %llu ms\n", __FILE__, __func__, sbbm_dur.count()); \
     }
 
 #define PRINT_BENCHMARK_RESULT() PRINT_BENCHMARK_RESULT_MASKED(0x00000000)
