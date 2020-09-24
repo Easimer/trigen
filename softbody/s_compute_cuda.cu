@@ -308,13 +308,37 @@ __global__ void k_extract_rotations(
     out[id] = mueller_rotation_extraction_impl(&A[id * 4], predicted_orientations[id]);
 }
 
+__global__ void k_calculate_centers_of_masses(
+        float4* com, unsigned N,
+        float const* adjacency,
+        float const* masses,
+        float4 const* predicted_position
+    ) {
+    unsigned id = threadIdx.x + blockDim.x * blockIdx.x;
+    if(id >= N) {
+        return;
+    }
+
+    float M = masses[id];
+    float4 com_cur = M * predicted_position[id];
+    unsigned base = id * N;
+    for(unsigned ni = 0; ni < N; ni++) {
+        float w = adjacency[base + ni];
+
+        if(w > 0) {
+            float m = masses[ni];
+            M += m;
+            com_cur += m * predicted_position[ni];
+        }
+    }
+
+    com_cur.w = 0;
+    com[id] = com_cur / M;
+}
+
 template<long threads_per_block>
 static long get_block_count(long N) {
-    if(N < threads_per_block) {
-        return 1;
-    } else {
-        return N / threads_per_block;
-    }
+    return (N - 1) / threads_per_block + 1;
 }
 
 class Compute_CUDA : public ICompute_Backend {
@@ -323,13 +347,13 @@ public:
     : stream(stream), current_particle_count(0) {
         printf("sb: CUDA compute backend created\n");
         // TODO(danielm): not sure if cudaEventBlockingSync would be a good idea for this event
-        ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev_h_masses_ready, cudaEventDefault));
+        ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev_centers_of_masses_arrived, cudaEventDefault));
 
         compute_ref = Make_Reference_Backend();
     }
 
     ~Compute_CUDA() override {
-        cudaEventDestroy(ev_h_masses_ready);
+        cudaEventDestroy(ev_centers_of_masses_arrived);
         cudaStreamDestroy(stream);
     }
 
@@ -356,6 +380,7 @@ public:
         d_bind_pose_inverse_bind_pose = CUDA_Array<float4>(4 * N);
         d_out = CUDA_Array<float4>(N);
 
+        // HACKHACKHACK: we're assuming here that s.edges[] couldn't have possibly changed if the particle count stayed constant. This is not true! 
         calculate_particle_masses(s);
         if(N != current_particle_count) {
             d_adjacency = CUDA_Array<float>(N * N);
@@ -368,16 +393,11 @@ public:
     void calculate_particle_masses(System_State const& s) {
         auto const N = particle_count(s);
 
-        h_masses.resize(N);
-
 #define P_MASS_THREADS_PER_BLOCK (8)
         auto blocks = get_block_count<P_MASS_THREADS_PER_BLOCK>(N);
         cudaMemcpyAsync(d_densities, s.density.data(), d_densities.bytes(), cudaMemcpyHostToDevice, stream);
         cudaMemcpyAsync(d_sizes, s.size.data(), d_sizes.bytes(), cudaMemcpyHostToDevice, stream);
         k_calculate_particle_masses<<<blocks, P_MASS_THREADS_PER_BLOCK, 0, stream>>>(N, d_masses, d_sizes, d_densities);
-        assert(h_masses.size() * sizeof(float) == d_masses.bytes());
-        cudaMemcpyAsync(h_masses.data(), d_masses, d_masses.bytes(), cudaMemcpyDeviceToHost, stream);
-        cudaEventRecord(ev_h_masses_ready, stream);
     }
 
     void make_adjacency_matrix(System_State const& s) {
@@ -401,11 +421,7 @@ public:
         cudaMemcpyAsync(d_adjacency, h_ret.data(), d_adjacency.bytes(), cudaMemcpyHostToDevice, stream);
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(0xF);
-    }
-
-    float mass_of_particle(System_State const&, index_t i) const {
-        return h_masses[i];
+        PRINT_BENCHMARK_RESULT();
     }
 
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
@@ -420,8 +436,7 @@ public:
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
         auto const N = particle_count(s);
-        Vector<float4> h_centers_of_masses;
-        h_centers_of_masses.reserve(N);
+        Vector<float4> h_centers_of_masses(N);
 
         ASSERT_CUDA_SUCCEEDED(d_predicted_orientations.write_async((float4*)s.predicted_orientation.data(), stream));
         ASSERT_CUDA_SUCCEEDED(d_predicted_positions.write_async((float4*)s.predicted_position.data(), stream));
@@ -429,45 +444,18 @@ public:
         ASSERT_CUDA_SUCCEEDED(d_bind_pose_centers_of_masses.write_async((float4*)s.bind_pose_center_of_mass.data(), stream));
         ASSERT_CUDA_SUCCEEDED(d_bind_pose_inverse_bind_pose.write_async((float4*)s.bind_pose_inverse_bind_pose.data(), stream));
 
-        cudaEventSynchronize(ev_h_masses_ready);
+        constexpr auto comcalc_threads_per_block = 32; 
+        auto const comcalc_blocks = get_block_count<comcalc_threads_per_block>(N);
+        k_calculate_centers_of_masses<<<comcalc_blocks, comcalc_threads_per_block, 0, stream>>>(d_centers_of_masses, N, d_adjacency, d_masses, d_predicted_positions);
 
-        for (index_t i = 0; i < N; i++) {
-            std::array<index_t, 1> me { i };
-            auto& neighbors = s.edges[i];
-            // TODO(danielm): C++14
-            auto neighbors_and_me = iterator_union<decltype(neighbors.begin()), decltype(me.begin())>
-                (neighbors.begin(), neighbors.end(), me.begin(), me.end());
-
-            // Sum particle weights in the current cluster
-            auto M = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(s, i),
-                [&](float acc, index_t idx) {
-                    return acc + mass_of_particle(s, idx);
-                }
-            );
-
-            assert(M != 0);
-
-            auto invRest = s.bind_pose_inverse_bind_pose[i];
-            auto com0 = s.bind_pose_center_of_mass[i];
-
-            // Center of mass calculated using the predicted positions
-            auto com_cur = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec4 const& acc, index_t idx) {
-                    return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
-                }
-            ) / M;
-
-            s.center_of_mass[i] = com_cur;
-
-            // TODO(danielm): check if the component order is correct
-            h_centers_of_masses.push_back(make_float4(com_cur.x, com_cur.y, com_cur.z, com_cur.w));
+        auto kernel_failed = cudaPeekAtLastError() != 0;
+        if(kernel_failed) {
+            printf("failed to dispatch k_calculate_centers_of_masses rc=%d\n", cudaGetLastError());
+            std::terminate();
         }
 
-        ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.write_async((float4*)h_centers_of_masses.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.read_async((float4*)s.center_of_mass.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(cudaEventRecord(ev_centers_of_masses_arrived, stream));
 
         Vector<Quat> h_out;
         h_out.resize(N);
@@ -489,8 +477,6 @@ public:
             d_out, N,
             d_tmp_cluster_moment_matrices, d_predicted_orientations
         );
-
-        cudaFree(d_tmp_cluster_moment_matrices);
         
         // Calculate what we can on the CPU while we're waiting for the GPU
 
@@ -502,6 +488,9 @@ public:
 
         Vector<Particle_Correction_Info> correction_infos;
         correction_infos.reserve(N);
+
+        // Wait for the contents of s.center_of_mass to be available
+        cudaEventSynchronize(ev_centers_of_masses_arrived);
 
         // Calculate what we can while we wait for the extracted quaternions
         // TODO(danielm): We could run this in a parallel cudaStream
@@ -517,6 +506,7 @@ public:
 
         ASSERT_CUDA_SUCCEEDED(d_out.read_async((float4*)h_out.data(), stream));
         cudaStreamSynchronize(stream);
+        cudaFree(d_tmp_cluster_moment_matrices);
 
         for (index_t i = 0; i < N; i++) {
             float const stiffness = 1;
@@ -545,8 +535,7 @@ private:
 
     sb::Unique_Ptr<ICompute_Backend> compute_ref;
 
-    cudaEvent_t ev_h_masses_ready;
-    Vector<float> h_masses;
+    cudaEvent_t ev_centers_of_masses_arrived;
 
     size_t current_particle_count;
 
