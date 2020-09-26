@@ -134,6 +134,8 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(OpenCL REQUIRED)
 
+add_subdirectory(embed)
+
 add_subdirectory(glad)
 add_subdirectory(imgui)
 add_subdirectory(renderer)
