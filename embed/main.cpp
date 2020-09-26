@@ -4,9 +4,11 @@
 //
 
 #include "stdafx.h"
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <cerrno>
+#include <cstdlib>
 
 static bool is_printable(char c) {
     if(c >= ' ' && c <= '~') {

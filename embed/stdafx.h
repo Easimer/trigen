@@ -7,11 +7,6 @@
 
 #include <cassert>
 #include <cstdio>
-
-#include <memory>
-#include <functional>
-#include <optional>
-#include <vector>
-#include <unordered_map>
-#include <list>
-#include <map>
+#include <cstring>
+#include <cerrno>
+#include <cstdlib>
