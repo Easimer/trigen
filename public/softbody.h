@@ -112,7 +112,80 @@ namespace sb {
         virtual void get_state_description(unsigned length, char* buffer) = 0;
     };
 
-    using Signed_Distance_Function = sdf::Function;
+    namespace sdf {
+        namespace ast {
+            class Visitor;
+
+            class Node {
+            public:
+                virtual ~Node() = default;
+
+                virtual void visit(Visitor* v) = 0;
+            };
+
+            template<typename Output>
+            class Expression : public Node {
+            public:
+                virtual Output evaluate() = 0;
+            };
+
+            class Sample_Point : public Expression<glm::vec3> {
+            public:
+                virtual void set_value(glm::vec3 const&) = 0;
+            };
+
+            class Base_Vector_Constant {
+            public:
+                virtual ~Base_Vector_Constant() = default;
+
+                virtual size_t components() const noexcept = 0;
+                virtual void value(float* out_array) const noexcept = 0;
+                virtual void set_value(float const* value) const noexcept = 0;
+            };
+
+            class Float_Constant : public Expression<float>, public Base_Vector_Constant {
+            public:
+                size_t components() const noexcept override {
+                    return 1;
+                }
+            };
+
+            template<size_t N>
+            class Vector_Constant : public Expression<glm::vec<N, float>>, public Base_Vector_Constant {
+            public:
+                size_t components() const noexcept override {
+                    return N;
+                }
+            };
+
+            class Base_Binary_Expression {
+            public:
+                virtual void subexprs(Node const** lhs, Node const** rhs) = 0;
+            };
+
+            template<typename Output>
+            class Binary_Expression : public Expression<Output>, public Base_Binary_Expression {
+            };
+
+            class Visitor {
+            public:
+                void visit(Sample_Point const& sp) {
+                    do_visit(sp);
+                }
+
+                template<size_t N>
+                void visit(Vector_Constant<N> const& v) {
+                    do_visit(v, N);
+                }
+            protected:
+                virtual void do_visit(Sample_Point const&) = 0;
+                virtual void do_visit(Base_Vector_Constant const&, size_t len) = 0;
+                virtual void do_visit(Base_Binary_Expression const&) = 0;
+            };
+        };
+    };
+
+    using Signed_Distance_Function = ::sdf::Function;
 
     class IPlant_Simulation {
     public:
@@ -139,8 +212,17 @@ namespace sb {
         virtual Unique_Ptr<Relation_Iterator> get_connections_in_bind_pose() = 0;
 
         using Collider_Handle = size_t;
-        virtual Collider_Handle add_collider(Signed_Distance_Function const& sdf) = 0;
-        virtual void remove_collider(Collider_Handle handle) = 0;
+
+        // Add an SDF-based static collider to the simulation
+        // Returns true on success and `out_handle` is filled in; returns false on failure.
+        // `sample_point` must be a leaf in the AST tree pointed to by `sdf_expression.
+        // The simulation instance will hold onto the pointers supplied via this function
+        // until the collider is removed using `remove_collider`.
+        virtual bool add_collider(
+                Collider_Handle& out_handle,
+                sb::sdf::ast::Expression<float>* sdf_expression,
+                sb::sdf::ast::Sample_Point* sample_point) = 0;
+        virtual bool remove_collider(Collider_Handle handle) = 0;
 
         virtual bool save_image(ISerializer* serializer) = 0;
         virtual bool load_image(IDeserializer* deserializer) = 0;

@@ -12,6 +12,15 @@
 #include "s_iterators.h"
 #include "f_serialization.internal.h"
 
+static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
+        sb::sdf::ast::Expression<float>* expr,
+        sb::sdf::ast::Sample_Point* sp) {
+    return [&](Vec3 const& p) -> float {
+        sp->set_value(p);
+        return expr->evaluate();
+    };
+}
+
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
     Plant_Simulation(sb::Config const& params) : params(params) {
@@ -62,7 +71,8 @@ private:
 
                 // Find the closest surface
                 for (auto& C : s.colliders_sdf) {
-                    auto dist = C.fun(p);
+                    auto l = make_sdf_ast_wrapper(C.expr, C.sp);
+                    auto dist = l(p);
                     if (dist < surface_dist) {
                         surface = &C;
                         surface_dist = dist;
@@ -71,7 +81,8 @@ private:
 
                 // If the surface is close enough, move towards it
                 if (surface != NULL && surface_dist < surface_adaption_min_dist) {
-                    auto normal = sdf::normal(surface->fun, p);
+                    auto surface_fun = make_sdf_ast_wrapper(surface->expr, surface->sp);
+                    auto normal = sdf::normal(surface_fun, p);
                     auto surface = p - surface_dist * normal;
 
                     s.predicted_position[i] += dt * params.surface_adaption_strength * (surface - s.predicted_position[i]);

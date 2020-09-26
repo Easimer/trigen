@@ -346,9 +346,14 @@ Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints
             bool too_close = false;
             bool too_far = false;
 
-            sdf::raymarch(coll.fun, 32, start, dir, 0.05f, 0.0f, 1.0f, [&](float dist) {
+            auto coll_fun = [&](Vec3 const& sp) -> float {
+                coll.sp->set_value(sp);
+                return coll.expr->evaluate();
+            };
+
+            sdf::raymarch(coll_fun, 32, start, dir, 0.05f, 0.0f, 1.0f, [&](float dist) {
                 auto intersect = start + dist * dir;
-                auto normal = sdf::normal(coll.fun, intersect);
+                auto normal = sdf::normal(coll_fun, intersect);
                 Collision_Constraint C;
                 C.intersect = intersect;
                 C.normal = normal;
@@ -364,7 +369,15 @@ Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints
     return ret;
 }
 
-sb::ISoftbody_Simulation::Collider_Handle Softbody_Simulation::add_collider(sb::Signed_Distance_Function const& sdf) {
+bool Softbody_Simulation::add_collider(
+        sb::ISoftbody_Simulation::Collider_Handle& out_handle,
+        sb::sdf::ast::Expression<float>* expr,
+        sb::sdf::ast::Sample_Point* sp) {
+
+    if(expr == NULL || sp == NULL) {
+        return false;
+    }
+
     System_State::SDF_Slot* slot = NULL;
     size_t ret;
     for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
@@ -382,15 +395,20 @@ sb::ISoftbody_Simulation::Collider_Handle Softbody_Simulation::add_collider(sb::
     }
 
     slot->used = true;
-    slot->fun = sdf;
+    slot->expr = expr;
+    slot->sp = sp;
 
-    return ret;
+    return true;
 }
 
-void Softbody_Simulation::remove_collider(Collider_Handle h) {
+bool Softbody_Simulation::remove_collider(Collider_Handle h) {
     if (h < s.colliders_sdf.size()) {
         s.colliders_sdf[h].used = false;
-        s.colliders_sdf[h].fun = [](glm::vec3 const&) { return 0.0f; };
+        s.colliders_sdf[h].expr = NULL;
+        s.colliders_sdf[h].sp = NULL;
+        return true;
+    } else {
+        return false;
     }
 }
 

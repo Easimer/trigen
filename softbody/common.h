@@ -17,6 +17,8 @@
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <softbody.h>
+
 using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
 using Mat3 = glm::mat3;
@@ -79,7 +81,8 @@ struct System_State {
 
     struct SDF_Slot {
         bool used;
-        std::function<float(glm::vec3 const&)> fun;
+        sb::sdf::ast::Expression<float>* expr;
+        sb::sdf::ast::Sample_Point* sp;
     };
 
     Vector<SDF_Slot> colliders_sdf;

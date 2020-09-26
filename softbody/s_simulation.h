@@ -37,8 +37,11 @@ public:
 
     Vector<Collision_Constraint> generate_collision_constraints();
 
-    Collider_Handle add_collider(sb::Signed_Distance_Function const& sdf) override;
-    void remove_collider(Collider_Handle) override;
+    bool add_collider(
+            Collider_Handle& out_handle,
+            sb::sdf::ast::Expression<float>* sdf_expression,
+            sb::sdf::ast::Sample_Point* sample_point) override;
+    bool remove_collider(Collider_Handle handle) override;
 
     size_t particle_count() const { return s.position.size(); }
 
