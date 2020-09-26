@@ -20,8 +20,7 @@ public:
     CUDA_Codegen_Visitor(std::vector<char>& buffer) : _buffer(buffer) {}
 
     void do_visit(ast::Sample_Point const& sp) override {
-        char const sp_sym[] = "_sp";
-        _buffer.insert(_buffer.end(), std::begin(sp_sym), std::end(sp_sym));
+        bufprintf("_sp");
     }
 
     void do_visit(ast::Base_Vector_Constant const& v, size_t len) override {
@@ -85,7 +84,7 @@ public:
         int size;
 
         va_start(ap, format);
-        size = vsnprintf(NULL, 127, format, ap);
+        size = vsnprintf(NULL, 0, format, ap);
         va_end(ap);
 
         if(size < 0) {
@@ -102,12 +101,37 @@ public:
         _buffer.insert(_buffer.end(), buf.get(), buf.get() + size);
     }
 
+    void begin_sdf_function() {
+        bufprintf("__device__ float scene(float4 const _sp) {\n    return ");
+    }
+
+    void end_sdf_function() {
+        bufprintf(";\n}\n");
+    }
+
 private:
     std::vector<char>& _buffer;
 };
 
-std::vector<char> translate_sdf_ast_to_cuda(sb::sdf::ast::Expression<float>* expr) {
-    std::vector<char> ret;
+extern char const* cuda_templates_cu;
+extern unsigned long long cuda_templates_cu_len;
+
+static void include_sdf_library(std::vector<char>& ret) {
+    ret.insert(ret.end(), cuda_templates_cu, cuda_templates_cu + cuda_templates_cu_len - 1);
+}
+
+static void generate_scene_function(std::vector<char>& ret, sb::sdf::ast::Expression<float>* expr) {
     CUDA_Codegen_Visitor visitor(ret);
+    visitor.begin_sdf_function();
+    expr->visit(&visitor);
+    visitor.end_sdf_function();
+}
+
+std::vector<char> generate_kernel(sb::sdf::ast::Expression<float>* expr) {
+    std::vector<char> ret;
+
+    include_sdf_library(ret);
+    generate_scene_function(ret, expr);
+
     return ret;
 }

@@ -52,6 +52,8 @@ set(SRC_IMPL
     f_serialization.cpp
     f_serialization.h
 
+    s_compute_cuda_codegen.cpp
+
     ../public/raymarching.h
 )
 

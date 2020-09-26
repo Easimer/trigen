@@ -563,7 +563,7 @@ public:
     }
 
     ast::Primitive::Kind kind() const noexcept override {
-        return ast::Primitive::SUBTRACTION;
+        return ast::Primitive::UNION;
     }
 };
 
