@@ -158,7 +158,7 @@ namespace sb {
                 }
             };
 
-            class Primitive : Expression<float> {
+            class Primitive : public Expression<float> {
             public:
                 enum Kind {
                     UNION, SUBTRACTION, INTERSECTION,

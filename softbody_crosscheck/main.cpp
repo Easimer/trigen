@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include "cross_check.h"
 #include "benchmark.h"
 

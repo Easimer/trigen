@@ -25,6 +25,7 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend();
 sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend();
 
 inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Preference pref) {
+    sb::Unique_Ptr<ICompute_Backend> ret;
     bool np = pref == sb::Compute_Preference::None;
 
     if (pref == sb::Compute_Preference::Reference) {
@@ -33,15 +34,18 @@ inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Prefere
 
 #if SOFTBODY_CUDA_ENABLED
     if (pref == sb::Compute_Preference::GPU_Proprietary || np) {
-        auto ret = Make_CUDA_Backend();
+        ret = Make_CUDA_Backend();
         if (ret != nullptr) {
             return ret;
         }
     }
 #endif /* SOFTBODY_CUDA_ENABLED */
 
-    if (pref == sb::Compute_Preference::GPU_OpenCL || np) {
-        auto ret = Make_CL_Backend();
+    if (
+        (ret == nullptr && pref == sb::Compute_Preference::GPU_Proprietary) ||
+        pref == sb::Compute_Preference::GPU_OpenCL ||
+        np) {
+        ret = Make_CL_Backend();
         if (ret != nullptr) {
             return ret;
         }

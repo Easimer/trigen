@@ -377,7 +377,7 @@ T evaluate_ast_or_default(ast::Expression<T>* node, T default_value) {
 #define RESET_AST_NODE(Dst) Dst = NULL
 
 // Base class for collider nodes.
-class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public ast::Expression<float> {
+class Base_Collider_Data_Model : public QtNodes::NodeDataModel {
     Q_OBJECT;
 public:
     ~Base_Collider_Data_Model() override = default;

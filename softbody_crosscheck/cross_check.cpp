@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include <softbody.h>
+#include <algorithm>
 #include "cross_check.h"
 
 #define SIM_REF (0)
