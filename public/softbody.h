@@ -120,7 +120,7 @@ namespace sb {
             public:
                 virtual ~Node() = default;
 
-                virtual void visit(Visitor* v) = 0;
+                virtual void visit(Visitor* v) const = 0;
             };
 
             template<typename Output>

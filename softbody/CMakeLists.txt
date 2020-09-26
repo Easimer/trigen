@@ -4,9 +4,13 @@ if(${SOFTBODY_ENABLE_CUDA})
     # find_package(CUDA 11.0 REQUIRED)
     find_package(CUDAToolkit 11.0 REQUIRED)
 
+    embed_file(cuda_templates.c ${CMAKE_CURRENT_SOURCE_DIR}/cuda_templates.cu)
+
     enable_language(CUDA)
     set(SRC_CUDA
         s_compute_cuda.cu
+        s_compute_cuda_codegen.cpp
+        cuda_templates.c
     )
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)

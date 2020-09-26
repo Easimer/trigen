@@ -142,7 +142,7 @@ public:
         d.z = v[2];
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 private:
@@ -219,7 +219,7 @@ public:
         data->set_value(v[0]);
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 
@@ -252,7 +252,7 @@ public:
         return value;
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 
@@ -346,7 +346,7 @@ public:
         }
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         ast_distance->visit(v);
     }
 
@@ -524,7 +524,7 @@ private:
         return evaluate(ast_lhs->evaluate(), ast_rhs->evaluate());
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 
@@ -649,7 +649,7 @@ public:
         return ast::Primitive::Kind::BOX;
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 private:
@@ -709,7 +709,7 @@ public:
         return ast::Primitive::Kind::SPHERE;
     }
 
-    void visit(ast::Visitor* v) override {
+    void visit(ast::Visitor* v) const override {
         v->visit(*this);
     }
 private:
