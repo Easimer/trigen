@@ -3,6 +3,7 @@
 // Purpose: SDF AST to CUDA code generator
 //
 
+#include "common.h"
 #include <cassert>
 #include <cstdarg>
 #include <array>
@@ -10,8 +11,8 @@
 #define SB_BENCHMARK 1
 #include "s_benchmark.h"
 
-extern char const* cuda_templates_cu;
-extern unsigned long long cuda_templates_cu_len;
+extern "C" char const* cuda_templates_cu;
+extern "C" unsigned long long const cuda_templates_cu_len;
 
 using namespace sb::sdf;
 
@@ -46,19 +47,19 @@ public:
     void do_visit(ast::Primitive const& p) override {
         switch(p.kind()) {
             case ast::Primitive::UNION:
-                bufprintf("union(");
+                bufprintf("_union(");
                 break;
             case ast::Primitive::SUBTRACTION:
-                bufprintf("subtract(");
+                bufprintf("_subtract(");
                 break;
             case ast::Primitive::INTERSECTION:
-                bufprintf("intersect(");
+                bufprintf("_intersect(");
                 break;
             case ast::Primitive::BOX:
-                bufprintf("box(");
+                bufprintf("_box(");
                 break;
             case ast::Primitive::SPHERE:
-                bufprintf("sphere(");
+                bufprintf("_sphere(");
                 break;
             default:
                 assert(!"UNIMPLEMENTED PRIMITIVE");
@@ -113,11 +114,10 @@ private:
     std::vector<char>& _buffer;
 };
 
-extern char const* cuda_templates_cu;
-extern unsigned long long cuda_templates_cu_len;
-
 static void include_sdf_library(std::vector<char>& ret) {
-    ret.insert(ret.end(), cuda_templates_cu, cuda_templates_cu + cuda_templates_cu_len - 1);
+    auto start = (char const*)cuda_templates_cu;
+    auto end = start + cuda_templates_cu_len - 1;
+    ret.insert(ret.end(), start, end);
 }
 
 static void generate_scene_function(std::vector<char>& ret, sb::sdf::ast::Expression<float>* expr) {
