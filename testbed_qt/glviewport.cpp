@@ -54,6 +54,7 @@ void GLViewport::resizeGL(int width, int height) {
 
 void GLViewport::paintGL() {
     gfx::Render_Queue rq(4096);
+    renderer->new_frame();
     if (fill_render_queue) {
         fill_render_queue(&rq);
     }

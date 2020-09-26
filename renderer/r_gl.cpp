@@ -495,11 +495,10 @@ public:
             gl::SetUniformLocation(shader.locColor1, vEndColor);
 
             glDrawArrays(GL_LINES, 0, 2 * nLineCount);
-
-            line_recycler.put_back(l_h);
         } else {
             printf("Can't draw: no shader!\n");
         }
+        line_recycler.put_back(l_h);
     }
 
     void draw_triangle_elements(
