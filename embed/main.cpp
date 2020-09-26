@@ -66,7 +66,7 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
                 emit_hex(dst, ch);
                 ret++;
             } else {
-                fwrite("\\\n", 1, 2, dst);
+                fwrite("\\n\\\n", 1, 4, dst);
             }
         }
     }
@@ -116,8 +116,8 @@ static bool convert_file(FILE* dst, char const* path) {
         return false;
     }
 
-    char const type[] = "char const ";
-    char const array[] = "[] = \"";
+    char const type[] = "#include <cstring>\nextern \"C\" {\nchar const* ";
+    char const array[] = " = \"";
     char const end_of_line[] = "\";\n";
     fwrite(type, 1, strlen(type), dst);
     generate_variable_name(dst, filename);
@@ -126,13 +126,13 @@ static bool convert_file(FILE* dst, char const* path) {
     fwrite(end_of_line, 1, strlen(end_of_line), dst);
 
     char const siz_type[] = "unsigned long long ";
-    char const siz_value[] = " = sizeof(";
+    char const siz_value[] = " = strlen(";
     fwrite(siz_type, 1, strlen(siz_type), dst);
     generate_variable_name(dst, filename);
     fwrite("_len", 1, 4, dst);
     fwrite(siz_value, 1, strlen(siz_value), dst);
     generate_variable_name(dst, filename);
-    fwrite(");\n", 1, 3, dst);
+    fwrite(");\n}\n", 1, 5, dst);
 
     fclose(src);
 
