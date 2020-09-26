@@ -140,7 +140,7 @@ namespace sb {
 
                 virtual size_t components() const noexcept = 0;
                 virtual void value(float* out_array) const noexcept = 0;
-                virtual void set_value(float const* value) const noexcept = 0;
+                virtual void set_value(float const* value) noexcept = 0;
             };
 
             class Float_Constant : public Expression<float>, public Base_Vector_Constant {
@@ -158,13 +158,17 @@ namespace sb {
                 }
             };
 
-            class Base_Binary_Expression {
+            class Primitive : Expression<float> {
             public:
-                virtual void subexprs(Node const** lhs, Node const** rhs) = 0;
-            };
+                enum Kind {
+                    UNION, SUBTRACTION, INTERSECTION,
+                    BOX, SPHERE,
+                };
 
-            template<typename Output>
-            class Binary_Expression : public Expression<Output>, public Base_Binary_Expression {
+                virtual size_t parameter_count() const = 0;
+                virtual void parameters(size_t count, Node const** out_arr) const = 0;
+
+                virtual Kind kind() const noexcept = 0;
             };
 
             class Visitor {
@@ -177,10 +181,18 @@ namespace sb {
                 void visit(Vector_Constant<N> const& v) {
                     do_visit(v, N);
                 }
+
+                void visit(Float_Constant const& v) {
+                    do_visit(v, 1);
+                }
+
+                void visit(Primitive const& expr) {
+                    do_visit(expr);
+                }
             protected:
                 virtual void do_visit(Sample_Point const&) = 0;
                 virtual void do_visit(Base_Vector_Constant const&, size_t len) = 0;
-                virtual void do_visit(Base_Binary_Expression const&) = 0;
+                virtual void do_visit(Primitive const&) = 0;
             };
         };
     };

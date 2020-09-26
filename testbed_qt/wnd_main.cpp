@@ -212,7 +212,11 @@ void Window_Main::stop_simulation() {
 
 void Window_Main::reset_simulation() {
     simulation = sb::create_simulation(sim_cfg);
-    simulation->add_collider(Softbody_Collider_Proxy(collider_builder));
+    sb::sdf::ast::Expression<float>* expr;
+    sb::sdf::ast::Sample_Point* sp;
+    collider_builder->get_ast(&expr, &sp);
+    sb::ISoftbody_Simulation::Collider_Handle h;
+    simulation->add_collider(h, expr, sp);
 }
 
 void Window_Main::step_simulation() {

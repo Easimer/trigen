@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "colliders.h"
+#include <softbody.h>
 #include "raymarching.h"
 #include <array>
 #include <nodes/NodeData>
@@ -19,19 +20,13 @@
 #include <QDoubleSpinBox>
 #include <QLayout>
 
+using namespace sb::sdf;
+
 #define NODE_TYPE(id, name) { QStringLiteral(id), QStringLiteral(name) }
 #define NODE_TYPE_VEC3(name) NODE_TYPE("Vector3", name)
 #define NODE_TYPE_FLOAT(name) NODE_TYPE("float", name)
 
-template<typename Output>
-class Ast_Node {
-public:
-    virtual ~Ast_Node() = default;
-
-    virtual Output evaluate() = 0;
-};
-
-namespace Node {
+namespace Data {
     class Vec3 : public QtNodes::NodeData {
     public:
         ~Vec3() override = default;
@@ -69,14 +64,14 @@ namespace Node {
 }
 
 template<size_t N>
-class Vector_Constant : public QtNodes::NodeDataModel, public Ast_Node<glm::vec<N, float>> {
+class Vector_Constant : public QtNodes::NodeDataModel, public ast::Vector_Constant<N> {
 public:
     using vec_t = glm::vec<N, float>;
     ~Vector_Constant() override = default;
 
     Vector_Constant() : Vector_Constant(vec_t()) {}
 
-    Vector_Constant(vec_t const& v) : data(std::make_shared<Node::Vec3>(v)) {
+    Vector_Constant(vec_t const& v) : data(std::make_shared<Data::Vec3>(v)) {
         widget = new QWidget;
         layout = new QHBoxLayout;
         widget->setLayout(layout);
@@ -132,9 +127,27 @@ public:
     glm::vec3 evaluate() override {
         return data->value();
     }
+
+    void value(float* out) const noexcept override {
+        auto v = data->value();
+        out[0] = v.x;
+        out[1] = v.y;
+        out[2] = v.z;
+    }
+
+    void set_value(float const* v) noexcept override {
+        auto& d = data->value();
+        d.x = v[0];
+        d.y = v[1];
+        d.z = v[2];
+    }
+
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
+    }
 private:
     QString type_name;
-    std::shared_ptr<Node::Vec3> data;
+    std::shared_ptr<Data::Vec3> data;
     QWidget* widget;
     QHBoxLayout* layout;
     QDoubleSpinBox* sb[N];
@@ -142,14 +155,14 @@ private:
 
 using Vector3_Constant = Vector_Constant<3>;
 
-class Float_Constant : public QtNodes::NodeDataModel, public Ast_Node<float> {
+class Float_Constant : public QtNodes::NodeDataModel, public ast::Float_Constant {
     Q_OBJECT;
 public:
     ~Float_Constant() override = default;
 
     Float_Constant() : Float_Constant(0.0f) {}
 
-    Float_Constant(float v) : data(std::make_shared<Node::Float>(v)) {
+    Float_Constant(float v) : data(std::make_shared<Data::Float>(v)) {
         widget = new QWidget;
         layout = new QHBoxLayout;
         widget->setLayout(layout);
@@ -198,20 +211,32 @@ public:
         return data->value();
     }
 
+    void value(float* out) const noexcept override {
+        *out = data->value();
+    }
+
+    void set_value(float const* v) noexcept override {
+        data->set_value(v[0]);
+    }
+
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
+    }
+
 private:
-    std::shared_ptr<Node::Float> data;
+    std::shared_ptr<Data::Float> data;
     QWidget* widget;
     QHBoxLayout* layout;
     QDoubleSpinBox* sb[1];
 };
 
-class Sample_Point_Data_Source : public QtNodes::NodeDataModel, public Ast_Node<Vec3> {
+class Sample_Point_Data_Source : public QtNodes::NodeDataModel, public ast::Sample_Point {
     Q_OBJECT;
 public:
     ~Sample_Point_Data_Source() override = default;
 
     Sample_Point_Data_Source() {
-        data = std::make_shared<Node::Vec3>(glm::vec3());
+        data = std::make_shared<Data::Vec3>(glm::vec3());
     }
 
     void setValue(glm::vec3 const& v) {
@@ -219,8 +244,16 @@ public:
         // emit dataUpdated(0);
     }
 
+    void set_value(glm::vec3 const& v) {
+        value = v;
+    }
+
     glm::vec3 evaluate() override {
         return value;
+    }
+
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
     }
 
 protected:
@@ -251,18 +284,18 @@ protected:
 
 private:
     // decoy
-    std::shared_ptr<Node::Vec3> data;
+    std::shared_ptr<Data::Vec3> data;
     // this is the actual value
     glm::vec3 value;
 };
 
-class Distance_Sink : public QtNodes::NodeDataModel, public Ast_Node<float> {
+class Distance_Sink : public QtNodes::NodeDataModel, public ast::Expression<float> {
     Q_OBJECT;
 public:
     ~Distance_Sink() override = default;
 
     void setInData(std::shared_ptr<QtNodes::NodeData> data, int) override {
-        this->data = std::static_pointer_cast<Node::Float>(data);
+        this->data = std::static_pointer_cast<Data::Float>(data);
     }
 
     QtNodes::NodeDataType dataType(QtNodes::PortType portType, QtNodes::PortIndex portIndex) const override {
@@ -298,7 +331,7 @@ public:
 
     void inputConnectionCreated(QtNodes::Connection const& conn) override {
         auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
-        ast_distance = dynamic_cast<Ast_Node<float>*>(input_node);
+        ast_distance = dynamic_cast<ast::Expression<float>*>(input_node);
     }
 
     void inputConnectionDeleted(QtNodes::Connection const&) override {
@@ -313,10 +346,14 @@ public:
         }
     }
 
-private:
-    std::weak_ptr<Node::Float> data;
+    void visit(ast::Visitor* v) override {
+        ast_distance->visit(v);
+    }
 
-    Ast_Node<float>* ast_distance;
+private:
+    std::weak_ptr<Data::Float> data;
+
+    ast::Expression<float>* ast_distance;
 };
 
 /*
@@ -328,7 +365,7 @@ private:
  * @return Value of expression or `default_value`
  */
 template<typename T>
-T evaluate_ast_or_default(Ast_Node<T>* node, T default_value) {
+T evaluate_ast_or_default(ast::Expression<T>* node, T default_value) {
     if (node != NULL) {
         return node->evaluate();
     } else {
@@ -336,15 +373,15 @@ T evaluate_ast_or_default(Ast_Node<T>* node, T default_value) {
     }
 }
 
-#define NODE_TO_AST_NODE(Dst, Type) Dst = dynamic_cast<Ast_Node<Type>*>(input_node)
+#define NODE_TO_AST_NODE(Dst, Type) Dst = dynamic_cast<ast::Expression<Type>*>(input_node)
 #define RESET_AST_NODE(Dst) Dst = NULL
 
 // Base class for collider nodes.
-class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+class Base_Collider_Data_Model : public QtNodes::NodeDataModel, public ast::Expression<float> {
     Q_OBJECT;
 public:
     ~Base_Collider_Data_Model() override = default;
-    Base_Collider_Data_Model() : distance(std::make_shared<Node::Float>(0)) {}
+    Base_Collider_Data_Model() : distance(std::make_shared<Data::Float>(0)) {}
 
     /*
      * Gets the unique name of the collider.
@@ -418,16 +455,16 @@ private:
     }
 
 private:
-    std::shared_ptr<Node::Float> distance;
+    std::shared_ptr<Data::Float> distance;
 };
 
-class Base_Combination_Data_Model : public QtNodes::NodeDataModel, public Ast_Node<float> {
+class Base_Combination_Data_Model : public QtNodes::NodeDataModel, public ast::Primitive {
 public:
     ~Base_Combination_Data_Model() override = default;
     Base_Combination_Data_Model() :
         ast_lhs(NULL),
         ast_rhs(NULL),
-        distance(std::make_shared<Node::Float>(0)) {}
+        distance(std::make_shared<Data::Float>(0)) {}
     virtual QString combination_name() const = 0;
     virtual float evaluate(float lhs, float rhs) const = 0;
 private:
@@ -487,10 +524,32 @@ private:
         return evaluate(ast_lhs->evaluate(), ast_rhs->evaluate());
     }
 
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
+    }
+
+    size_t parameter_count() const override {
+        return 2;
+    }
+
+    void parameters(size_t count, ast::Node const** out_arr) const override {
+        if(count == 0) {
+            return;
+        }
+
+        out_arr[0] = ast_lhs;
+
+        if(count == 1) {
+            return;
+        }
+
+        out_arr[1] = ast_rhs;
+    }
+
 private:
-    Ast_Node<float>* ast_lhs = NULL;
-    Ast_Node<float>* ast_rhs = NULL;
-    std::shared_ptr<Node::Float> distance;
+    ast::Expression<float>* ast_lhs = NULL;
+    ast::Expression<float>* ast_rhs = NULL;
+    std::shared_ptr<Data::Float> distance;
 };
 
 class Union_Combination_Data_Model : public Base_Combination_Data_Model {
@@ -501,6 +560,10 @@ public:
 
     float evaluate(float lhs, float rhs) const override {
         return sdf::opUnion(lhs, rhs);
+    }
+
+    ast::Primitive::Kind kind() const noexcept override {
+        return ast::Primitive::SUBTRACTION;
     }
 };
 
@@ -513,6 +576,10 @@ public:
     float evaluate(float lhs, float rhs) const override {
         return sdf::opSubtract(lhs, rhs);
     }
+
+    ast::Primitive::Kind kind() const noexcept override {
+        return ast::Primitive::SUBTRACTION;
+    }
 };
 
 class Intersect_Combination_Data_Model : public Base_Combination_Data_Model {
@@ -524,9 +591,13 @@ public:
     float evaluate(float lhs, float rhs) const override {
         return sdf::opIntersect(lhs, rhs);
     }
+
+    ast::Primitive::Kind kind() const noexcept override {
+        return ast::Primitive::INTERSECTION;
+    }
 };
 
-class Box_Collider_Data_Model : public Base_Collider_Data_Model {
+class Box_Collider_Data_Model : public Base_Collider_Data_Model, public ast::Primitive {
     Q_OBJECT;
 public:
     ~Box_Collider_Data_Model() override = default;
@@ -562,12 +633,31 @@ public:
 
         return sdf::box(size, sp);
     }
+
+    size_t parameter_count() const override { return 2; }
+
+    void parameters(size_t count, Node const** out_arr) const override {
+        if(count > 0) {
+            out_arr[0] = ast_sample_point;
+            if(count > 1) {
+                out_arr[1] = ast_size;
+            }
+        }
+    }
+
+    ast::Primitive::Kind kind() const noexcept override {
+        return ast::Primitive::Kind::BOX;
+    }
+
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
+    }
 private:
-    Ast_Node<Vec3>* ast_sample_point = NULL;
-    Ast_Node<Vec3>* ast_size = NULL;
+    ast::Expression<Vec3>* ast_sample_point = NULL;
+    ast::Expression<Vec3>* ast_size = NULL;
 };
 
-class Sphere_Collider_Data_Model : public Base_Collider_Data_Model {
+class Sphere_Collider_Data_Model : public Base_Collider_Data_Model, public ast::Primitive {
     Q_OBJECT;
 public:
     ~Sphere_Collider_Data_Model() override = default;
@@ -603,9 +693,28 @@ public:
 
         return sdf::sphere(radius, sp);
     }
+
+    size_t parameter_count() const override { return 2; }
+
+    void parameters(size_t count, Node const** out_arr) const override {
+        if(count > 0) {
+            out_arr[0] = ast_sample_point;
+            if(count > 1) {
+                out_arr[1] = ast_radius;
+            }
+        }
+    }
+
+    ast::Primitive::Kind kind() const noexcept override {
+        return ast::Primitive::Kind::SPHERE;
+    }
+
+    void visit(ast::Visitor* v) override {
+        v->visit(*this);
+    }
 private:
-    Ast_Node<Vec3>* ast_sample_point;
-    Ast_Node<float>* ast_radius;
+    ast::Expression<Vec3>* ast_sample_point;
+    ast::Expression<float>* ast_radius;
 };
 
 inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
@@ -649,6 +758,11 @@ public:
     float evaluate(glm::vec3 const& sample_point) override {
         input->setValue(sample_point);
         return output->evaluate();
+    }
+
+    void get_ast(ast::Expression<float>** expr, ast::Sample_Point** sp) override {
+        *expr = output;
+        *sp = input;
     }
 
 private:
