@@ -369,10 +369,6 @@ Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints
     return ret;
 }
 
-// TEMP: REMOVE THIS
-std::vector<char> generate_kernel(sb::sdf::ast::Expression<float>* expr);
-// TEMP: REMOVE THIS
-
 bool Softbody_Simulation::add_collider(
         sb::ISoftbody_Simulation::Collider_Handle& out_handle,
         sb::sdf::ast::Expression<float>* expr,
@@ -382,24 +378,17 @@ bool Softbody_Simulation::add_collider(
         return false;
     }
 
-    // TEMP: REMOVE THIS
-    auto asd = generate_kernel(expr);
-    asd.push_back('\0');
-    printf("===\nGENERATED CUDA CODE:\n\n%s\n===\n", asd.data());
-    // TEMP: REMOVE THIS
-
     System_State::SDF_Slot* slot = NULL;
-    size_t ret;
     for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
         if (!s.colliders_sdf[i].used) {
             slot = &s.colliders_sdf[i];
-            ret = i;
+            out_handle = i;
             break;
         }
     }
 
     if (slot == NULL) {
-        ret = s.colliders_sdf.size();
+        out_handle = s.colliders_sdf.size();
         s.colliders_sdf.push_back({});
         slot = &s.colliders_sdf.back();
     }
@@ -408,11 +397,14 @@ bool Softbody_Simulation::add_collider(
     slot->expr = expr;
     slot->sp = sp;
 
+    compute->on_collider_added(s, out_handle);
+
     return true;
 }
 
 bool Softbody_Simulation::remove_collider(Collider_Handle h) {
     if (h < s.colliders_sdf.size()) {
+        compute->on_collider_removed(s, h);
         s.colliders_sdf[h].used = false;
         s.colliders_sdf[h].expr = NULL;
         s.colliders_sdf[h].sp = NULL;

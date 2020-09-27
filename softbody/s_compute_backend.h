@@ -12,12 +12,15 @@ class ICompute_Backend_Complete;
 
 class ICompute_Backend {
 public:
-    virtual ~ICompute_Backend() {}
+    virtual ~ICompute_Backend() = default;
 
     virtual void begin_new_frame(System_State const& sim) = 0;
     virtual void do_one_iteration_of_fixed_constraint_resolution(System_State& sim, float phdt) = 0;
     virtual void do_one_iteration_of_distance_constraint_resolution(System_State& sim, float phdt) = 0;
     virtual void do_one_iteration_of_shape_matching_constraint_resolution(System_State& sim, float phdt) = 0;
+
+    virtual void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
+    virtual void on_collider_removed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
