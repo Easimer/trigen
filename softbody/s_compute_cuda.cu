@@ -204,7 +204,7 @@ __hybrid__ void calculate_A_i(
 __hybrid__ void calculate_cluster_moment_matrix(
     float4* A,
     unsigned i,
-    float const* adjacency, unsigned N,
+    unsigned char const* adjacency, unsigned N,
     float const* masses,
     float4 const* predicted_orientations,
     float4 const* sizes,
@@ -234,7 +234,7 @@ __hybrid__ void calculate_cluster_moment_matrix(
     // TODO(danielm): 2D
     for(unsigned ni = 0; ni < N; ni++) {
         float4 ntemp[4];
-        float w = adjacency[base + ni];
+        unsigned char w = adjacency[base + ni];
 
         calculate_A_i(
             ntemp,
@@ -269,7 +269,7 @@ __global__ void k_calculate_particle_masses(unsigned N, float* d_masses, float4 
 
 __global__ void k_calculate_cluster_moment_matrices(
         float4* out, unsigned N,
-        float const* adjacency,
+        unsigned char const* adjacency,
         float const* masses,
         float4 const* predicted_orientations,
         float4 const* sizes,
@@ -310,7 +310,7 @@ __global__ void k_extract_rotations(
 
 __global__ void k_calculate_centers_of_masses(
         float4* com, unsigned N,
-        float const* adjacency,
+        unsigned char const* adjacency,
         float const* masses,
         float4 const* predicted_position
     ) {
@@ -323,9 +323,9 @@ __global__ void k_calculate_centers_of_masses(
     float4 com_cur = M * predicted_position[id];
     unsigned base = id * N;
     for(unsigned ni = 0; ni < N; ni++) {
-        float w = adjacency[base + ni];
+        unsigned char w = adjacency[base + ni];
 
-        if(w > 0) {
+        if(w != 0) {
             float m = masses[ni];
             M += m;
             com_cur += m * predicted_position[ni];
@@ -390,7 +390,7 @@ public:
         // HACKHACKHACK: we're assuming here that s.edges[] couldn't have possibly changed if the particle count stayed constant. This is not true! 
         calculate_particle_masses(s);
         if(N != current_particle_count) {
-            d_adjacency = CUDA_Array<float>(N * N);
+            d_adjacency = CUDA_Array<unsigned char>(N * N);
             make_adjacency_matrix(s);
         }
 
@@ -412,19 +412,17 @@ public:
 
         BEGIN_BENCHMARK();
         auto const N = particle_count(s);
-        Vector<float> h_ret;
-
-        // TODO(danielm): are we sure that this fills the vector with 0.0f values?
-        h_ret.resize(N * N);
+        Vector<unsigned char> h_ret(N * N, 0);
 
         for(index_t i = 0; i < N; i++) {
-            float* i_row = h_ret.data() + i * N;
+            unsigned char* i_row = h_ret.data() + i * N;
             auto const& neighbors = s.edges.at(i);
             for(auto neighbor : neighbors) {
-                i_row[neighbor] = 1.0f;
+                i_row[neighbor] = 1;
             }
         }
 
+        printf("sb: adjacency-matrix size=%zu\n", d_adjacency.bytes());
         cudaMemcpyAsync(d_adjacency, h_ret.data(), d_adjacency.bytes(), cudaMemcpyHostToDevice, stream);
 
         END_BENCHMARK();
@@ -546,7 +544,7 @@ private:
 
     size_t current_particle_count;
 
-    CUDA_Array<float> d_adjacency;
+    CUDA_Array<unsigned char> d_adjacency;
     CUDA_Array<float> d_masses;
     CUDA_Array<float> d_densities;
     CUDA_Array<float4> d_sizes;
