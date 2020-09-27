@@ -341,6 +341,13 @@ static long get_block_count(long N) {
     return (N - 1) / threads_per_block + 1;
 }
 
+// TODO(danielm): decl this in some header
+// Defined in s_compute_cuda_codegen.cpp
+std::vector<char> generate_kernel(sb::sdf::ast::Expression<float>* expr);
+
+class Collider_Manager {
+};
+
 class Compute_CUDA : public ICompute_Backend {
 public:
     Compute_CUDA(cudaStream_t stream)
@@ -552,38 +559,80 @@ private:
     CUDA_Array<float4> d_out;
 };
 
-static bool enumerate_devices() {
-    cudaError_t hr;
-    int dev_count;
+static int g_cudaInit = 0;
+static CUdevice g_cudaDevice;
+static CUcontext g_cudaContext;
 
-    printf("CUDA version: %d\n", CUDA_VERSION);
+static bool init_cuda() {
+    assert(g_cudaInit >= 0);
 
-    if(CUDA_SUCCEEDED(hr, cudaGetDeviceCount(&dev_count))) {
-        cudaDeviceProp prop;
-        int dev_count_ok = 0;
+    if(g_cudaInit == 0) {
+        CUresult rc;
+        int count;
+        char dev_name[64];
 
-        for(int i = 0; i < dev_count; i++) {
-            if(CUDA_SUCCEEDED(hr, cudaGetDeviceProperties(&prop, i))) {
-                printf("Device #%d: '%s'\n", i, prop.name);
-                dev_count_ok++;
-            } else {
-                printf("sb: failed to get properties of CUDA device #%d: hr=%d\n", i, hr);
-            }
+        cuInit(0);
+
+        rc = cuDeviceGetCount(&count);
+        if(rc != CUDA_SUCCESS) {
+            printf("sb: cuDeviceGetCount has failed: rc=%d\n", rc);
+            assert(!"cuDeviceGetCount has failed");
+            return false;
         }
 
-        return dev_count_ok > 0;
-    } else {
-        printf("sb: failed to get CUDA device count: hr=%d\n", hr);
+        if(count == 0) {
+            printf("sb: No CUDA devices were found on this host!\n");
+            return false;
+        }
+
+        rc = cuDeviceGet(&g_cudaDevice, 0);
+        if(rc != CUDA_SUCCESS) {
+            printf("sb: cuDeviceGet has failed: rc=%d\n", rc);
+            assert(!"cuDeviceGet has failed");
+            return false;
+        }
+
+        rc = cuDeviceGetName(dev_name, 64, g_cudaDevice);
+        if(rc == CUDA_SUCCESS) {
+            printf("sb: cuda-device='%s'\n", dev_name);
+        }
+
+        rc = cuCtxCreate(&g_cudaContext, 0, g_cudaDevice);
+        if(rc != CUDA_SUCCESS) {
+            printf("sb: cuCtxCreate has failed: rc=%d\n", rc);
+            assert(!"cuCtxCreate has failed");
+            return false;
+        }
+
+        rc = cuCtxSetCurrent(g_cudaContext);
+        if(rc != CUDA_SUCCESS) {
+            printf("sb: cuCtxSetCurrent has failed: rc=%d\n", rc);
+            assert(!"cuCtxSetCurrent has failed");
+            return false;
+        }
     }
 
-    return false;
+    g_cudaInit++;
+
+    return true;
+}
+
+static void fini_cuda() {
+    assert(g_cudaInit >= 0);
+
+    if(g_cudaInit == 1) {
+        cuCtxSynchronize();
+        cuCtxDestroy(g_cudaContext);
+    }
+
+    g_cudaInit--;
 }
 
 sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend() {
     cudaError_t hr;
     cudaStream_t stream;
 
-    if(enumerate_devices()) {
+    if(init_cuda()) {
         if(CUDA_SUCCEEDED(hr, cudaStreamCreate(&stream))) {
             auto ret = std::make_unique<Compute_CUDA>(stream);
             return ret;
