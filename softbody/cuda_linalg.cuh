@@ -112,5 +112,18 @@ CUDA_LINALG_OP void diagonal3x3(float4* m, float4 diag) {
     m[3] = make_float4(0, 0, 0, 0);
 }
 
+CUDA_LINALG_OP float4 hamilton_product(float4 q, float4 p) {
+    auto w = q.w * p.w - q.x * p.x - q.y * p.y - q.z * p.z;
+    auto i = q.w * p.x + q.x * p.w + q.y * p.z - q.z * p.y;
+    auto j = q.w * p.y - q.x * p.z + q.y * p.w + q.z * p.x;
+    auto k = q.w * p.z + q.x * p.y - q.y * p.x + q.z * p.w;
+
+    return make_float4(i, j, k, w);
+}
+
+CUDA_LINALG_OP float4 quat_conjugate(float4 q) {
+    return make_float4(-q.x, -q.y, -q.z, q.w);
+}
+
 
 #undef CUDA_LINALG_OP
