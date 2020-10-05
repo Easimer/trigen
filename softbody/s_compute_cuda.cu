@@ -17,6 +17,8 @@
 #include "cuda_linalg.cuh"
 #include "cuda_helper_math.h"
 #define SB_BENCHMARK 1
+#define SB_BENCHMARK_UNITS microseconds
+#define SB_BENCHMARK_UNITS_STR "us"
 #include "s_benchmark.h"
 #include "s_compute_backend.h"
 #define CUDA_SUCCEEDED(HR, APICALL) ((HR = APICALL) == cudaSuccess)
@@ -111,6 +113,47 @@ struct CUDA_Array {
 
     T* d_buf;
     size_t N;
+};
+
+class CUDA_Event {
+public:
+    CUDA_Event(unsigned flags) {
+        ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&_ev, flags));
+    }
+
+    CUDA_Event() : CUDA_Event(cudaEventDefault) {}
+
+    ~CUDA_Event() {
+        cudaEventDestroy(_ev);
+    }
+
+    operator cudaEvent_t() const { return _ev; }
+private:
+    cudaEvent_t _ev;
+};
+
+// RAII wrapper for memory pinning
+struct CUDA_Memory_Pin {
+public:
+    CUDA_Memory_Pin(void* ptr, size_t size) : _ptr(ptr) {
+        cudaHostRegister(ptr, size, cudaHostRegisterDefault);
+    }
+
+    template<typename T>
+    CUDA_Memory_Pin(std::vector<T>& v) : _ptr(v.data()) {
+        // NOTE(danielm): you must be careful not to push items into the vector
+        // since a vector grow might move the memory away from the current address.
+        auto size = v.size() * sizeof(T);
+        cudaHostRegister(_ptr, size, cudaHostRegisterDefault);
+    }
+
+    ~CUDA_Memory_Pin() {
+        cudaHostUnregister(_ptr);
+    }
+
+
+private:
+    void* _ptr;
 };
 
 __hybrid__ float4 angle_axis(float a, float4 axis) {
@@ -336,6 +379,63 @@ __global__ void k_calculate_centers_of_masses(
     com[id] = com_cur / M;
 }
 
+struct Particle_Correction_Info {
+    float4 pos_bind; // bind position wrt center of mass
+    float inv_num_clusters; // 1 / number of clusters
+};
+
+__global__ void k_generate_correction_info(
+        Particle_Correction_Info* d_info,
+        unsigned char* d_adjacency, unsigned N,
+        float4* d_bind_pose_center_of_mass,
+        float4* d_bind_pose
+        ) {
+    unsigned const id = threadIdx.x + blockDim.x * blockIdx.x;
+    if(id >= N) {
+        return;
+    }
+
+    auto base = id * N;
+    float count = 1;
+    for(unsigned ni = 0; ni < N; ni++) {
+        auto w = d_adjacency[base + ni];
+        if(w != 0) {
+            count += 1;
+        }
+    }
+
+    auto const inv_num_clusters = 1.0f / count;
+
+    auto const com0 = d_bind_pose_center_of_mass[id];
+    auto const pos_bind = d_bind_pose[id] - com0;
+
+    d_info[id] = { pos_bind, inv_num_clusters };
+}
+
+__global__ void k_apply_rotations(
+        float4* d_predicted_positions,
+        float4* d_goal_positions,
+        float4 const* d_predicted_orientations,
+        float4 const* d_centers_of_masses,
+        float4 const* d_rotations,
+        Particle_Correction_Info const* d_info,
+        unsigned N
+        ) {
+    unsigned const id = threadIdx.x + blockDim.x * blockIdx.x;
+    if(id >= N) {
+        return;
+    }
+
+    float const stiffness = 1;
+    auto const R = d_rotations[id];
+    auto const& inf = d_info[id];
+    auto pos_bind_rot = hamilton_product(hamilton_product(R, inf.pos_bind), quat_conjugate(R));
+    auto goal = d_centers_of_masses[id] + pos_bind_rot;
+    auto correction = (goal - d_predicted_positions[id]) * stiffness;
+    d_predicted_positions[id] += inf.inv_num_clusters * correction;
+    d_goal_positions[id] = goal;
+}
+
 template<long threads_per_block>
 static long get_block_count(long N) {
     return (N - 1) / threads_per_block + 1;
@@ -350,17 +450,16 @@ class Collider_Manager {
 
 class Compute_CUDA : public ICompute_Backend {
 public:
-    Compute_CUDA(cudaStream_t stream)
-    : stream(stream), current_particle_count(0) {
+    Compute_CUDA(cudaStream_t stream, cudaStream_t stream_aux)
+    : stream(stream), stream_aux(stream_aux), current_particle_count(0) {
         printf("sb: CUDA compute backend created\n");
         // TODO(danielm): not sure if cudaEventBlockingSync would be a good idea for this event
-        ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev_centers_of_masses_arrived, cudaEventDefault));
 
         compute_ref = Make_Reference_Backend();
     }
 
     ~Compute_CUDA() override {
-        cudaEventDestroy(ev_centers_of_masses_arrived);
+        cudaStreamDestroy(stream_aux);
         cudaStreamDestroy(stream);
     }
 
@@ -385,7 +484,7 @@ public:
         d_bind_pose = CUDA_Array<float4>(N);
         d_bind_pose_centers_of_masses = CUDA_Array<float4>(N);
         d_bind_pose_inverse_bind_pose = CUDA_Array<float4>(4 * N);
-        d_out = CUDA_Array<float4>(N);
+        d_rotations = CUDA_Array<float4>(N);
 
         // HACKHACKHACK: we're assuming here that s.edges[] couldn't have possibly changed if the particle count stayed constant. This is not true! 
         calculate_particle_masses(s);
@@ -441,7 +540,13 @@ public:
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
         auto const N = particle_count(s);
+        CUDA_Array<Particle_Correction_Info> d_info(N);
         Vector<float4> h_centers_of_masses(N);
+
+        CUDA_Memory_Pin mp_predicted_orientation(s.predicted_orientation);
+        CUDA_Memory_Pin mp_bind_pose_inverse_bind_pose(s.bind_pose_inverse_bind_pose);
+        CUDA_Memory_Pin mp_predicted_position(s.predicted_position);
+        CUDA_Memory_Pin mp_goal_position(s.goal_position);
 
         ASSERT_CUDA_SUCCEEDED(d_predicted_orientations.write_async((float4*)s.predicted_orientation.data(), stream));
         ASSERT_CUDA_SUCCEEDED(d_predicted_positions.write_async((float4*)s.predicted_position.data(), stream));
@@ -459,8 +564,8 @@ public:
             std::terminate();
         }
 
-        ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.read_async((float4*)s.center_of_mass.data(), stream));
         ASSERT_CUDA_SUCCEEDED(cudaEventRecord(ev_centers_of_masses_arrived, stream));
+        ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.read_async((float4*)s.center_of_mass.data(), stream));
 
         Vector<Quat> h_out;
         h_out.resize(N);
@@ -479,68 +584,53 @@ public:
         );
 
         k_extract_rotations<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
-            d_out, N,
+            d_rotations, N,
             d_tmp_cluster_moment_matrices, d_predicted_orientations
         );
-        
-        // Calculate what we can on the CPU while we're waiting for the GPU
+        cudaEventRecord(ev_rotations_extracted, stream);
 
-        struct Particle_Correction_Info {
-            Vec4 pos_bind;
-            Vec4 com_cur;
-            float inv_numClusters;
-        };
+        // TODO(danielm): we need to make sure that the adjacency matrix is present on dev by now
+        k_generate_correction_info<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream_aux>>>(
+            d_info,
+            d_adjacency, N,
+            d_bind_pose_centers_of_masses,
+            d_bind_pose
+        );
 
-        Vector<Particle_Correction_Info> correction_infos;
-        correction_infos.reserve(N);
+        // After we're done with generating correction informations,
+        // copy back the new rotations once they are ready.
+        cudaStreamWaitEvent(stream_aux, ev_rotations_extracted, 0);
+        d_rotations.read_async((float4*)s.predicted_orientation.data(), stream_aux);
 
-        // Wait for the contents of s.center_of_mass to be available
-        cudaEventSynchronize(ev_centers_of_masses_arrived);
+        // Wait for the contents of d_centers_of_masses to be available
+        cudaStreamWaitEvent(stream, ev_centers_of_masses_arrived, 0);
+        CUDA_Array<float4> d_goal_positions(N);
 
-        // Calculate what we can while we wait for the extracted quaternions
-        // TODO(danielm): We could run this in a parallel cudaStream
-        for (unsigned i = 0; i < N; i++) {
-            auto const com0 = s.bind_pose_center_of_mass[i];
-            correction_infos.push_back({});
-            auto& inf = correction_infos.back();
-            inf.pos_bind = s.bind_pose[i] - com0;
-            inf.com_cur = s.center_of_mass[i];
-            auto numClusters = NUMBER_OF_CLUSTERS(i);
-            inf.inv_numClusters = 1.0f / (float)numClusters;
-        }
+        k_apply_rotations<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
+            d_predicted_positions,
+            d_goal_positions,
+            d_predicted_orientations,
+            d_centers_of_masses,
+            d_rotations,
+            d_info,
+            N
+        );
 
-        ASSERT_CUDA_SUCCEEDED(d_out.read_async((float4*)h_out.data(), stream));
-        cudaStreamSynchronize(stream);
-        cudaFree(d_tmp_cluster_moment_matrices);
-
-        for (index_t i = 0; i < N; i++) {
-            float const stiffness = 1;
-            auto const R = h_out[i];
-
-            auto& inf = correction_infos[i];
-
-            // Rotate the bind pose position relative to the CoM
-            auto pos_bind_rot = R * inf.pos_bind;
-            // Our goal position
-            auto goal = inf.com_cur + pos_bind_rot;
-            // Number of clusters this particle is a member of
-            auto correction = (goal - s.predicted_position[i]) * stiffness;
-            // The correction must be divided by the number of clusters this particle is a member of
-            s.predicted_position[i] += inf.inv_numClusters * correction;
-            s.goal_position[i] = goal;
-            s.predicted_orientation[i] = R;
-        }
+        d_goal_positions.read_async((float4*)s.goal_position.data(), stream);
+        d_predicted_positions.read_async((float4*)s.predicted_position.data(), stream);
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
     }
 
 private:
-    cudaStream_t stream;
+    cudaStream_t stream, stream_aux;
 
     sb::Unique_Ptr<ICompute_Backend> compute_ref;
 
-    cudaEvent_t ev_centers_of_masses_arrived;
+    CUDA_Event ev_centers_of_masses_arrived;
+    CUDA_Event ev_correction_info_present;
+    CUDA_Event ev_rotations_extracted;
 
     size_t current_particle_count;
 
@@ -554,7 +644,9 @@ private:
     CUDA_Array<float4> d_bind_pose;
     CUDA_Array<float4> d_bind_pose_centers_of_masses;
     CUDA_Array<float4> d_bind_pose_inverse_bind_pose; // mat4x4
-    CUDA_Array<float4> d_out;
+    CUDA_Array<float4> d_rotations;
+    CUDA_Array<unsigned> d_number_of_clusters;
+    CUDA_Array<Particle_Correction_Info> d_corr_info;
 };
 
 static int g_cudaInit = 0;
@@ -628,12 +720,17 @@ static void fini_cuda() {
 
 sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend() {
     cudaError_t hr;
-    cudaStream_t stream;
+    cudaStream_t stream, stream_aux;
 
     if(init_cuda()) {
         if(CUDA_SUCCEEDED(hr, cudaStreamCreate(&stream))) {
-            auto ret = std::make_unique<Compute_CUDA>(stream);
-            return ret;
+            if(CUDA_SUCCEEDED(hr, cudaStreamCreate(&stream_aux))) {
+                auto ret = std::make_unique<Compute_CUDA>(stream, stream_aux);
+                return ret;
+            } else {
+                cudaStreamDestroy(stream);
+                fini_cuda();
+            }
         } else {
             printf("sb: failed to create CUDA stream: err=%d\n", hr);
         }
