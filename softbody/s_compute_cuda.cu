@@ -302,12 +302,13 @@ __hybrid__ void calculate_cluster_moment_matrix(
 
 __global__ void k_calculate_particle_masses(unsigned N, float* d_masses, float4 const* d_sizes, float const* d_densities) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if(i < N) {
-        float d_i = d_densities[i];
-        float4 s_i = d_sizes[i];
-        d_masses[i] = (4.0f / 3.0f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
+    if(i >= N) {
+        return;
     }
+
+    float d_i = d_densities[i];
+    float4 s_i = d_sizes[i];
+    d_masses[i] = (4.0f / 3.0f) * glm::pi<float>() * s_i.x * s_i.y * s_i.z * d_i;
 }
 
 __global__ void k_calculate_cluster_moment_matrices(
@@ -499,7 +500,7 @@ public:
     void calculate_particle_masses(System_State const& s) {
         auto const N = particle_count(s);
 
-#define P_MASS_THREADS_PER_BLOCK (8)
+#define P_MASS_THREADS_PER_BLOCK (1024)
         auto blocks = get_block_count<P_MASS_THREADS_PER_BLOCK>(N);
         cudaMemcpyAsync(d_densities, s.density.data(), d_densities.bytes(), cudaMemcpyHostToDevice, stream);
         cudaMemcpyAsync(d_sizes, s.size.data(), d_sizes.bytes(), cudaMemcpyHostToDevice, stream);
@@ -573,7 +574,7 @@ public:
         float4* d_tmp_cluster_moment_matrices = NULL;
         ASSERT_CUDA_SUCCEEDED(cudaMalloc(&d_tmp_cluster_moment_matrices, N * 16 * sizeof(float)));
 
-#define SHPMTCH_THREADS_PER_BLOCK (8)
+#define SHPMTCH_THREADS_PER_BLOCK (32)
         auto const blocks = get_block_count<SHPMTCH_THREADS_PER_BLOCK>(N);
         auto shared_memory_count = SHPMTCH_THREADS_PER_BLOCK * sizeof(Cluster_Matrix_Shared_Memory);
 
@@ -582,6 +583,12 @@ public:
             d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
             d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
         );
+
+        kernel_failed = cudaPeekAtLastError() != 0;
+        if(kernel_failed) {
+            printf("failed to dispatch k_calculate_centers_of_masses rc=%d\n", cudaGetLastError());
+            std::terminate();
+        }
 
         k_extract_rotations<<<blocks, SHPMTCH_THREADS_PER_BLOCK, 0, stream>>>(
             d_rotations, N,
