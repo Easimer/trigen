@@ -12,6 +12,8 @@
 #include "l_iterators.h"
 #include "s_compute_backend.h"
 #define SB_BENCHMARK (1)
+#define SB_BENCHMARK_UNITS microseconds
+#define SB_BENCHMARK_UNITS_STR "us"
 #include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm/gtx/matrix_operation.hpp>
@@ -235,6 +237,8 @@ private:
     // If the particle with the most amount of neighbors has M neighbors, then each
     // row has M+1 columns.
     sb::Unique_Ptr<unsigned[]> make_adjacency_table(System_State const& s, unsigned* adjacency_stride, unsigned* adjacency_size) {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
         auto const N = particle_count(s);
         unsigned columns = 0;
         for (unsigned i = 0; i < N; i++) {
@@ -263,6 +267,8 @@ private:
             }
         }
 
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT();
         return ret;
     }
 
