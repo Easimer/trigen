@@ -137,7 +137,7 @@ static int run_benchmark(int argc, char** argv) {
         printf("mode: benchmark backend=%d\n", backend_idx);
         auto B = Benchmark::make_benchmark((sb::Compute_Preference)backend_idx);
 
-        B.run(5.0f, 1/60.0f);
+        B.run(2.5f);
     } else {
         printf("argument -B requires a parameter (compute backend id like 1, 2 or 3)\n");
     }

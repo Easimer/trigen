@@ -9,7 +9,7 @@
 
 class Benchmark {
 public:
-    void run(float total_time, float step_time);
+    void run(float total_time);
     static Benchmark make_benchmark(sb::Compute_Preference backend);
 
 private:

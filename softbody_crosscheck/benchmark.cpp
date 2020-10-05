@@ -17,9 +17,6 @@ Benchmark Benchmark::make_benchmark(sb::Compute_Preference backend) {
     return Benchmark(std::move(sim));
 }
 
-void Benchmark::run(float total_time, float step_time) {
-    while(total_time > 0) {
-        sim->step(step_time);
-        total_time -= step_time;
-    }
+void Benchmark::run(float total_time) {
+    sim->step(total_time);
 }
