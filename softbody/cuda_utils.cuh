@@ -132,8 +132,12 @@ struct CUDA_Array {
         return cudaMemcpyAsync(dst, d_buf, bytes(), cudaMemcpyDeviceToHost, stream);
     }
 
-    cudaError_t read(T* dst) {
-        return cudaMemcpy(dst, d_buf, bytes(), cudaMemcpyDeviceToHost);
+    cudaError_t write_sub(T const* src, size_t offset, size_t count, cudaStream_t stream) {
+        return cudaMemcpyAsync(&d_buf[offset], &src[offset], count * sizeof(T), cudaMemcpyHostToDevice, stream);
+    }
+
+    cudaError_t read_sub(T* dst_base, size_t offset, size_t count, cudaStream_t stream) {
+        return cudaMemcpyAsync(&dst_base[offset], &d_buf[offset], count * sizeof(T), cudaMemcpyDeviceToHost, stream);
     }
 
     operator T*() {
@@ -144,3 +148,35 @@ struct CUDA_Array {
     size_t N;
 };
 
+class CUDA_Event_Recycler {
+public:
+    size_t get(cudaEvent_t* out) {
+        size_t ret;
+        *out = 0;
+        if(cursor < event_handles.size()) {
+            *out = event_handles[cursor];
+        } else {
+            event_handles.push_back(0);
+            auto& ev = event_handles.back();
+            ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev, cudaEventDefault));
+            *out = ev;
+        }
+        ret = cursor;
+        cursor++;
+        return ret;
+    }
+
+    void flip() {
+        cursor = 0;
+    }
+
+    ~CUDA_Event_Recycler() {
+        for(size_t i = 0; i < event_handles.size(); i++) {
+            ASSERT_CUDA_SUCCEEDED(cudaEventDestroy(event_handles[i]));
+        }
+    }
+
+private:
+    std::vector<cudaEvent_t> event_handles;
+    size_t cursor = 0;
+};
