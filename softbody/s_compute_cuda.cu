@@ -23,8 +23,6 @@
 #include "s_benchmark.h"
 #include "s_compute_backend.h"
 
-#define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
-
 // TODO(danielm): double leading underscores violate the standard
 #define __hybrid__ __device__ __host__
 
