@@ -575,7 +575,7 @@ public:
 
         };
 
-        constexpr size_t batch_size = 1024;
+        constexpr size_t batch_size = 2048;
 
         while(particles_remain >= batch_size) {
             process_batch(offset, batch_size);
