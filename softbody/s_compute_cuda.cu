@@ -37,17 +37,6 @@ __hybrid__ float4 angle_axis(float a, float4 axis) {
     return make_float4(v.x, v.y, v.z, w);
 }
 
-__hybrid__ float4 quat_quat_mul(float4 p, float4 q) {
-    float4 r;
-
-    r.w = p.w * q.w - p.x * q.x - p.y * q.y - p.z * q.z;
-    r.x = p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y;
-    r.y = p.w * q.y - p.x * q.z + p.y * q.w + p.z * q.x;
-    r.z = p.w * q.z + p.x * q.y - p.y * q.x + p.z * q.w;
-
-    return r;
-}
-
 __hybrid__ float4 mueller_rotation_extraction_impl(
     float4 const* A,
     float4 q
@@ -72,7 +61,7 @@ __hybrid__ float4 mueller_rotation_extraction_impl(
             break;
         }
 
-        t = normalize(quat_quat_mul(angle_axis(w, (1 / w) * omega), t));
+        t = normalize(hamilton_product(angle_axis(w, (1 / w) * omega), t));
     }
 
     return t;
