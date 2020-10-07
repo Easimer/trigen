@@ -18,5 +18,10 @@ Benchmark Benchmark::make_benchmark(sb::Compute_Preference backend) {
 }
 
 void Benchmark::run(float total_time) {
-    sim->step(total_time);
+    double time_left = total_time;
+    double const step = 1 / 30.0;
+    while(time_left >= 0) {
+        sim->step(step);
+        time_left -= step;
+    }
 }

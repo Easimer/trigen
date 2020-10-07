@@ -63,12 +63,14 @@ static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulati
 
     auto idx_max = it_max->first;
 
+    auto const epsilon = 1.0f;
+
     for (sb::index_t i = 0; i < idx_max; i++) {
         auto p_ref = particles_ref[i];
         auto p_ocl = particles_ocl[i];
         auto p_prp = particles_prp[i];
 
-        auto eq0 = epsilonEqual(p_ref.position, p_ocl.position, 0.1f);
+        auto eq0 = epsilonEqual(p_ref.position, p_ocl.position, epsilon);
         if (!eq0[0] || !eq0[1] || !eq0[2]) {
             simulations[SIM_OCL].step->get_state_description(128, stepbuf);
             snprintf(msgbuf, 511, "'%s' don't match between reference and OpenCL implementations!", what);
@@ -79,7 +81,7 @@ static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulati
                     stepbuf);
         }
 
-        auto eq1 = epsilonEqual(p_ref.position, p_prp.position, 0.1f);
+        auto eq1 = epsilonEqual(p_ref.position, p_prp.position, epsilon);
         if (!eq1[0] || !eq1[1] || !eq1[2]) {
             simulations[SIM_PRP].step->get_state_description(128, stepbuf);
             snprintf(msgbuf, 511, "'%s' don't match between reference and proprietary implementations!", what);
@@ -101,6 +103,8 @@ static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulati
 }
 
 void Cross_Check::step(Cross_Check_Listener* listener) {
+    step_counter++;
+    printf("Step #%zu\n", step_counter);
     simulations[SIM_REF].step->step();
     simulations[SIM_OCL].step->step();
     simulations[SIM_PRP].step->step();

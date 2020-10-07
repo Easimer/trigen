@@ -94,8 +94,8 @@ __hybrid__ void calculate_A_i(
 
 __hybrid__ void calculate_cluster_moment_matrix(
     float4* A,
-    unsigned i,
-    unsigned char const* adjacency, unsigned N,
+    unsigned id,
+    unsigned const* adjacency, unsigned adjacency_stride, unsigned N,
     float const* masses,
     float4 const* predicted_orientations,
     float4 const* sizes,
@@ -108,39 +108,49 @@ __hybrid__ void calculate_cluster_moment_matrix(
     float4 acc[4];
     float4 invRest[4];
 
-    float4 cm = centers_of_masses[i];
-    float4 cm_0 = bind_pose_centers_of_masses[i];
+    float4 cm = centers_of_masses[id];
+    float4 cm_0 = bind_pose_centers_of_masses[id];
 
     calculate_A_i(
             acc,
-            masses[i], predicted_orientations[i], sizes[i],
-            predicted_positions[i], bind_pose[i],
+            masses[id], predicted_orientations[id], sizes[id],
+            predicted_positions[id], bind_pose[id],
             cm, cm_0
     );
 
-    unsigned base = i * N;
-    // TODO(danielm): 2D
-    for(unsigned ni = 0; ni < N; ni++) {
+    // Iterating the adjacency table
+    auto adj_base = adjacency + id;
+    unsigned const neighbor_count = adj_base[0];
+    for(unsigned bank = 1; bank < adjacency_stride + 1; bank++) {
         float4 ntemp[4];
-        unsigned char w = adjacency[base + ni];
 
-        calculate_A_i(
-            ntemp,
-            masses[ni], predicted_orientations[ni], sizes[ni],
-            predicted_positions[ni], bind_pose[ni],
-            cm, cm_0
-        );
+        // Step to the next bank
+        adj_base += adjacency_stride;
 
-        acc[0] = acc[0] + w * ntemp[0];
-        acc[1] = acc[1] + w * ntemp[1];
-        acc[2] = acc[2] + w * ntemp[2];
-        acc[3] = acc[3] + w * ntemp[3];
+        if(bank < neighbor_count + 1) {
+            // ni: neighbor index
+            auto ni = adj_base[0];
+            calculate_A_i(
+                ntemp,
+                masses[ni], predicted_orientations[ni], sizes[ni],
+                predicted_positions[ni], bind_pose[ni],
+                cm, cm_0
+            );
+
+            acc[0] = acc[0] + ntemp[0];
+            acc[1] = acc[1] + ntemp[1];
+            acc[2] = acc[2] + ntemp[2];
+            acc[3] = acc[3] + ntemp[3];
+        } else {
+            break;
+        }
     }
+    // END OF Iterating the adjacency table
 
-    invRest[0] = bind_pose_inverse_bind_pose[i * 4 + 0];
-    invRest[1] = bind_pose_inverse_bind_pose[i * 4 + 1];
-    invRest[2] = bind_pose_inverse_bind_pose[i * 4 + 2];
-    invRest[3] = bind_pose_inverse_bind_pose[i * 4 + 3];
+    invRest[0] = bind_pose_inverse_bind_pose[id * 4 + 0];
+    invRest[1] = bind_pose_inverse_bind_pose[id * 4 + 1];
+    invRest[2] = bind_pose_inverse_bind_pose[id * 4 + 2];
+    invRest[3] = bind_pose_inverse_bind_pose[id * 4 + 3];
     mat_mul(A, acc, invRest);
 }
 
@@ -161,7 +171,7 @@ __global__ void k_calculate_particle_masses(
 
 __global__ void k_calculate_cluster_moment_matrices(
         float4* out, unsigned N, unsigned offset,
-        unsigned char const* adjacency,
+        unsigned const* adjacency, unsigned adjacency_stride,
         float const* masses,
         float4 const* predicted_orientations,
         float4 const* sizes,
@@ -177,7 +187,7 @@ __global__ void k_calculate_cluster_moment_matrices(
 
     calculate_cluster_moment_matrix(
             &out[4 * id], id,
-            adjacency, N,
+            adjacency, adjacency_stride, N,
             masses, predicted_orientations, sizes,
             predicted_positions, bind_pose,
             centers_of_masses, bind_pose_centers_of_masses,
@@ -207,7 +217,7 @@ __global__ void k_extract_rotations(
 
 __global__ void k_calculate_centers_of_masses(
         float4* com, unsigned N, unsigned offset,
-        unsigned char const* adjacency,
+        unsigned const* adjacency, unsigned adjacency_stride,
         float const* masses,
         float4 const* predicted_position
     ) {
@@ -218,16 +228,27 @@ __global__ void k_calculate_centers_of_masses(
 
     float M = masses[id];
     float4 com_cur = M * predicted_position[id];
-    unsigned base = id * N;
-    for(unsigned ni = 0; ni < N; ni++) {
-        unsigned char w = adjacency[base + ni];
 
-        if(w != 0) {
+    // Iterating the adjacency table
+    auto adj_base = adjacency + id;
+    unsigned const neighbor_count = adj_base[0];
+    for(unsigned bank = 1; bank < adjacency_stride + 1; bank++) {
+        float4 ntemp[4];
+
+        // Step to the next bank
+        adj_base += adjacency_stride;
+
+        if(bank < neighbor_count + 1) {
+            // ni: neighbor index
+            auto ni = adj_base[0];
             float m = masses[ni];
             M += m;
             com_cur += m * predicted_position[ni];
+        } else {
+            break;
         }
     }
+    // END OF Iterating the adjacency table
 
     com_cur.w = 0;
     com[id] = com_cur / M;
@@ -240,7 +261,7 @@ struct Particle_Correction_Info {
 
 __global__ void k_generate_correction_info(
         Particle_Correction_Info* d_info,
-        unsigned char* d_adjacency, unsigned N,
+        unsigned const* d_adjacency, unsigned adjacency_stride, unsigned N,
         float4* d_bind_pose_center_of_mass,
         float4* d_bind_pose
         ) {
@@ -249,14 +270,7 @@ __global__ void k_generate_correction_info(
         return;
     }
 
-    auto base = id * N;
-    float count = 1;
-    for(unsigned ni = 0; ni < N; ni++) {
-        auto w = d_adjacency[base + ni];
-        if(w != 0) {
-            count += 1;
-        }
-    }
+    float count = d_adjacency[id];
 
     auto const inv_num_clusters = 1.0f / count;
 
@@ -286,8 +300,9 @@ __global__ void k_apply_rotations(
     auto const& inf = d_info[id];
     auto pos_bind_rot = hamilton_product(hamilton_product(R, inf.pos_bind), quat_conjugate(R));
     auto goal = d_centers_of_masses[id] + pos_bind_rot;
-    auto correction = (goal - d_predicted_positions[id]) * stiffness;
-    d_new_predicted_positions[id] += inf.inv_num_clusters * correction;
+    auto pos = d_predicted_positions[id];
+    auto correction = (goal - pos) * stiffness;
+    d_new_predicted_positions[id] = pos + inf.inv_num_clusters * correction;
     d_goal_positions[id] = goal;
 }
 
@@ -380,6 +395,43 @@ private:
     std::array<cudaStream_t, (size_t)N> _streams;
 };
 
+struct Adjacency_Table {
+    using Table_Type = sb::Unique_Ptr<unsigned[]>;
+    Table_Type table;
+    unsigned stride;
+    unsigned size;
+
+    Adjacency_Table() : table(nullptr), stride(0), size(0) {}
+
+    Adjacency_Table(Table_Type&& table, unsigned stride, unsigned size) :
+        table(std::move(table)), stride(stride), size(size) {
+        assert(this->table != nullptr);
+
+        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(this->table.get(), size * sizeof(unsigned), 0));
+    }
+
+    ~Adjacency_Table() {
+        if(table != nullptr) {
+            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(table.get()));
+        }
+    }
+
+    Adjacency_Table& operator=(Adjacency_Table&& other) {
+        if(table != nullptr) {
+            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(table.get()));
+        }
+
+        table = nullptr;
+        stride = 0;
+        size = 0;
+        std::swap(table, other.table);
+        std::swap(stride, other.stride);
+        std::swap(size, other.size);
+
+        return *this;
+    }
+};
+
 class Compute_CUDA : public ICompute_Backend {
 public:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
@@ -423,8 +475,7 @@ public:
         // HACKHACKHACK: we're assuming here that s.edges[] couldn't have possibly changed if the particle count stayed constant. This is not true! 
         calculate_particle_masses(s);
         if(N != current_particle_count) {
-            d_adjacency = CUDA_Array<unsigned char>(N * N);
-            make_adjacency_matrix(s);
+            make_adjacency_table(s);
         }
 
         current_particle_count = N;
@@ -437,36 +488,70 @@ public:
         auto blocks = get_block_count<P_MASS_THREADS_PER_BLOCK>(N);
 
         scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
-            cudaMemcpyAsync(d_densities, s.density.data(), d_densities.bytes(), cudaMemcpyHostToDevice, stream);
-            cudaMemcpyAsync(d_sizes, s.size.data(), d_sizes.bytes(), cudaMemcpyHostToDevice, stream);
+            ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(d_densities, s.density.data(), d_densities.bytes(), cudaMemcpyHostToDevice, stream));
+            ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(d_sizes, s.size.data(), d_sizes.bytes(), cudaMemcpyHostToDevice, stream));
             k_calculate_particle_masses<<<blocks, P_MASS_THREADS_PER_BLOCK, 0, stream>>>(N, d_masses, d_sizes, d_densities);
+
+            ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
         });
     }
 
-    void make_adjacency_matrix(System_State const& s) {
+    void make_adjacency_table(System_State const& s) {
         DECLARE_BENCHMARK_BLOCK();
-
         BEGIN_BENCHMARK();
+
+        // NOTE(danielm):
+        // Adjacency table format:
+        // +=======+=======+=======+=======+=======+=======+=======+=======+
+        // |  C_1  |  C_2  |  C_3  |  C_4  | N_1_1 | N_2_1 | N_3_1 | N_4_1 |
+        // +=======+=======+=======+=======+=======+=======+=======+=======+
+        // | N_1_2 | N_2_2 | N_3_2 | N_4_2 | N_1_3 | N_2_3 | N_3_3 | ...   |
+        // +=======+=======+=======+=======+=======+=======+=======+=======+
+        // Where C_i is 'the neighbor count of particle #i' and
+        // N_i_j is the 'jth neighbor of particle #i'.
+        //
+        // Chunks like N_1_3 - N_4_3 are called 'banks'.
+        // The element count of a bank is called the stride.
+        //
+
         auto const N = particle_count(s);
-        Vector<unsigned char> h_ret(N * N, 0);
-
-        cudaHostRegister(h_ret.data(), h_ret.size(), 0);
-
+        unsigned max_neighbor_count = 0;
         for(index_t i = 0; i < N; i++) {
-            unsigned char* i_row = h_ret.data() + i * N;
-            auto const& neighbors = s.edges.at(i);
-            for(auto neighbor : neighbors) {
-                i_row[neighbor] = 1;
+            auto c = s.edges.at(i).size();
+            if(c > max_neighbor_count) {
+                max_neighbor_count = c;
             }
         }
 
-        printf("sb: adjacency-matrix size=%zu\n", d_adjacency.bytes());
+        auto const header_element_count = N;
+        auto const stride = N;
+        auto const table_size = header_element_count + N * stride;
+        auto table = std::make_unique<unsigned[]>(table_size);
+
+        // Make header
+        for(index_t i = 0; i < N; i++) {
+            auto& neighbors = s.edges.at(i);
+            auto count = neighbors.size();
+            table[i] = count;
+        }
+
+        unsigned* indices = table.get() + header_element_count;
+
+        for(index_t i = 0; i < N; i++) {
+            auto& neighbors = s.edges.at(i);
+            auto count = neighbors.size();
+
+            for(int bank = 0; bank < count; bank++) {
+                indices[bank * stride + i] = neighbors[bank];
+            }
+        }
+
+        h_adjacency = std::move(Adjacency_Table(std::move(table), stride, table_size));
+        d_adjacency = std::move(CUDA_Array<unsigned>(table_size));
 
         scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
-            cudaMemcpyAsync(d_adjacency, h_ret.data(), d_adjacency.bytes(), cudaMemcpyHostToDevice, stream);
+            ASSERT_CUDA_SUCCEEDED(d_adjacency.write_async(h_adjacency.table.get(), stream));
         });
-
-        cudaHostUnregister(h_ret.data());
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
@@ -511,8 +596,6 @@ public:
 
         pipelined_part(N, s);
 
-        scheduler.synchronize<Stream::Rotation_Apply>();
-
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
     }
@@ -521,11 +604,13 @@ public:
         size_t particles_remain = N;
         size_t offset = 0;
 
+        cudaMemset(d_new_predicted_positions, 0, N * sizeof(float4));
+
         auto process_batch = [&](size_t offset, size_t batch_size) {
             scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
-                constexpr auto comcalc_threads_per_block = 256;
+                constexpr auto comcalc_threads_per_block = 64;
                 auto const comcalc_blocks = get_block_count<comcalc_threads_per_block>(batch_size);
-                k_calculate_centers_of_masses<<<comcalc_blocks, comcalc_threads_per_block, 0, stream>>>(d_centers_of_masses, N, offset, d_adjacency, d_masses, d_predicted_positions);
+                k_calculate_centers_of_masses<<<comcalc_blocks, comcalc_threads_per_block, 0, stream>>>(d_centers_of_masses, N, offset, d_adjacency, h_adjacency.stride, d_masses, d_predicted_positions);
 
                 auto kernel_failed = cudaPeekAtLastError() != 0;
                 if(kernel_failed) {
@@ -548,7 +633,7 @@ public:
                     auto shared_memory_count = 0;
 
                     k_calculate_cluster_moment_matrices<<<blocks, block_size, shared_memory_count, stream>>>(
-                            d_tmp_cluster_moment_matrices, N, offset, d_adjacency, d_masses, d_predicted_orientations,
+                            d_tmp_cluster_moment_matrices, N, offset, d_adjacency, h_adjacency.stride, d_masses, d_predicted_orientations,
                             d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
                             d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
                             );
@@ -573,6 +658,28 @@ public:
                 d_rotations.read_sub((float4*)s.predicted_orientation.data(), offset, batch_size, stream);
             });
 
+            scheduler.insert_dependency<Stream::Rotation_Extract, Stream::Rotation_Apply>(ev_recycler);
+
+            scheduler.on_stream<Stream::Rotation_Apply>([&](cudaStream_t stream) {
+                constexpr auto block_size = 512;
+                auto blocks = get_block_count<block_size>(batch_size);
+
+                k_apply_rotations<<<blocks, block_size, 0, stream>>>(
+                        d_new_predicted_positions,
+                        d_goal_positions,
+                        d_predicted_positions,
+                        d_predicted_orientations,
+                        d_centers_of_masses,
+                        d_rotations,
+                        d_corr_info,
+                        N, offset
+                        );
+
+                ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
+
+                // d_goal_positions.read_sub((float4*)s.goal_position.data(), offset, batch_size, stream);
+                d_new_predicted_positions.read_sub((float4*)s.predicted_position.data(), offset, batch_size, stream);
+                });
         };
 
         constexpr size_t batch_size = 2048;
@@ -594,35 +701,13 @@ public:
             // TODO(danielm): we need to make sure that the adjacency matrix is present on dev by now
             k_generate_correction_info<<<blocks, block_size, 0, stream>>>(
                 d_corr_info,
-                d_adjacency, N,
+                d_adjacency, h_adjacency.stride, N,
                 d_bind_pose_centers_of_masses,
                 d_bind_pose
             );
         });
 
-        scheduler.insert_dependency<Stream::Rotation_Extract, Stream::Rotation_Apply>(ev_recycler);
         scheduler.insert_dependency<Stream::Aux, Stream::Rotation_Apply>(ev_recycler);
-
-        scheduler.on_stream<Stream::Rotation_Apply>([&](cudaStream_t stream) {
-            constexpr auto block_size = 512;
-            auto blocks = get_block_count<block_size>(batch_size);
-
-            // TODO: make this one pipelineable too
-            k_apply_rotations<<<blocks, block_size, 0, stream>>>(
-                d_new_predicted_positions,
-                d_goal_positions,
-                d_predicted_positions,
-                d_predicted_orientations,
-                d_centers_of_masses,
-                d_rotations,
-                d_corr_info,
-                N, offset
-            );
-
-            // d_goal_positions.read_sub((float4*)s.goal_position.data(), offset, batch_size, stream);
-            d_new_predicted_positions.read_sub((float4*)s.predicted_position.data(), offset, batch_size, stream);
-        });
-
 
         // Aux stream must wait for CoM data to be calculated
         scheduler.insert_dependency<Stream::Pipeline0, Stream::Aux>(ev_recycler);
@@ -633,6 +718,12 @@ public:
         scheduler.insert_dependency<Stream::Rotation_Extract, Stream::Aux>(ev_recycler);
         scheduler.on_stream<Stream::Aux>([&](cudaStream_t stream) {
             ASSERT_CUDA_SUCCEEDED(d_rotations.read_async((float4*)s.predicted_orientation.data(), stream));
+        });
+
+        scheduler.synchronize<Stream::Rotation_Apply>();
+
+        scheduler.on_stream<Stream::Rotation_Apply>([&](cudaStream_t stream) {
+            ASSERT_CUDA_SUCCEEDED(d_new_predicted_positions.read_async((float4*)s.predicted_position.data(), stream));
         });
     }
 
@@ -649,7 +740,7 @@ private:
 
     size_t current_particle_count;
 
-    CUDA_Array<unsigned char> d_adjacency;
+    CUDA_Array<unsigned> d_adjacency;
     CUDA_Array<float> d_masses;
     CUDA_Array<float> d_densities;
     CUDA_Array<float4> d_sizes;
@@ -665,6 +756,8 @@ private:
     CUDA_Array<float4> d_new_predicted_positions;
     CUDA_Array<float4> d_goal_positions;
     CUDA_Array<Particle_Correction_Info> d_corr_info;
+
+    Adjacency_Table h_adjacency;
 };
 
 static int g_cudaInit = 0;

@@ -44,4 +44,5 @@ public:
 
 private:
     Simulation_Instance simulations[3];
+    size_t step_counter = 0;
 };
