@@ -10,10 +10,21 @@
 #include <cuda_runtime_api.h>
 
 #define CUDA_SUCCEEDED(HR, APICALL) ((HR = APICALL) == cudaSuccess)
+
+inline void cuda_assert(char const* expr, size_t line, char const* file, char const* function, cudaError_t rc) {
+    if(rc == cudaSuccess) {
+        return;
+    }
+
+    printf("[!] CUDA API CALL FAILED: %s:%zu: %s: Assertion `%s` failed. Result code: %d\n", file, line, function, expr, rc);
+    std::abort();
+}
+
 #ifdef NDEBUG
-#define ASSERT_CUDA_SUCCEEDED(APICALL) ((APICALL) == cudaSuccess)
+#define ASSERT_CUDA_SUCCEEDED(APICALL) (APICALL)
 #else
-#define ASSERT_CUDA_SUCCEEDED(APICALL) assert((APICALL) == cudaSuccess)
+#define _ASSERT_CUDA_SUCCEEDED(expr) #expr
+#define ASSERT_CUDA_SUCCEEDED(APICALL) cuda_assert((char const*)_ASSERT_CUDA_SUCCEEDED(APICALL), (size_t) __LINE__, (char const*) __FILE__, (char const*) __FUNCTION__, APICALL)
 #endif
 
 class CUDA_Event {
@@ -37,7 +48,7 @@ private:
 struct CUDA_Memory_Pin {
 public:
     CUDA_Memory_Pin(void* ptr, size_t size) : _ptr(ptr) {
-        cudaHostRegister(ptr, size, cudaHostRegisterDefault);
+        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(ptr, size, cudaHostRegisterDefault));
     }
 
     template<typename T>
@@ -45,11 +56,13 @@ public:
         // NOTE(danielm): you must be careful not to push items into the vector
         // since a vector grow might move the memory away from the current address.
         auto size = v.size() * sizeof(T);
-        cudaHostRegister(_ptr, size, cudaHostRegisterDefault);
+        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(_ptr, size, cudaHostRegisterDefault));
     }
 
     ~CUDA_Memory_Pin() {
-        cudaHostUnregister(_ptr);
+        if(_ptr != nullptr) {
+            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(_ptr));
+        }
     }
 
 
@@ -106,9 +119,10 @@ struct CUDA_Array {
     CUDA_Array& operator=(CUDA_Array&& other) {
         if(!is_empty()) {
             ASSERT_CUDA_SUCCEEDED(cudaFree(d_buf));
-            d_buf = nullptr;
-            N = 0;
         }
+
+        d_buf = nullptr;
+        N = 0;
 
         std::swap(d_buf, other.d_buf);
         std::swap(N, other.N);
