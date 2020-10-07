@@ -15,7 +15,9 @@
 static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
         sb::sdf::ast::Expression<float>* expr,
         sb::sdf::ast::Sample_Point* sp) {
-    return [&](Vec3 const& p) -> float {
+    return [expr, sp](Vec3 const& p) -> float {
+        assert(expr != NULL);
+        assert(sp != NULL);
         sp->set_value(p);
         return expr->evaluate();
     };
@@ -71,11 +73,13 @@ private:
 
                 // Find the closest surface
                 for (auto& C : s.colliders_sdf) {
-                    auto l = make_sdf_ast_wrapper(C.expr, C.sp);
-                    auto dist = l(p);
-                    if (dist < surface_dist) {
-                        surface = &C;
-                        surface_dist = dist;
+                    if(C.used) {
+                        auto l = make_sdf_ast_wrapper(C.expr, C.sp);
+                        auto dist = l(p);
+                        if (dist < surface_dist) {
+                            surface = &C;
+                            surface_dist = dist;
+                        }
                     }
                 }
 
