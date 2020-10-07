@@ -27,6 +27,7 @@ static Cross_Check::Simulation_Instance create_sim_instance(sb::Compute_Preferen
     sb::Config cfg;
     cfg.ext = sb::Extension::Debug_Cloth;
     cfg.compute_preference = pref;
+    cfg.particle_count_limit = 65536;
 
     ret.sim = sb::create_simulation(cfg);
     ret.step = ret.sim->begin_single_step();
@@ -51,22 +52,15 @@ static std::map<sb::index_t, sb::Particle> gather_particles(sb::Unique_Ptr<sb::P
     return ret;
 }
 
-void Cross_Check::step(Cross_Check_Listener* listener) {
+static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulation_Instance* simulations, char const* what, std::map<sb::index_t, sb::Particle>& particles_ref, std::map<sb::index_t, sb::Particle>& particles_ocl, std::map<sb::index_t, sb::Particle>& particles_prp) {
     char msgbuf[512];
     char stepbuf[128];
 
-    simulations[SIM_REF].step->step();
-    auto particles_ref = gather_particles(simulations[SIM_REF].sim->get_particles_with_predicted_positions());
-    simulations[SIM_OCL].step->step();
-    auto particles_ocl = gather_particles(simulations[SIM_OCL].sim->get_particles_with_predicted_positions());
-    simulations[SIM_PRP].step->step();
-    auto particles_prp = gather_particles(simulations[SIM_PRP].sim->get_particles_with_predicted_positions());
-    
     auto it_max = std::max_element(particles_ref.begin(), particles_ref.end(), [&](auto lhs, auto rhs) {
         return lhs.first < rhs.first;
     });
     assert(it_max != particles_ref.end() && "Is the simulation empty?");
-    
+
     auto idx_max = it_max->first;
 
     for (sb::index_t i = 0; i < idx_max; i++) {
@@ -77,23 +71,42 @@ void Cross_Check::step(Cross_Check_Listener* listener) {
         auto eq0 = epsilonEqual(p_ref.position, p_ocl.position, 0.1f);
         if (!eq0[0] || !eq0[1] || !eq0[2]) {
             simulations[SIM_OCL].step->get_state_description(128, stepbuf);
+            snprintf(msgbuf, 511, "'%s' don't match between reference and OpenCL implementations!", what);
             listener->fault(
                     sb::Compute_Preference::GPU_OpenCL,
                     i, p_ref, p_ocl,
-                    "Particle positions don't match between reference and OpenCL implementations!",
+                    msgbuf,
                     stepbuf);
         }
 
         auto eq1 = epsilonEqual(p_ref.position, p_prp.position, 0.1f);
         if (!eq1[0] || !eq1[1] || !eq1[2]) {
-            simulations[SIM_OCL].step->get_state_description(128, stepbuf);
+            simulations[SIM_PRP].step->get_state_description(128, stepbuf);
+            snprintf(msgbuf, 511, "'%s' don't match between reference and proprietary implementations!", what);
             listener->fault(
                     sb::Compute_Preference::GPU_Proprietary,
                     i, p_ref, p_prp,
-                    "Particle positions don't match between reference and proprietary implementations!",
+                    msgbuf,
                     stepbuf);
         }
     }
+}
+
+#define GATHER_PARTICLES_AND_COMPARE(what, kind) \
+{ \
+        auto particles_ref = gather_particles(simulations[SIM_REF].sim->kind()); \
+        auto particles_ocl = gather_particles(simulations[SIM_OCL].sim->kind()); \
+        auto particles_prp = gather_particles(simulations[SIM_PRP].sim->kind()); \
+        compare_states(listener, simulations, what, particles_ref, particles_ocl, particles_prp); \
+}
+
+void Cross_Check::step(Cross_Check_Listener* listener) {
+    simulations[SIM_REF].step->step();
+    simulations[SIM_OCL].step->step();
+    simulations[SIM_PRP].step->step();
+
+    GATHER_PARTICLES_AND_COMPARE("Centers-of-masses", get_centers_of_masses);
+    GATHER_PARTICLES_AND_COMPARE("Predicted positions", get_particles_with_predicted_positions);
 }
 
 void Cross_Check::dump_images(sb::ISerializer* serializers[3]) {
