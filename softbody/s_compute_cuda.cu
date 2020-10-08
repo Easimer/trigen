@@ -61,16 +61,17 @@ __hybrid__ float4 mueller_rotation_extraction_impl(
         float4 R[4];
         quat_to_mat(R, t);
         float d = 0;
+        float3 c = make_float3(0, 0, 0);
         float3 r0_xyz = xyz(R[0]);
-        float c0 = dot(r0_xyz, a0_xyz);
+        c += cross(r0_xyz, a0_xyz);
         d += dot(r0_xyz, a0_xyz);
         float3 r1_xyz = xyz(R[1]);
-        float c1 = dot(r1_xyz, a1_xyz);
+        c += cross(r1_xyz, a1_xyz);
         d += dot(r1_xyz, a1_xyz);
         float3 r2_xyz = xyz(R[2]);
-        float c2 = dot(r2_xyz, a2_xyz);
+        c += cross(r2_xyz, a2_xyz);
         d += dot(r2_xyz, a2_xyz);
-        float4 omega_v = make_float4(c0, c1, c2, 0);
+        float4 omega_v = make_float4(c, 0);
         float omega_s = 1.0f / fabs(d) + 1.0e-9;
         
         float4 omega = omega_s * omega_v;
@@ -691,7 +692,7 @@ public:
 
             // [ExtRot]
             scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
-                constexpr auto block_size = 256;
+                constexpr auto block_size = 408;
                 auto blocks = get_block_count<block_size>(batch_size);
                 k_extract_rotations<<<blocks, block_size, 0, stream>>>(
                     d_rotations, N, offset,
