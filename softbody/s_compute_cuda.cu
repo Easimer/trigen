@@ -10,6 +10,7 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include "device_launch_parameters.h"
+#include "nvToolsExt.h"
 #include <numeric>
 #include "l_iterators.h"
 #include <glm/glm.hpp>
@@ -26,6 +27,18 @@
 // TODO(danielm): double leading underscores violate the standard
 #define __hybrid__ __device__ __host__
 
+#define EXPLODE_F32x4(v) v.x, v.y, v.z, v.w
+
+struct CUDA_Range {
+    CUDA_Range(char const* label) {
+        nvtxRangePushA(label);
+    }
+
+    ~CUDA_Range() {
+        nvtxRangePop();
+    }
+};
+
 __hybrid__ float4 angle_axis(float a, float4 axis) {
     float s = sin(0.5f * a);
 
@@ -41,17 +54,24 @@ __hybrid__ float4 mueller_rotation_extraction_impl(
 ) {
 #define MAX_ITER (16)
     float4 t = q;
+    float3 const a0_xyz = xyz(A[0]);
+    float3 const a1_xyz = xyz(A[1]);
+    float3 const a2_xyz = xyz(A[2]);
     for(int iter = 0; iter < MAX_ITER; iter++) {
         float4 R[4];
         quat_to_mat(R, t);
+        float d = 0;
         float3 r0_xyz = xyz(R[0]);
+        float c0 = dot(r0_xyz, a0_xyz);
+        d += dot(r0_xyz, a0_xyz);
         float3 r1_xyz = xyz(R[1]);
+        float c1 = dot(r1_xyz, a1_xyz);
+        d += dot(r1_xyz, a1_xyz);
         float3 r2_xyz = xyz(R[2]);
-        float3 a0_xyz = xyz(A[0]);
-        float3 a1_xyz = xyz(A[1]);
-        float3 a2_xyz = xyz(A[2]);
-        float4 omega_v = make_float4(cross(r0_xyz, a0_xyz) + cross(r1_xyz, a1_xyz) + cross(r2_xyz, a2_xyz), 0);
-        float omega_s = 1.0f / fabs(dot(r0_xyz, a0_xyz) + dot(r1_xyz, a1_xyz) + dot(r2_xyz, a2_xyz)) + 1.0e-9;
+        float c2 = dot(r2_xyz, a2_xyz);
+        d += dot(r2_xyz, a2_xyz);
+        float4 omega_v = make_float4(c0, c1, c2, 0);
+        float omega_s = 1.0f / fabs(d) + 1.0e-9;
         
         float4 omega = omega_s * omega_v;
         float w = length(omega);
@@ -156,10 +176,11 @@ __hybrid__ void calculate_cluster_moment_matrix(
 
 __global__ void k_calculate_particle_masses(
         unsigned N,
+        unsigned offset,
         float* d_masses,
         float4 const* d_sizes,
         float const* d_densities) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x + offset;
     if(i >= N) {
         return;
     }
@@ -180,7 +201,7 @@ __global__ void k_calculate_cluster_moment_matrices(
         float4 const* centers_of_masses,
         float4 const* bind_pose_centers_of_masses,
         float4 const* bind_pose_inverse_bind_pose) {
-    unsigned id = blockDim.x * blockIdx.x + threadIdx.x + offset;
+    int id = blockDim.x * blockIdx.x + threadIdx.x + offset;
     if(id >= N) {
         return;
     }
@@ -199,7 +220,7 @@ __global__ void k_extract_rotations(
         float4* out, unsigned N, unsigned offset,
         float4 const* A, float4 const* predicted_orientations
         ) {
-    unsigned id = blockDim.x * blockIdx.x + threadIdx.x + offset;
+    int id = blockDim.x * blockIdx.x + threadIdx.x + offset;
     if(id >= N) {
         return;
     }
@@ -221,7 +242,7 @@ __global__ void k_calculate_centers_of_masses(
         float const* masses,
         float4 const* predicted_position
     ) {
-    unsigned id = blockIdx.x * blockDim.x + threadIdx.x + offset;
+    int id = blockIdx.x * blockDim.x + threadIdx.x + offset;
     if(id >= N) {
         return;
     }
@@ -265,7 +286,7 @@ __global__ void k_generate_correction_info(
         float4* d_bind_pose_center_of_mass,
         float4* d_bind_pose
         ) {
-    unsigned const id = threadIdx.x + blockDim.x * blockIdx.x;
+    int const id = threadIdx.x + blockDim.x * blockIdx.x;
     if(id >= N) {
         return;
     }
@@ -283,14 +304,14 @@ __global__ void k_generate_correction_info(
 __global__ void k_apply_rotations(
         float4* d_new_predicted_positions,
         float4* d_goal_positions,
-        float4* d_predicted_positions,
+        float4 const* d_predicted_positions,
         float4 const* d_predicted_orientations,
         float4 const* d_centers_of_masses,
         float4 const* d_rotations,
         Particle_Correction_Info const* d_info,
         unsigned N, unsigned offset
         ) {
-    unsigned const id = threadIdx.x + blockDim.x * blockIdx.x + offset;
+    int const id = threadIdx.x + blockDim.x * blockIdx.x + offset;
     if(id >= N) {
         return;
     }
@@ -319,12 +340,10 @@ class Collider_Manager {
 };
 
 enum class Stream : size_t {
-    Pipeline0 = 0,
-    Pipeline1,
-    Pipeline2,
-    Rotation_Extract,
-    Rotation_Apply,
-    Aux,
+    CopyToDev = 0,
+    CopyToHost,
+    Compute,
+
     Max
 };
 
@@ -472,11 +491,7 @@ public:
         d_corr_info = CUDA_Array<Particle_Correction_Info>(N);
         d_new_predicted_positions = CUDA_Array<float4>(N);
 
-        // HACKHACKHACK: we're assuming here that s.edges[] couldn't have possibly changed if the particle count stayed constant. This is not true! 
-        calculate_particle_masses(s);
-        if(N != current_particle_count) {
-            make_adjacency_table(s);
-        }
+        make_adjacency_table(s);
 
         current_particle_count = N;
     }
@@ -484,16 +499,38 @@ public:
     void calculate_particle_masses(System_State const& s) {
         auto const N = particle_count(s);
 
-#define P_MASS_THREADS_PER_BLOCK (1024)
-        auto blocks = get_block_count<P_MASS_THREADS_PER_BLOCK>(N);
+        auto process_batch = [&](size_t offset, size_t batch_size) {
+            constexpr int block_size = 1024;
+            int grid_size = get_block_count<block_size>(batch_size);
+            scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
+                ASSERT_CUDA_SUCCEEDED(d_sizes.write_sub((float4*)s.size.data(), offset, batch_size, stream));
+                ASSERT_CUDA_SUCCEEDED(d_densities.write_sub(s.density.data(), offset, batch_size, stream));
+            });
 
-        scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(d_densities, s.density.data(), d_densities.bytes(), cudaMemcpyHostToDevice, stream));
-            ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(d_sizes, s.size.data(), d_sizes.bytes(), cudaMemcpyHostToDevice, stream));
-            k_calculate_particle_masses<<<blocks, P_MASS_THREADS_PER_BLOCK, 0, stream>>>(N, d_masses, d_sizes, d_densities);
+            scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
 
-            ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
-        });
+            scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+                k_calculate_particle_masses<<<grid_size, block_size, 0, stream>>>(N, offset, d_masses, d_sizes, d_densities);
+                ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
+            });
+        };
+
+        /*
+        size_t remain = N;
+        size_t offset = 0;
+        constexpr size_t batch_size = 16 * 1024;
+        while(remain >= batch_size) {
+            process_batch(offset, batch_size);
+            offset += batch_size;
+            remain -= batch_size;
+        }
+
+        if(remain != 0) {
+            process_batch(offset, remain);
+        }
+        */
+
+        process_batch(0, N);
     }
 
     void make_adjacency_table(System_State const& s) {
@@ -549,9 +586,11 @@ public:
         h_adjacency = std::move(Adjacency_Table(std::move(table), stride, table_size));
         d_adjacency = std::move(CUDA_Array<unsigned>(table_size));
 
-        scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
+        scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
             ASSERT_CUDA_SUCCEEDED(d_adjacency.write_async(h_adjacency.table.get(), stream));
         });
+
+        scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
@@ -579,88 +618,95 @@ public:
         CUDA_Memory_Pin mp_goal_position(s.goal_position);
         CUDA_Memory_Pin mp_com0(s.bind_pose_center_of_mass);
         CUDA_Memory_Pin mp_com(s.center_of_mass);
+        CUDA_Memory_Pin mp_sizes(s.size);
+        CUDA_Memory_Pin mp_densities(s.density);
 
-        scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_predicted_orientations.write_async((float4*)s.predicted_orientation.data(), stream));
-        });
-        scheduler.on_stream<Stream::Pipeline1>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_predicted_positions.write_async((float4*)s.predicted_position.data(), stream));
-        });
-        scheduler.on_stream<Stream::Pipeline2>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_bind_pose.write_async((float4*)s.bind_pose.data(), stream));
-        });
-
-        scheduler.stall_pipeline<Stream::Pipeline0>(ev_recycler);
-        scheduler.stall_pipeline<Stream::Pipeline1>(ev_recycler);
-        scheduler.stall_pipeline<Stream::Pipeline2>(ev_recycler);
-
+        calculate_particle_masses(s);
+        upload_required_data(s);
+        generate_correction_info(N);
         pipelined_part(N, s);
+
+        // Wait for everything to be copied back
+        scheduler.synchronize<Stream::CopyToHost>();
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
+    }
+
+    void upload_required_data(System_State const& s) {
+        scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
+            ASSERT_CUDA_SUCCEEDED(d_bind_pose_inverse_bind_pose.write_async((float4*)s.bind_pose_inverse_bind_pose.data(), stream));
+            ASSERT_CUDA_SUCCEEDED(d_bind_pose_centers_of_masses.write_async((float4*)s.bind_pose_center_of_mass.data(), stream));
+            ASSERT_CUDA_SUCCEEDED(d_predicted_orientations.write_async((float4*)s.predicted_orientation.data(), stream));
+            ASSERT_CUDA_SUCCEEDED(d_predicted_positions.write_async((float4*)s.predicted_position.data(), stream));
+            ASSERT_CUDA_SUCCEEDED(d_bind_pose.write_async((float4*)s.bind_pose.data(), stream));
+        });
+
+        scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
+    }
+
+    void generate_correction_info(unsigned N) {
+        // [Corr]
+        scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+            constexpr auto block_size = 32;
+            auto blocks = get_block_count<block_size>(N);
+
+            k_generate_correction_info<<<blocks, block_size, 0, stream>>>(
+                d_corr_info,
+                d_adjacency, h_adjacency.stride, N,
+                d_bind_pose_centers_of_masses,
+                d_bind_pose
+            );
+        });
     }
 
     void pipelined_part(size_t N, System_State& s) {
         size_t particles_remain = N;
         size_t offset = 0;
 
-        cudaMemset(d_new_predicted_positions, 0, N * sizeof(float4));
-
         auto process_batch = [&](size_t offset, size_t batch_size) {
-            scheduler.on_stream<Stream::Pipeline0>([&](cudaStream_t stream) {
+            // [CoM] Calculate centers-of-masses
+            scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
                 constexpr auto comcalc_threads_per_block = 64;
                 auto const comcalc_blocks = get_block_count<comcalc_threads_per_block>(batch_size);
                 k_calculate_centers_of_masses<<<comcalc_blocks, comcalc_threads_per_block, 0, stream>>>(d_centers_of_masses, N, offset, d_adjacency, h_adjacency.stride, d_masses, d_predicted_positions);
 
-                auto kernel_failed = cudaPeekAtLastError() != 0;
-                if(kernel_failed) {
-                    printf("failed to dispatch k_calculate_centers_of_masses rc=%d\n", cudaGetLastError());
-                    std::terminate();
-                }
-            });
-            scheduler.on_stream<Stream::Pipeline1>([&](cudaStream_t stream) {
-                ASSERT_CUDA_SUCCEEDED(d_bind_pose_centers_of_masses.write_sub((float4*)s.bind_pose_center_of_mass.data(), offset, batch_size, stream));
-                ASSERT_CUDA_SUCCEEDED(d_bind_pose_inverse_bind_pose.write_sub((float4*)s.bind_pose_inverse_bind_pose.data(), 4 * offset, 4 * batch_size, stream));
+                ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
             });
 
-            // Stream Pipeline2 must wait for CoM data to be calculated and bind-pose values to arrive
-            scheduler.insert_dependency<Stream::Pipeline0, Stream::Pipeline2>(ev_recycler);
-            scheduler.insert_dependency<Stream::Pipeline1, Stream::Pipeline2>(ev_recycler);
+            // [Clstr]
+            scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+                constexpr auto block_size = 32;
+                auto const blocks = get_block_count<block_size>(batch_size);
+                auto shared_memory_count = 0;
 
-            scheduler.on_stream<Stream::Pipeline2>([&](cudaStream_t stream) {
-                    constexpr auto block_size = 32;
-                    auto const blocks = get_block_count<block_size>(batch_size);
-                    auto shared_memory_count = 0;
+                k_calculate_cluster_moment_matrices<<<blocks, block_size, shared_memory_count, stream>>>(
+                    d_tmp_cluster_moment_matrices, N, offset, d_adjacency, h_adjacency.stride, d_masses, d_predicted_orientations,
+                    d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
+                    d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
+                );
 
-                    k_calculate_cluster_moment_matrices<<<blocks, block_size, shared_memory_count, stream>>>(
-                            d_tmp_cluster_moment_matrices, N, offset, d_adjacency, h_adjacency.stride, d_masses, d_predicted_orientations,
-                            d_sizes, d_predicted_positions, d_bind_pose, d_centers_of_masses,
-                            d_bind_pose_centers_of_masses, d_bind_pose_inverse_bind_pose
-                            );
-
-                    auto kernel_failed = cudaPeekAtLastError() != 0;
-                    if(kernel_failed) {
-                        printf("failed to dispatch k_calculate_centers_of_masses rc=%d\n", cudaGetLastError());
-                        std::terminate();
-                    }
+                ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
             });
 
-            scheduler.insert_dependency<Stream::Pipeline2, Stream::Rotation_Extract>(ev_recycler);
-
-            scheduler.on_stream<Stream::Rotation_Extract>([&](cudaStream_t stream) {
-                constexpr auto block_size = 512;
+            // [ExtRot]
+            scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+                constexpr auto block_size = 256;
                 auto blocks = get_block_count<block_size>(batch_size);
                 k_extract_rotations<<<blocks, block_size, 0, stream>>>(
                     d_rotations, N, offset,
                     d_tmp_cluster_moment_matrices, d_predicted_orientations
                 );
-
-                d_rotations.read_sub((float4*)s.predicted_orientation.data(), offset, batch_size, stream);
             });
 
-            scheduler.insert_dependency<Stream::Rotation_Extract, Stream::Rotation_Apply>(ev_recycler);
+            scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
 
-            scheduler.on_stream<Stream::Rotation_Apply>([&](cudaStream_t stream) {
+            scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
+                ASSERT_CUDA_SUCCEEDED(d_rotations.read_sub((float4*)s.predicted_orientation.data(), offset, batch_size, stream));
+            });
+
+            // [Apply]
+            scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
                 constexpr auto block_size = 512;
                 auto blocks = get_block_count<block_size>(batch_size);
 
@@ -677,13 +723,19 @@ public:
 
                 ASSERT_CUDA_SUCCEEDED(cudaGetLastError());
 
-                // d_goal_positions.read_sub((float4*)s.goal_position.data(), offset, batch_size, stream);
-                d_new_predicted_positions.read_sub((float4*)s.predicted_position.data(), offset, batch_size, stream);
-                });
+            });
+
+            scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
+
+            scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
+                ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.read_sub((float4*)s.center_of_mass.data(), offset, batch_size, stream));
+                ASSERT_CUDA_SUCCEEDED(d_new_predicted_positions.read_sub((float4*)s.predicted_position.data(), offset, batch_size, stream));
+            });
         };
 
-        constexpr size_t batch_size = 2048;
+        constexpr size_t batch_size = 4096;
 
+        scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
         while(particles_remain >= batch_size) {
             process_batch(offset, batch_size);
             particles_remain -= batch_size;
@@ -694,37 +746,7 @@ public:
             process_batch(offset, particles_remain);
         }
 
-        scheduler.insert_dependency<Stream::Pipeline1, Stream::Aux>(ev_recycler);
-        scheduler.on_stream<Stream::Aux>([&](cudaStream_t stream) {
-            constexpr auto block_size = 32;
-            auto blocks = get_block_count<block_size>(N);
-            // TODO(danielm): we need to make sure that the adjacency matrix is present on dev by now
-            k_generate_correction_info<<<blocks, block_size, 0, stream>>>(
-                d_corr_info,
-                d_adjacency, h_adjacency.stride, N,
-                d_bind_pose_centers_of_masses,
-                d_bind_pose
-            );
-        });
-
-        scheduler.insert_dependency<Stream::Aux, Stream::Rotation_Apply>(ev_recycler);
-
-        // Aux stream must wait for CoM data to be calculated
-        scheduler.insert_dependency<Stream::Pipeline0, Stream::Aux>(ev_recycler);
-        scheduler.on_stream<Stream::Aux>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_centers_of_masses.read_async((float4*)s.center_of_mass.data(), stream));
-        });
-
-        scheduler.insert_dependency<Stream::Rotation_Extract, Stream::Aux>(ev_recycler);
-        scheduler.on_stream<Stream::Aux>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_rotations.read_async((float4*)s.predicted_orientation.data(), stream));
-        });
-
-        scheduler.synchronize<Stream::Rotation_Apply>();
-
-        scheduler.on_stream<Stream::Rotation_Apply>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(d_new_predicted_positions.read_async((float4*)s.predicted_position.data(), stream));
-        });
+        scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
     }
 
 private:

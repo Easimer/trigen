@@ -17,7 +17,7 @@ private:
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         pman->defer([&](IParticle_Manager* pman, System_State&) {
-            auto const N = 64;
+            auto const N = 96;
             auto const N_half = N / 2;
             for (int y = 0; y < N; y++) {
                 for (int x = 0; x < N; x++) {

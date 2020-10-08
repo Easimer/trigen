@@ -63,7 +63,7 @@ static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulati
 
     auto idx_max = it_max->first;
 
-    auto const epsilon = 1.0f;
+    auto const epsilon = 0.1f;
 
     for (sb::index_t i = 0; i < idx_max; i++) {
         auto p_ref = particles_ref[i];
@@ -83,6 +83,28 @@ static void compare_states(Cross_Check_Listener* listener, Cross_Check::Simulati
 
         auto eq1 = epsilonEqual(p_ref.position, p_prp.position, epsilon);
         if (!eq1[0] || !eq1[1] || !eq1[2]) {
+            simulations[SIM_PRP].step->get_state_description(128, stepbuf);
+            snprintf(msgbuf, 511, "'%s' don't match between reference and proprietary implementations!", what);
+            listener->fault(
+                    sb::Compute_Preference::GPU_Proprietary,
+                    i, p_ref, p_prp,
+                    msgbuf,
+                    stepbuf);
+        }
+
+        auto eq2 = epsilonEqual(p_ref.orientation, p_ocl.orientation, epsilon);
+        if (!eq2[0] || !eq2[1] || !eq2[2]) {
+            simulations[SIM_OCL].step->get_state_description(128, stepbuf);
+            snprintf(msgbuf, 511, "'%s' don't match between reference and OpenCL implementations!", what);
+            listener->fault(
+                    sb::Compute_Preference::GPU_OpenCL,
+                    i, p_ref, p_ocl,
+                    msgbuf,
+                    stepbuf);
+        }
+
+        auto eq3 = epsilonEqual(p_ref.orientation, p_prp.orientation, epsilon);
+        if (!eq3[0] || !eq3[1] || !eq3[2]) {
             simulations[SIM_PRP].step->get_state_description(128, stepbuf);
             snprintf(msgbuf, 511, "'%s' don't match between reference and proprietary implementations!", what);
             listener->fault(

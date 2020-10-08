@@ -70,6 +70,8 @@ private:
         printf("Particle index: %zd\n", pidx);
         printf("\tReference particle: [%f %f %f]\n", ref.position.x, ref.position.y, ref.position.z);
         printf("\tOther particle:     [%f %f %f]\n", other.position.x, other.position.y, other.position.z);
+        printf("\tReference orientation: [%f %f %f %f]\n", ref.orientation.x, ref.orientation.y, ref.orientation.z, ref.orientation.w);
+        printf("\tOther orientation:     [%f %f %f %f]\n", other.orientation.x, other.orientation.y, other.orientation.z, other.orientation.w);
         printf("Error message:\n\t\"%s\"\n", message);
     }
 };
