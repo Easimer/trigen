@@ -692,7 +692,7 @@ public:
 
             // [ExtRot]
             scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
-                constexpr auto block_size = 408;
+                constexpr auto block_size = 256;
                 auto blocks = get_block_count<block_size>(batch_size);
                 k_extract_rotations<<<blocks, block_size, 0, stream>>>(
                     d_rotations, N, offset,
