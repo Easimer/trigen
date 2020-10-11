@@ -23,6 +23,7 @@
 #define SB_BENCHMARK_UNITS_STR "us"
 #include "s_benchmark.h"
 #include "s_compute_backend.h"
+#include "s_compute_cuda_codegen.h"
 
 // TODO(danielm): double leading underscores violate the standard
 #define __hybrid__ __device__ __host__
@@ -332,13 +333,6 @@ template<long threads_per_block>
 static long get_block_count(long N) {
     return (N - 1) / threads_per_block + 1;
 }
-
-// TODO(danielm): decl this in some header
-// Defined in s_compute_cuda_codegen.cpp
-std::vector<char> generate_kernel(sb::sdf::ast::Expression<float>* expr);
-
-class Collider_Manager {
-};
 
 enum class Stream : size_t {
     CopyToDev = 0,
@@ -750,6 +744,57 @@ public:
         scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
     }
 
+    void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) override {
+        assert(handle < sim.colliders_sdf.size());
+        assert(ast_kernels.count(handle) == 0);
+        auto& coll = sim.colliders_sdf[handle];
+        assert(coll.used);
+        auto& expr = coll.expr;
+
+        sb::CUDA::AST_Kernel_Handle kernel_handle;
+        if(sb::CUDA::compile_ast(&kernel_handle, expr)) {
+            ast_kernels.emplace(std::make_pair(handle, sb::CUDA::AST_Kernel(kernel_handle)));
+        } else {
+            std::abort();
+        }
+    }
+    void on_collider_removed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) override {
+        if(handle < sim.colliders_sdf.size()) {
+            auto& coll = sim.colliders_sdf[handle];
+            assert(coll.used);
+
+            ast_kernels.erase(handle);
+        } else {
+            assert(!"Invalid handle");
+        }
+    }
+
+    void on_collider_changed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) override {
+        if(handle < sim.colliders_sdf.size()) {
+            auto& coll = sim.colliders_sdf[handle];
+            assert(coll.used);
+
+            if(!coll.used) {
+                assert(!"Invalid handle");
+                return;
+            }
+
+            // Erase old kernel
+            ast_kernels.erase(handle);
+
+            // Recompile
+            auto& expr = coll.expr;
+            sb::CUDA::AST_Kernel_Handle kernel_handle;
+            if(sb::CUDA::compile_ast(&kernel_handle, expr)) {
+                ast_kernels.emplace(std::make_pair(handle, sb::CUDA::AST_Kernel(kernel_handle)));
+            } else {
+                std::abort();
+            }
+        } else {
+            assert(!"Invalid handle");
+        }
+    }
+
 private:
     Scheduler scheduler;
 
@@ -781,6 +826,8 @@ private:
     CUDA_Array<Particle_Correction_Info> d_corr_info;
 
     Adjacency_Table h_adjacency;
+
+    Map<sb::ISoftbody_Simulation::Collider_Handle, sb::CUDA::AST_Kernel> ast_kernels;
 };
 
 static int g_cudaInit = 0;

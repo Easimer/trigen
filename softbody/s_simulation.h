@@ -42,6 +42,7 @@ public:
             sb::sdf::ast::Expression<float>* sdf_expression,
             sb::sdf::ast::Sample_Point* sample_point) override;
     bool remove_collider(Collider_Handle handle) override;
+    void collider_changed(Collider_Handle handle) override;
 
     size_t particle_count() const { return s.position.size(); }
 

@@ -39,7 +39,11 @@ __device__ float _box(float4 sp, float4 size) {
 
 __device__ float scene(float4 const _sp);
 
-__global__ void k_exec_sdf(float* out_distances, float4 const* sample_points) {
-    unsigned i = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ void k_exec_sdf(int offset, int N, float* out_distances, float4 const* sample_points) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x + offset;
+    if(i >= N) {
+        return;
+    }
+
     out_distances[i] = scene(sample_points[i]);
 }

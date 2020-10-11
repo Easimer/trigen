@@ -414,6 +414,12 @@ bool Softbody_Simulation::remove_collider(Collider_Handle h) {
     }
 }
 
+void Softbody_Simulation::collider_changed(Collider_Handle h) {
+    if(h < s.colliders_sdf.size() || s.colliders_sdf[h].used) {
+        compute->on_collider_changed(s, h);
+    }
+}
+
 index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);

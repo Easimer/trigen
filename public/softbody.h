@@ -235,6 +235,7 @@ namespace sb {
                 sb::sdf::ast::Expression<float>* sdf_expression,
                 sb::sdf::ast::Sample_Point* sample_point) = 0;
         virtual bool remove_collider(Collider_Handle handle) = 0;
+        virtual void collider_changed(Collider_Handle handle) = 0;
 
         virtual bool save_image(ISerializer* serializer) = 0;
         virtual bool load_image(IDeserializer* deserializer) = 0;

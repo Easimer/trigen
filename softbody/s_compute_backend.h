@@ -21,6 +21,7 @@ public:
 
     virtual void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
     virtual void on_collider_removed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
+    virtual void on_collider_changed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
