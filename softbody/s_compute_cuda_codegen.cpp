@@ -12,6 +12,7 @@
 #define SB_BENCHMARK 1
 #include "s_benchmark.h"
 #include "s_compute_cuda_codegen.h"
+#include "cuda_utils.cuh"
 
 #include <cuda.h>
 #include <nvrtc.h>
@@ -108,7 +109,7 @@ public:
     }
 
     void begin_sdf_function() {
-        bufprintf("__device__ float scene(float4 const _sp) {\n");
+        bufprintf("__device__ float scene(float3 const _sp) {\n");
         bufprintf("    return ");
     }
 
@@ -133,10 +134,33 @@ static void generate_scene_function(std::vector<char>& ret, sb::sdf::ast::Expres
     visitor.end_sdf_function();
 }
 
-static sb::Unique_Ptr<char[]> generate_ptx(sb::sdf::ast::Expression<float>* expr) {
+static void dump_source_line_by_line(char* src) {
+    int line = 1;
+
+    printf("=== CUDA CODE DUMP ===\n");
+    while(*src != 0) {
+        auto cur = src;
+
+        while(*cur != '\n') {
+            cur++;
+        }
+        
+        *cur = '\0';
+
+        printf("%04d %s\n", line, src);
+
+        *cur = '\n';
+        line++;
+
+        src = cur + 1;
+    }
+
+    printf("=== END OF CUDA CODE DUMP ===\n");
+}
+
+static sb::Unique_Ptr<char[]> generate_ptx(nvrtcProgram& prog, sb::sdf::ast::Expression<float>* expr) {
     std::vector<char> source_buffer;
     nvrtcResult rc;
-    nvrtcProgram prog;
     char const *name = "sb_sdf.cu.generated";
 
     include_sdf_library(source_buffer);
@@ -161,6 +185,8 @@ static sb::Unique_Ptr<char[]> generate_ptx(sb::sdf::ast::Expression<float>* expr
             nvrtcGetProgramLog(prog, log_buf.data());
             log_buf[log_size] = '\0';
             printf("\tLog:\n%s\n=== END OF COMPILE LOG ===\n", log_buf.data());
+
+            dump_source_line_by_line(source_buffer.data());
         }
 
         nvrtcDestroyProgram(&prog);
@@ -175,7 +201,7 @@ static sb::Unique_Ptr<char[]> generate_ptx(sb::sdf::ast::Expression<float>* expr
         return nullptr;
     }
 
-    auto ret = std::make_unique<char[]>(ptx_len);
+    auto ret = std::make_unique<char[]>(ptx_len + 1);
 
     rc = nvrtcGetPTX(prog, ret.get());
     if(rc != NVRTC_SUCCESS) {
@@ -184,7 +210,13 @@ static sb::Unique_Ptr<char[]> generate_ptx(sb::sdf::ast::Expression<float>* expr
         return nullptr;
     }
 
-    nvrtcDestroyProgram(&prog);
+    ret[ptx_len] = '\0';
+
+#ifdef DEBUG_DUMP_PTX
+    FILE* f = fopen("/tmp/ptx_dump", "wb");
+    fwrite(ret.get(), ptx_len, 1, f);
+    fclose(f);
+#endif
     return ret;
 }
 
@@ -210,6 +242,7 @@ namespace sb::CUDA {
     struct AST_Kernel_Handle_ {
         CUmodule mod;
         CUfunction fun;
+        nvrtcProgram prog;
     };
 
     bool compile_ast(AST_Kernel_Handle* out_handle, sb::sdf::ast::Expression<float>* expr) {
@@ -220,7 +253,8 @@ namespace sb::CUDA {
             return false;
         }
 
-        auto ptx = generate_ptx(expr);
+        nvrtcProgram prog;
+        auto ptx = generate_ptx(prog, expr);
         if(!ptx) {
             return false;
         }
@@ -235,6 +269,7 @@ namespace sb::CUDA {
 
         auto k = new AST_Kernel_Handle_;
 
+        k->prog = prog;
         k->mod = mod;
         k->fun = fun;
 
@@ -246,51 +281,31 @@ namespace sb::CUDA {
         assert(handle != NULL);
 
         if(handle != NULL) {
+            nvrtcDestroyProgram(&handle->prog);
             cuModuleUnload(handle->mod);
 
             delete handle;
         }
     }
 
-    bool exec(AST_Kernel_Handle handle, int N, float* distances, Vec4 const* sample_points) {
+    bool exec(AST_Kernel_Handle handle, int N, CUDA_Array<float4>& predicted_positions, CUDA_Array<float4>& positions, CUDA_Array<float>& masses) {
         assert(handle != NULL);
-        assert(sample_points != NULL);
-        assert(distances != NULL);
+        assert(!predicted_positions.is_empty());
+        assert(!positions.is_empty());
+        assert(!masses.is_empty());
 
-        if(handle == NULL || sample_points == NULL || distances == NULL) {
+        if(handle == NULL || predicted_positions.is_empty() || positions.is_empty() || masses.is_empty()) {
             return false;
         }
 
         CUresult rc;
-        CUdeviceptr d_sample_points, d_distances;
-
-        rc = cuMemAlloc(&d_sample_points, N * 4 * sizeof(float));
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuMemAlloc(d_sample_points) failed, rc=%d\n", rc);
-            return false;
-        }
-
-        rc = cuMemAlloc(&d_distances, N * sizeof(float));
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuMemAlloc(d_distances) failed, rc=%d\n", rc);
-            cuMemFree(d_sample_points);
-            return false;
-        }
-
-        rc = cuMemcpyHtoD(d_sample_points, sample_points, N * 4 * sizeof(float));
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuMemcpyHtoD(d_sample_points, sample_points) failed, rc=%d\n", rc);
-            cuMemFree(d_distances);
-            cuMemFree(d_sample_points);
-            return false;
-        }
 
         auto const block_siz = 512;
         auto block_count = (N - 1) / block_siz + 1;
         int offset = 0;
 
         void* kparams[] = {
-            &offset, &N, &d_distances, &d_sample_points
+            &offset, &N, (void*)predicted_positions, (void*)positions, (void*)masses
         };
 
         rc = cuLaunchKernel(
@@ -304,27 +319,9 @@ namespace sb::CUDA {
         );
         if(rc != CUDA_SUCCESS) {
             printf("sb: cuLaunchKernel(k_exec_sdf) failed, rc=%d\n", rc);
-            cuMemFree(d_distances);
-            cuMemFree(d_sample_points);
             return false;
         }
 
-        rc = cuMemFree(d_sample_points);
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuMemFree(d_sample_points) failed, rc=%d\n", rc);
-            cuMemFree(d_distances);
-            cuMemFree(d_sample_points);
-            return false;
-        }
-
-        rc = cuMemcpyDtoH(distances, d_distances, N * sizeof(float));
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuMemcpyDtoH(distances, d_distances) failed, rc=%d\n", rc);
-            cuMemFree(d_distances);
-            return false;
-        }
-
-        cuMemFree(d_distances);
         return true;
     }
 }

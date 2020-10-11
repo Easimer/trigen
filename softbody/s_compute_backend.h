@@ -15,6 +15,10 @@ public:
     virtual ~ICompute_Backend() = default;
 
     virtual void begin_new_frame(System_State const& sim) = 0;
+
+    virtual void generate_collision_constraints(System_State& sim) = 0;
+
+    virtual void do_one_iteration_of_collision_constraint_resolution(System_State& sim, float phdt) = 0;
     virtual void do_one_iteration_of_fixed_constraint_resolution(System_State& sim, float phdt) = 0;
     virtual void do_one_iteration_of_distance_constraint_resolution(System_State& sim, float phdt) = 0;
     virtual void do_one_iteration_of_shape_matching_constraint_resolution(System_State& sim, float phdt) = 0;

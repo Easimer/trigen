@@ -153,6 +153,63 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
             }
         }
     }
+
+    Vector<Collision_Constraint> collision_constraints;
+
+    void generate_collision_constraints(System_State& s) override {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
+        auto N = particle_count(s);
+
+        collision_constraints.clear();
+
+        for (auto& coll : s.colliders_sdf) {
+            // Skip unused collider slots
+            if (!coll.used) continue;
+
+            for (auto i = 0ull; i < N; i++) {
+                auto const start = s.position[i];
+                auto thru = s.predicted_position[i];
+                auto const dir = thru - start;
+
+                auto coll_fun = [&](Vec3 const& sp) -> float {
+                    coll.sp->set_value(sp);
+                    return coll.expr->evaluate();
+                };
+
+                sdf::raymarch(coll_fun, 32, start, dir, 0.05f, 0.0f, 1.0f, [&](float dist) {
+                    auto intersect = start + dist * dir;
+                    auto normal = sdf::normal(coll_fun, intersect);
+                    Collision_Constraint C;
+                    C.intersect = intersect;
+                    C.normal = normal;
+                    C.pidx = i;
+                    collision_constraints.push_back(C);
+                });
+            }
+        }
+
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT_MASKED(0xF);
+    }
+
+    void do_one_iteration_of_collision_constraint_resolution(System_State& s, float phdt) override {
+        for (auto& C : s.collision_constraints) {
+            auto p = s.predicted_position[C.pidx];
+            auto w = 1 / mass_of_particle(s, C.pidx);
+            auto dir = p - C.intersect;
+            auto d = dot(dir, C.normal);
+            if (d < 0) {
+                auto sf = d / w;
+
+                auto corr = -sf * w * C.normal;
+
+                auto from = s.predicted_position[C.pidx];
+                auto to = from + corr;
+                s.predicted_position[C.pidx] = to;
+            }
+        }
+    }
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend() {

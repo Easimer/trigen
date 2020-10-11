@@ -795,6 +795,14 @@ public:
         }
     }
 
+    void do_one_iteration_of_collision_constraint_resolution(System_State& s, float phdt) override {
+        compute_ref->do_one_iteration_of_collision_constraint_resolution(s, phdt);
+    }
+
+    void generate_collision_constraints(System_State& s) override {
+        compute_ref->generate_collision_constraints(s);
+    }
+
 private:
     Scheduler scheduler;
 

@@ -289,6 +289,25 @@ private:
     glm::vec3 value;
 };
 
+class Constant_Infinity : public ast::Float_Constant {
+public:
+    ~Constant_Infinity() override = default;
+
+    void value(float* out_array) const noexcept override {
+        out_array[0] = 10000;
+    }
+
+    void set_value(float const*) noexcept override {}
+
+    float evaluate() {
+        return 10000;
+    }
+
+    void visit(ast::Visitor* v) const override {
+        v->visit(*this);
+    }
+};
+
 class Distance_Sink : public QtNodes::NodeDataModel, public ast::Expression<float> {
     Q_OBJECT;
 public:
@@ -347,7 +366,12 @@ public:
     }
 
     void visit(ast::Visitor* v) const override {
-        ast_distance->visit(v);
+        if(ast_distance != NULL) {
+            ast_distance->visit(v);
+        } else {
+            Constant_Infinity inf;
+            inf.visit(v);
+        }
     }
 
 private:

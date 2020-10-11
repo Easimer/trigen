@@ -238,7 +238,7 @@ void Softbody_Simulation::prediction(float dt) {
         s.predicted_orientation[i] = q;
     }
 
-    s.collision_constraints = generate_collision_constraints();
+    compute->generate_collision_constraints(s);
 
     ext->post_prediction(this, s, dt);
 }
@@ -283,21 +283,7 @@ void Softbody_Simulation::constraint_resolution(float dt) {
 }
 
 void Softbody_Simulation::do_one_iteration_of_collision_constraint_resolution(float phdt) {
-    for (auto& C : s.collision_constraints) {
-        auto p = s.predicted_position[C.pidx];
-        auto w = 1 / mass_of_particle(C.pidx);
-        auto dir = p - C.intersect;
-        auto d = dot(dir, C.normal);
-        if (d < 0) {
-            auto sf = d / w;
-
-            auto corr = -sf * w * C.normal;
-
-            auto from = s.predicted_position[C.pidx];
-            auto to = from + corr;
-            s.predicted_position[C.pidx] = to;
-        }
-    }
+    compute->do_one_iteration_of_collision_constraint_resolution(s, phdt);
 }
 
 void Softbody_Simulation::integration(float dt) {
@@ -326,47 +312,6 @@ void Softbody_Simulation::integration(float dt) {
     }
 
     ext->post_integration(this, s, dt);
-}
-
-Vector<Collision_Constraint> Softbody_Simulation::generate_collision_constraints() {
-    DECLARE_BENCHMARK_BLOCK();
-    auto ret = Vector<Collision_Constraint>();
-    BEGIN_BENCHMARK();
-    auto N = particle_count();
-
-    for (auto& coll : s.colliders_sdf) {
-        // Skip unused collider slots
-        if (!coll.used) continue;
-
-        for (auto i = 0ull; i < N; i++) {
-            float dist = 0;
-            auto const start = s.position[i];
-            auto thru = s.predicted_position[i];
-            auto const dir = thru - start;
-            bool too_close = false;
-            bool too_far = false;
-
-            auto coll_fun = [&](Vec3 const& sp) -> float {
-                coll.sp->set_value(sp);
-                return coll.expr->evaluate();
-            };
-
-            sdf::raymarch(coll_fun, 32, start, dir, 0.05f, 0.0f, 1.0f, [&](float dist) {
-                auto intersect = start + dist * dir;
-                auto normal = sdf::normal(coll_fun, intersect);
-                Collision_Constraint C;
-                C.intersect = intersect;
-                C.normal = normal;
-                C.pidx = i;
-                ret.push_back(C);
-            });
-        }
-    }
-
-    END_BENCHMARK();
-    PRINT_BENCHMARK_RESULT_MASKED(0xF);
-
-    return ret;
 }
 
 bool Softbody_Simulation::add_collider(
