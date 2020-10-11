@@ -42,10 +42,10 @@ public:
                 bufprintf("make_float2(%f, %f)", buf[0], buf[1]);
                 break;
             case 3:
-                bufprintf("make_float4(%f, %f, %f, 0)", buf[0], buf[1], buf[2]);
+                bufprintf("make_float3(%f, %f, %f)", buf[0], buf[1], buf[2]);
                 break;
             case 4:
-                bufprintf("make_float4(%f, %f, %f, %f)", buf[0], buf[1], buf[2], buf[3]);
+                bufprintf("make_float3(%f, %f, %f)", buf[0], buf[1], buf[2]);
                 break;
         }
     }
