@@ -50,3 +50,8 @@ std::vector<std::pair<int, int>> form_connections(
                                                   std::vector<tinyobj::shape_t> const& shapes,
                                                   tinyobj::attrib_t const& attrib
                                                   );
+
+void calculate_bounding_box(
+                            float& x_min, float& y_min, float& z_min,
+                            float& x_max, float& y_max, float& z_max,
+                            tinyobj::attrib_t const& attrib);

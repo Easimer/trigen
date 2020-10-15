@@ -192,3 +192,26 @@ std::vector<std::pair<int, int>> form_connections(
     
     return ret;
 }
+
+void calculate_bounding_box(
+                            float& x_min, float& y_min, float& z_min,
+                            float& x_max, float& y_max, float& z_max,
+                            tinyobj::attrib_t const& attrib) {
+    x_min = INFINITY; x_max = -INFINITY;
+    y_min = INFINITY; y_max = -INFINITY;
+    z_min = INFINITY; z_max = -INFINITY;
+    
+    auto const pos_count = attrib.vertices.size() / 3;
+    for (long long i = 0; i < pos_count; i++) {
+        auto x = attrib.vertices[i * 3 + 0];
+        auto y = attrib.vertices[i * 3 + 1];
+        auto z = attrib.vertices[i * 3 + 2];
+        
+        if (x < x_min) x_min = x;
+        if (x > x_max) x_max = x;
+        if (y < y_min) y_min = y;
+        if (y > y_max) y_max = y;
+        if (z < z_min) z_min = z;
+        if (z > z_max) z_max = z;
+    }
+}

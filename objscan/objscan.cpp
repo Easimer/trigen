@@ -51,7 +51,7 @@ struct Space_Sampling_Job {
 using Space_Sampling_Jobs = Job_Source<Space_Sampling_Job, std::vector<glm::vec4>>;
 
 template<typename JS, typename J>
-static bool try_get_job(J& job, JS* jobs) {
+static inline bool try_get_job(J& job, JS* jobs) {
     std::lock_guard G(jobs->jobs_lock);
     if(jobs->jobs.empty()) {
         return false;
@@ -61,6 +61,12 @@ static bool try_get_job(J& job, JS* jobs) {
     jobs->jobs.pop();
     
     return true;
+}
+
+template<typename R, typename JS>
+static inline void publish_result(R& res, JS* jobs) {
+    std::lock_guard G(jobs->results_lock);
+    jobs->results.push_back(std::move(res));
 }
 
 static void threadproc_sample_points(int threadIdx, 
@@ -81,8 +87,8 @@ static void threadproc_sample_points(int threadIdx,
                                  job.z_min, job.z_max, job.z_step, shapes, attrib);
         
         threading_dbgprint("objscan: thread=%d kind=sp finish\n", threadIdx);
-        std::lock_guard G(jobs->results_lock);
-        jobs->results.push_back(std::move(res));
+        
+        publish_result(res, jobs);
         threading_dbgprint("objscan: thread=%d kind=sp publish\n", threadIdx);
     }
 }
@@ -114,8 +120,7 @@ static void threadproc_connform(int threadIdx,
                                     shapes, attrib
                                     );
         threading_dbgprint("objscan: thread=%d kind=connform finish\n", threadIdx);
-        std::lock_guard G(jobs->results_lock);
-        jobs->results.push_back(std::move(res));
+        publish_result(res, jobs);
         threading_dbgprint("objscan: thread=%d kind=connform publish\n", threadIdx);
     }
 }
@@ -138,23 +143,9 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     }
     
     // Calculate bounding box
-    float x_min = INFINITY, x_max = -INFINITY;
-    float y_min = INFINITY, y_max = -INFINITY;
-    float z_min = INFINITY, z_max = -INFINITY;
-    
-    auto pos_count = attrib.vertices.size() / 3;
-    for (long long i = 0; i < pos_count; i++) {
-        auto x = attrib.vertices[i * 3 + 0];
-        auto y = attrib.vertices[i * 3 + 1];
-        auto z = attrib.vertices[i * 3 + 2];
-        
-        if (x < x_min) x_min = x;
-        if (x > x_max) x_max = x;
-        if (y < y_min) y_min = y;
-        if (y > y_max) y_max = y;
-        if (z < z_min) z_min = z;
-        if (z > z_max) z_max = z;
-    }
+    float x_min, y_min, z_min;
+    float x_max, y_max, z_max;
+    calculate_bounding_box(x_min, y_min, z_min, x_max, y_max, z_max, attrib);
     
     float subdivisions = 32.0f;
     if(res->extra != NULL) {
