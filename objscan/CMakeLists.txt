@@ -3,6 +3,9 @@ set(SRC
     tiny_obj_loader.h
     objscan.cpp
     ../public/objscan.h
+
+	objscan_math.cpp
+	objscan_math.h
 )
 
 add_library(objscan STATIC ${SRC})

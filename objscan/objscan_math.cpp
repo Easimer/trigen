@@ -1,0 +1,194 @@
+// === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
+//
+// Purpose: 
+//
+
+#include "stdafx.h"
+#include "objscan_math.h"
+
+bool ray_triangle_intersect(
+                            glm::vec3& xp, float t,
+                            glm::vec3 const& origin, glm::vec3 const& dir,
+                            glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2
+                            ) {
+    auto edge1 = v2 - v0;
+    auto edge0 = v1 - v0;
+    auto h = cross(dir, edge1);
+    auto a = dot(edge0, h);
+    if (-glm::epsilon<float>() < a && a < glm::epsilon<float>()) {
+        return false;
+    }
+    
+    auto f = 1.0f / a;
+    auto s = origin - v0;
+    auto u = f * dot(s, h);
+    
+    if(u < 0 || 1 < u) {
+        return false;
+    }
+    
+    auto q = cross(s, edge0);
+    auto v = f * dot(dir, q);
+    
+    if(v < 0 || u + v > 1) {
+        return false;
+    }
+    
+    t = f * dot(edge1, q);
+    if(t <= glm::epsilon<float>()) {
+        return false;
+    }
+    
+    xp = origin + t * dir;
+    return true;
+}
+
+static glm::vec3 const& fetch_vertex_from_attrib_vertices(std::vector<tinyobj::real_t> const& vertices, int index) {
+    // NOTE(danielm): this cast may not be the best idea
+    return ((glm::vec3 const*)vertices.data())[index];
+}
+
+int count_triangles_intersected(
+                                glm::vec3 origin, glm::vec3 dir,
+                                tinyobj::attrib_t const& attrib,
+                                tinyobj::shape_t const& shape
+                                ) {
+    int count = 0;
+    auto triangle_count = shape.mesh.indices.size() / 3;
+    auto& indices = shape.mesh.indices;
+    
+    for(int i = 0; i < triangle_count; i++) {
+        auto i0 = indices[i * 3 + 0].vertex_index;
+        auto i1 = indices[i * 3 + 1].vertex_index;
+        auto i2 = indices[i * 3 + 2].vertex_index;
+        auto& v0 = fetch_vertex_from_attrib_vertices(attrib.vertices, i0);
+        auto& v1 = fetch_vertex_from_attrib_vertices(attrib.vertices, i1);
+        auto& v2 = fetch_vertex_from_attrib_vertices(attrib.vertices, i2);
+        
+        glm::vec3 xp;
+        float t = 0;
+        if(ray_triangle_intersect(xp, t, origin, dir, v0, v1, v2)) {
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+bool intersects_any(
+                    glm::vec3 origin, glm::vec3 dir,
+                    tinyobj::attrib_t const& attrib,
+                    tinyobj::shape_t const& shape
+                    ) {
+    auto triangle_count = shape.mesh.indices.size() / 3;
+    auto& indices = shape.mesh.indices;
+    
+    for(int i = 0; i < triangle_count; i++) {
+        auto i0 = indices[i * 3 + 0].vertex_index;
+        auto i1 = indices[i * 3 + 1].vertex_index;
+        auto i2 = indices[i * 3 + 2].vertex_index;
+        auto& v0 = fetch_vertex_from_attrib_vertices(attrib.vertices, i0);
+        auto& v1 = fetch_vertex_from_attrib_vertices(attrib.vertices, i1);
+        auto& v2 = fetch_vertex_from_attrib_vertices(attrib.vertices, i2);
+        
+        glm::vec3 xp;
+        float t = 0;
+        if(ray_triangle_intersect(xp, t, origin, dir, v0, v1, v2)) {
+            if(0 < t && t < 1) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+std::vector<glm::vec4> sample_points(
+                                     float x_min, float x_max, float x_step,
+                                     float y_min, float y_max, float y_step,
+                                     float z_min, float z_max, float z_step,
+                                     std::vector<tinyobj::shape_t> const& shapes,
+                                     tinyobj::attrib_t const& attrib
+                                     ) {
+    std::vector<glm::vec4> points;
+    auto dir = glm::vec3(1, 0, 0); // a random direction
+    
+    // Shoot a random ray from the point.
+    // Count how many triangles it intersects.
+    // If it's an odd number, it's on the inside.
+    
+    for (float sx = x_min; sx < x_max; sx += x_step) {
+        for (float sy = y_min; sy < y_max; sy += y_step) {
+            for (float sz = z_min; sz < z_max; sz += z_step) {
+                auto origin = glm::vec3(sx, sy, sz);
+                long long x_count = 0;
+                
+                for(auto const& shape : shapes) {
+                    auto count = count_triangles_intersected(origin, dir, attrib, shape);
+                    x_count += count;
+                }
+                
+                if(x_count % 2 == 1) {
+                    points.push_back({sx, sy, sz, 0});
+                }
+            }
+        }
+    }
+    
+    return points;
+}
+
+std::vector<std::pair<int, int>> form_connections(
+                                                  int offset, int count,
+                                                  objscan_position const* positions, int N,
+                                                  float step_x, float step_y, float step_z,
+                                                  std::vector<tinyobj::shape_t> const& shapes,
+                                                  tinyobj::attrib_t const& attrib
+                                                  ) {
+    std::vector<std::pair<int, int>> ret;
+    
+    for(int i = offset; i < offset + count; i++) {
+        auto p = positions[i];
+        for(int other = 0; other < N; other++) {
+            if(i == other) continue;
+            
+            auto op = positions[other];
+            
+            auto dx = glm::abs(op.x - p.x);
+            if(dx > 1.25 * step_x) {
+                continue;
+            }
+            
+            auto dy = glm::abs(op.y - p.y);
+            if(dy > 1.25 * step_y) {
+                continue;
+            }
+            
+            auto dz = glm::abs(op.z - p.z);
+            if(dz > 1.25 * step_z) {
+                continue;
+            }
+            
+            auto pv = glm::vec3(p.x, p.y, p.z);
+            auto opv = glm::vec3(op.x, op.y, op.z);
+            
+            auto origin = pv;
+            auto dir = opv - pv;
+            
+            bool no_intersection = true;
+            
+            for(auto& shape : shapes) {
+                if(intersects_any(origin, dir, attrib, shape)) {
+                    no_intersection = false;
+                    break;
+                }
+            }
+            
+            if(no_intersection) {
+                ret.push_back({i, other});
+            }
+        }
+    }
+    
+    return ret;
+}
