@@ -131,6 +131,51 @@ static std::vector<glm::vec4> sample_points(
     return points;
 }
 
+struct job_t {
+    float x_min, x_max, x_step;
+    float y_min, y_max, y_step;
+    float z_min, z_max, z_step;
+};
+
+struct job_src_t {
+    std::vector<std::thread> workers;
+    
+    std::mutex jobs_lock;
+    std::queue<job_t> jobs;
+    
+    std::mutex results_lock;
+    std::vector<std::vector<glm::vec4>> results;
+};
+
+static void threadproc_sample_points(int threadIdx, 
+                                     std::vector<tinyobj::shape_t> const& shapes, 
+                                     tinyobj::attrib_t const& attrib,
+                                     job_src_t* jobs) {
+    for(;;) {
+        job_t job;
+        {
+            std::lock_guard G(jobs->jobs_lock);
+            if(jobs->jobs.empty()) {
+                printf("objscan: thread=%d exit\n", threadIdx);
+                return;
+            }
+            job = jobs->jobs.front();
+            jobs->jobs.pop();
+        }
+        
+        printf("objscan: thread=%d ready\n", threadIdx);
+        auto res = sample_points(
+                                 job.x_min, job.x_max, job.x_step,
+                                 job.y_min, job.y_max, job.y_step,
+                                 job.z_min, job.z_max, job.z_step, shapes, attrib);
+        
+        printf("objscan: thread=%d finish\n", threadIdx);
+        std::lock_guard G(jobs->results_lock);
+        jobs->results.push_back(std::move(res));
+        printf("objscan: thread=%d publish\n", threadIdx);
+    }
+}
+
 bool objscan_from_obj_file(objscan_result* res, char const* path) {
     if (res == NULL || path == NULL) {
         return false;
@@ -176,31 +221,18 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     
     printf("Subdivisions: %f\nSteps: %f %f %f\n", subdivisions, x_step, y_step, z_step);
     
-    struct job_t {
-        float x_min, x_max, x_step;
-        float y_min, y_max, y_step;
-        float z_min, z_max, z_step;
-    };
-    
-    long long jobs_count = 0;
-    
-    std::vector<std::thread> workers;
-    std::vector<std::vector<glm::vec4>> results;
-    std::mutex results_lock;
-    std::queue<job_t> jobs;
-    std::mutex jobs_lock;
-    
     auto thread_count = std::thread::hardware_concurrency();
     auto thread_count_cubed = thread_count * thread_count * thread_count;
     auto blockDim_x = (x_max - x_min) / thread_count;
     auto blockDim_y = (y_max - y_min) / thread_count;
     auto blockDim_z = (z_max - z_min) / thread_count;
+    job_src_t jobs;
     
     for(unsigned x = 0; x < thread_count; x++) {
         for(unsigned y = 0; y < thread_count; y++) {
             for(unsigned z = 0; z < thread_count; z++) {
-                jobs.push({});
-                auto& job = jobs.back();
+                jobs.jobs.push({});
+                auto& job = jobs.jobs.back();
                 
                 job.x_min = x_min + x * blockDim_x;
                 job.x_max = job.x_min + blockDim_x;
@@ -218,38 +250,15 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     }
     
     for(unsigned i = 0; i < thread_count; i++) {
-        workers.emplace_back(std::thread([&, i]() {
-                                             for(;;) {
-                                                 job_t job;
-                                                 {
-                                                     std::lock_guard G(jobs_lock);
-                                                     if(jobs.empty()) {
-                                                         return;
-                                                     }
-                                                     job = jobs.front();
-                                                     jobs.pop();
-                                                 }
-                                                 
-                                                 printf("Thread %d has acquired job\n", i);
-                                                 auto res = sample_points(
-                                                                          job.x_min, job.x_max, job.x_step,
-                                                                          job.y_min, job.y_max, job.y_step,
-                                                                          job.z_min, job.z_max, job.z_step, shapes, attrib);
-                                                 
-                                                 printf("Thread %d has finished job\n", i);
-                                                 std::lock_guard G(results_lock);
-                                                 results.push_back(std::move(res));
-                                                 printf("Thread %d has published results\n", i);
-                                             }
-                                         }));
+        jobs.workers.emplace_back(std::thread(threadproc_sample_points, i, shapes, attrib, &jobs));
     }
     
-    for(auto& worker : workers) {
+    for(auto& worker : jobs.workers) {
         worker.join();
     }
     
     long long total_particle_count = 0;
-    for(auto& result : results) {
+    for(auto& result : jobs.results) {
         total_particle_count += result.size();
     }
     
@@ -257,7 +266,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     
     int idx = 0;
     
-    for(auto& result : results) {
+    for(auto& result : jobs.results) {
         for(auto& v : result) {
             out_positions[idx++] = { v.x, v.y, v.z, 0 };
         }
