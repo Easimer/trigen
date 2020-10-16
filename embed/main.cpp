@@ -53,7 +53,12 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
     while(!feof(src)) {
         char ch;
         char esc = '\\';
-        fread(&ch, 1, 1, src);
+        int res = fread(&ch, 1, 1, src);
+
+        if (res < 1) {
+            continue;
+        }
+
         if(is_printable(ch)) {
             if(need_to_escape(ch)) {
                 fwrite(&esc, 1, 1, dst);
@@ -62,6 +67,10 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
             fwrite(&ch, 1, 1, dst);
             ret++;
         } else {
+            if (ch == '\r') {
+                continue;
+            }
+
             if(ch != '\n') {
                 emit_hex(dst, ch);
                 ret++;

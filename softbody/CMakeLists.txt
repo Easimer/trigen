@@ -22,6 +22,9 @@ set(SRC_PUBLIC
     ../public/softbody.h
 )
 
+# Embed the OpenCL source in the executable
+embed_file(shape_matching.cl.cpp ${CMAKE_SOURCE_DIR}/shaders/shape_matching.cl)
+
 set(SRC_IMPL
     stdafx.h
     common.h
@@ -53,6 +56,8 @@ set(SRC_IMPL
     f_serialization.h
 
     ../public/raymarching.h
+
+    shape_matching.cl.cpp
 )
 
 set(SRC_TESTS

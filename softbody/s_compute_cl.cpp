@@ -24,6 +24,11 @@
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
+extern "C" {
+    extern char const* shape_matching_cl;
+    extern unsigned long long shape_matching_cl_len;
+}
+
 class calc_mass;
 
 class Compute_CL : public ICompute_Backend {
@@ -453,71 +458,47 @@ private:
     }
 };
 
-static std::optional<cl::Program> from_file_load_program(
-    char const* pszPath,
+static std::optional<cl::Program> from_string_load_program(
+    char const* pszSource,
+    unsigned long long nLen,
     cl::Context& ctx,
-    cl::Device& dev 
+    cl::Device& dev
 ) {
-    Vector<std::string> chunks;
-
-    FILE* f = fopen(pszPath, "rb");
-    if (f != NULL) {
-        while (!feof(f)) {
-            std::string chunk("");
-            chunk.resize(4096);
-            auto res = fread(chunk.data(), 1, 4096, f);
-            if (res > 0) {
-                chunk.resize(res);
-                chunks.push_back(std::move(chunk));
-            }
-        }
-        fclose(f);
-    } else {
-        // Couldn't open file, return empty
-        fprintf(stderr, "sb: couldn't open OpenCL source file '%s'\n", pszPath);
+    if (pszSource == NULL || nLen == 0) {
         return std::nullopt;
     }
 
-    if (chunks.size() > 0) {
-        cl::Program::Sources sources;
-        for (auto& chunk : chunks) {
-            sources.push_back({ chunk.c_str(), chunk.length() });
+    cl::Program::Sources sources;
+    sources.push_back({ pszSource, nLen });
+    auto program = cl::Program(ctx, sources);
+    try {
+        program.build();
+
+        auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
+        auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
+        if (!log.empty()) {
+            printf(
+                "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '<string>'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
+                dev_name.c_str(), log.c_str()
+            );
         }
 
-        auto program = cl::Program(ctx, sources);
-        try {
-            program.build();
+        return program;
+    } catch (cl::Error& e) {
+        if (e.err() == CL_BUILD_PROGRAM_FAILURE || e.err() == -9999) {
+            auto status = program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev);
+            if (status != CL_BUILD_ERROR) {
+                return std::nullopt;
+            }
 
             auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
             auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
-            if (!log.empty()) {
-                printf(
-                    "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                    dev_name.c_str(), pszPath, log.c_str()
-                );
-            }
-
-            return program;
-        } catch (cl::Error& e) {
-            if (e.err() == CL_BUILD_PROGRAM_FAILURE || e.err() == -9999) {
-                auto status = program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(dev);
-                if (status != CL_BUILD_ERROR) {
-                    return std::nullopt;
-                }
-
-                auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
-                auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
-                printf(
-                    "sb: CL program build failure\n\ton device '%s'\n\tfile: '%s'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                    dev_name.c_str(), pszPath, log.c_str()
-                );
-            }
-
-            return std::nullopt;
+            printf(
+                "sb: CL program build failure\n\ton device '%s'\n\tfile: '<string>'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
+                dev_name.c_str(), log.c_str()
+            );
         }
-    } else {
-        // Empty file, return empty
-        fprintf(stderr, "sb: OpenCL source file '%s' was empty\n", pszPath);
+
         return std::nullopt;
     }
 }
@@ -563,7 +544,7 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
             printf("\n");
 
             cl::Context ctx(*selected_device);
-            auto program = from_file_load_program("shape_matching.cl", ctx, *selected_device);
+            auto program = from_string_load_program(shape_matching_cl, shape_matching_cl_len, ctx, *selected_device);
             if (program) {
                 return std::make_unique<Compute_CL>(std::move(ctx), std::move(*selected_device), std::move(*program));
             }
