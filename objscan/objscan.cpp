@@ -16,6 +16,7 @@
 
 #include <objscan.h>
 #include "objscan_math.h"
+#include "mesh.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -25,7 +26,7 @@
 // - Find a data structure that speeds up neighbor search/connform
 // - Multiresolution space sampling
 
-#if 0
+#if 1
 #define threading_dbgprint(fmt, i) printf(fmt, i)
 #else
 #define threading_dbgprint(fmt, i)
@@ -70,9 +71,7 @@ static inline void publish_result(R& res, JS* jobs) {
 }
 
 static void threadproc_sample_points(int threadIdx, 
-                                     std::unique_ptr<ICompute>& compute,
-                                     std::vector<tinyobj::shape_t> const& shapes, 
-                                     tinyobj::attrib_t const& attrib,
+                                     Mesh* mesh,
                                      Space_Sampling_Jobs* jobs) {
     for(;;) {
         Space_Sampling_Job job;
@@ -83,10 +82,9 @@ static void threadproc_sample_points(int threadIdx,
         
         threading_dbgprint("objscan: thread=%d kind=sp ready\n", threadIdx);
         auto res = sample_points(
-                                 compute,
                                  job.x_min, job.x_max, job.x_step,
                                  job.y_min, job.y_max, job.y_step,
-                                 job.z_min, job.z_max, job.z_step, shapes, attrib);
+                                 job.z_min, job.z_max, job.z_step, mesh);
         
         threading_dbgprint("objscan: thread=%d kind=sp finish\n", threadIdx);
         
@@ -102,10 +100,8 @@ struct Connection_Forming_Job {
 using Connection_Forming_Jobs = Job_Source<Connection_Forming_Job, std::vector<std::pair<int, int>>>;
 
 static void threadproc_connform(int threadIdx,
-                                std::unique_ptr<ICompute>& compute,
                                 objscan_position const* positions, int N,
-                                std::vector<tinyobj::shape_t> const& shapes,
-                                tinyobj::attrib_t const& attrib,
+                                Mesh* mesh,
                                 Connection_Forming_Jobs* jobs) {
     for(;;) {
         Connection_Forming_Job job;
@@ -117,11 +113,10 @@ static void threadproc_connform(int threadIdx,
         
         threading_dbgprint("objscan: thread=%d kind=connform ready\n", threadIdx);
         auto res = form_connections(
-                                    compute,
                                     job.offset, job.count,
                                     positions, N,
                                     job.x_step, job.y_step, job.z_step,
-                                    shapes, attrib
+                                    mesh
                                     );
         threading_dbgprint("objscan: thread=%d kind=connform finish\n", threadIdx);
         publish_result(res, jobs);
@@ -133,8 +128,6 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     if (res == NULL || path == NULL) {
         return false;
     }
-    
-    auto compute = make_compute_backend();
     
     res->positions = NULL;
     res->connections = NULL;
@@ -152,6 +145,8 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     float x_min, y_min, z_min;
     float x_max, y_max, z_max;
     calculate_bounding_box(x_min, y_min, z_min, x_max, y_max, z_max, attrib);
+
+    auto mesh = create_mesh(shapes, attrib);
     
     float subdivisions = 32.0f;
     if(res->extra != NULL) {
@@ -200,7 +195,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     }
     
     for(int i = 0; i < thread_count; i++) {
-        jobs.workers.push_back(std::thread(threadproc_sample_points, i, std::ref(compute), shapes, attrib, &jobs));
+        jobs.workers.emplace_back(std::thread(threadproc_sample_points, i, &mesh, &jobs));
     }
     
     for(auto& worker : jobs.workers) {
@@ -224,6 +219,10 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     
     res->particle_count = total_particle_count;
     res->positions = out_positions;
+
+    if (total_particle_count == 0) {
+        return false;
+    }
     
     // Form connections between particles
     Connection_Forming_Jobs connform;
@@ -258,7 +257,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     }
     
     for(int i = 0; i < thread_count; i++) {
-        connform.workers.emplace_back(std::thread(threadproc_connform, i, std::ref(compute), res->positions, total_particle_count, shapes, attrib, &connform));
+        connform.workers.emplace_back(std::thread(threadproc_connform, i, res->positions, total_particle_count, &mesh, &connform));
     }
     
     for(auto& worker : connform.workers) {
