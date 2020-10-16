@@ -26,7 +26,7 @@
 // - Find a data structure that speeds up neighbor search/connform
 // - Multiresolution space sampling
 
-#if 1
+#if 0
 #define threading_dbgprint(fmt, i) printf(fmt, i)
 #else
 #define threading_dbgprint(fmt, i)
