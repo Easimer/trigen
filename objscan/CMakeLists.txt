@@ -1,3 +1,4 @@
+embed_file(objscan.cl.cpp ${CMAKE_CURRENT_SOURCE_DIR}/objscan.cl)
 set(SRC
     stdafx.h
     tiny_obj_loader.h
@@ -6,6 +7,8 @@ set(SRC
 
 	objscan_math.cpp
 	objscan_math.h
+
+    objscan.cl.cpp
 )
 
 add_library(objscan STATIC ${SRC})

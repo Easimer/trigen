@@ -70,6 +70,7 @@ static inline void publish_result(R& res, JS* jobs) {
 }
 
 static void threadproc_sample_points(int threadIdx, 
+                                     std::unique_ptr<ICompute>& compute,
                                      std::vector<tinyobj::shape_t> const& shapes, 
                                      tinyobj::attrib_t const& attrib,
                                      Space_Sampling_Jobs* jobs) {
@@ -82,6 +83,7 @@ static void threadproc_sample_points(int threadIdx,
         
         threading_dbgprint("objscan: thread=%d kind=sp ready\n", threadIdx);
         auto res = sample_points(
+                                 compute,
                                  job.x_min, job.x_max, job.x_step,
                                  job.y_min, job.y_max, job.y_step,
                                  job.z_min, job.z_max, job.z_step, shapes, attrib);
@@ -100,6 +102,7 @@ struct Connection_Forming_Job {
 using Connection_Forming_Jobs = Job_Source<Connection_Forming_Job, std::vector<std::pair<int, int>>>;
 
 static void threadproc_connform(int threadIdx,
+                                std::unique_ptr<ICompute>& compute,
                                 objscan_position const* positions, int N,
                                 std::vector<tinyobj::shape_t> const& shapes,
                                 tinyobj::attrib_t const& attrib,
@@ -114,6 +117,7 @@ static void threadproc_connform(int threadIdx,
         
         threading_dbgprint("objscan: thread=%d kind=connform ready\n", threadIdx);
         auto res = form_connections(
+                                    compute,
                                     job.offset, job.count,
                                     positions, N,
                                     job.x_step, job.y_step, job.z_step,
@@ -129,6 +133,8 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     if (res == NULL || path == NULL) {
         return false;
     }
+    
+    auto compute = make_compute_backend();
     
     res->positions = NULL;
     res->connections = NULL;
@@ -193,8 +199,8 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
         }
     }
     
-    for(unsigned i = 0; i < thread_count; i++) {
-        jobs.workers.emplace_back(std::thread(threadproc_sample_points, i, shapes, attrib, &jobs));
+    for(int i = 0; i < thread_count; i++) {
+        jobs.workers.push_back(std::thread(threadproc_sample_points, i, std::ref(compute), shapes, attrib, &jobs));
     }
     
     for(auto& worker : jobs.workers) {
@@ -251,8 +257,8 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
         job.z_step = z_step;
     }
     
-    for(unsigned i = 0; i < thread_count; i++) {
-        connform.workers.emplace_back(std::thread(threadproc_connform, i, res->positions, total_particle_count, shapes, attrib, &connform));
+    for(int i = 0; i < thread_count; i++) {
+        connform.workers.emplace_back(std::thread(threadproc_connform, i, std::ref(compute), res->positions, total_particle_count, shapes, attrib, &connform));
     }
     
     for(auto& worker : connform.workers) {

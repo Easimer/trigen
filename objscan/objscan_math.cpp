@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include "objscan_math.h"
+#include <numeric>
 
 bool ray_triangle_intersect(
                             glm::vec3& xp, float t,
@@ -104,6 +105,7 @@ bool intersects_any(
 }
 
 std::vector<glm::vec4> sample_points(
+                                     std::unique_ptr<ICompute>& compute,
                                      float x_min, float x_max, float x_step,
                                      float y_min, float y_max, float y_step,
                                      float z_min, float z_max, float z_step,
@@ -117,16 +119,40 @@ std::vector<glm::vec4> sample_points(
     // Count how many triangles it intersects.
     // If it's an odd number, it's on the inside.
     
+    std::vector<int> indices;
+    std::vector<int> hit;
+    std::vector<glm::vec3> xp;
+    std::vector<float> t;
+    
+    for(auto& shape : shapes) {
+        auto& s_indices = shape.mesh.indices;
+        
+        for(auto& idx_tuple : s_indices) {
+            indices.push_back(idx_tuple.vertex_index);
+        }
+    }
+    
+    auto triangle_count = indices.size() / 3;
+    hit.resize(triangle_count);
+    xp.resize(triangle_count);
+    t.resize(triangle_count);
+    
     for (float sx = x_min; sx < x_max; sx += x_step) {
         for (float sy = y_min; sy < y_max; sy += y_step) {
             for (float sz = z_min; sz < z_max; sz += z_step) {
                 auto origin = glm::vec3(sx, sy, sz);
-                long long x_count = 0;
                 
-                for(auto const& shape : shapes) {
-                    auto count = count_triangles_intersected(origin, dir, attrib, shape);
-                    x_count += count;
-                }
+                compute->ray_triangles_intersect(triangle_count,
+                                                 hit.data(), 
+                                                 xp.data(),
+                                                 t.data(),
+                                                 origin, dir,
+                                                 indices.data(),
+                                                 (glm::vec3*)attrib.vertices.data());
+                
+                
+                long long x_count = 0;
+                x_count = std::accumulate(hit.cbegin(), hit.cend(), x_count);
                 
                 if(x_count % 2 == 1) {
                     points.push_back({sx, sy, sz, 0});
@@ -139,6 +165,7 @@ std::vector<glm::vec4> sample_points(
 }
 
 std::vector<std::pair<int, int>> form_connections(
+                                                  std::unique_ptr<ICompute>& compute,
                                                   int offset, int count,
                                                   objscan_position const* positions, int N,
                                                   float step_x, float step_y, float step_z,
@@ -214,4 +241,33 @@ void calculate_bounding_box(
         if (z < z_min) z_min = z;
         if (z > z_max) z_max = z;
     }
+}
+
+class Compute_CPU : public ICompute {
+    public:
+    ~Compute_CPU() override = default;
+    
+    void ray_triangles_intersect(
+                                 int N,
+                                 int* out_hit,
+                                 glm::vec3* out_xp,
+                                 float* out_t,
+                                 glm::vec3 const& origin, glm::vec3 const& dir,
+                                 int const* vertex_indices,
+                                 glm::vec3 const* vertex_positions
+                                 ) override {
+        for(int id = 0; id < N; id++) {
+            auto i0 = vertex_indices[id * 3 + 0];
+            auto i1 = vertex_indices[id * 3 + 1];
+            auto i2 = vertex_indices[id * 3 + 2];
+            auto& v0 = vertex_positions[i0];
+            auto& v1 = vertex_positions[i1];
+            auto& v2 = vertex_positions[i2];
+            out_hit[id] = ray_triangle_intersect(out_xp[id], out_t[id], origin, dir, v0, v1, v2);
+        }
+    }
+};
+
+std::unique_ptr<ICompute> make_compute_backend(bool force_cpu) {
+    return std::make_unique<Compute_CPU>();
 }
