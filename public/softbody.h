@@ -208,6 +208,9 @@ namespace sb {
     public:
         virtual ~ISoftbody_Simulation() {}
 
+        virtual void add_particles(int N, glm::vec4 const* positions) = 0;
+        virtual void add_connections(int N, long long* pairs) = 0;
+
         virtual void set_light_source_position(glm::vec3 const& pos) = 0;
         virtual void step(float delta_time) = 0;
 

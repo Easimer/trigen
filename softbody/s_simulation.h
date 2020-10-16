@@ -15,6 +15,9 @@ class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Ma
 public:
     Softbody_Simulation(sb::Config const& configuration);
 
+    void add_particles(int N, glm::vec4 const* positions) override;
+    void add_connections(int N, long long* pairs) override;
+
     void set_light_source_position(glm::vec3 const& pos) override;
 
     void step(float delta_time) override;

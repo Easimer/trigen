@@ -126,6 +126,7 @@ protected slots:
     void reset_simulation();
     void step_simulation();
     void on_extension_changed(QString const& k);
+    void try_load_mesh();
 
 private:
     bool is_simulation_running();

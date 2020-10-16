@@ -538,6 +538,41 @@ bool Softbody_Simulation::load_image(sb::IDeserializer* deserializer) {
     return res == Serialization_Result::OK;
 }
 
+void Softbody_Simulation::add_particles(int N, glm::vec4 const* positions) {
+    for (int i = 0; i < N; i++) {
+        add_init_particle(positions[i], Vec4(1, 1, 1, 0), 1);
+    }
+}
+
+void Softbody_Simulation::add_connections(int N, long long* pairs) {
+    auto pn = s.position.size();
+    for (int i = 0; i < N; i++) {
+        auto i0 = pairs[i * 2 + 0];
+        auto i1 = pairs[i * 2 + 1];
+
+        assert(i0 < pn);
+        assert(i1 < pn);
+
+        if (i0 >= pn || i1 >= pn) {
+            continue;
+        }
+
+        assert(s.edges.count(i0));
+        auto& n0 = s.edges[i0];
+        auto fit0 = std::find(n0.cbegin(), n0.cend(), i1);
+        if (fit0 == n0.cend()) {
+            n0.push_back(i1);
+        }
+
+        assert(s.edges.count(i1));
+        auto& n1 = s.edges[i1];
+        auto fit1 = std::find(n1.cbegin(), n1.cend(), i0);
+        if (fit1 == n1.cend()) {
+            n1.push_back(i0);
+        }
+    }
+}
+
 ISimulation_Extension* Softbody_Simulation::create_extension(sb::Extension kind, sb::Config const& config) {
     ext = Create_Extension(kind, config);
     params = config;

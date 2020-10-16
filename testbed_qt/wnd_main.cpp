@@ -14,6 +14,7 @@
 #include "colliders.h"
 #include "wnd_meshgen.h"
 #include <thread>
+#include <objscan.h>
 
 #define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
     connect(                                                                                                \
@@ -186,6 +187,10 @@ Window_Main::Window_Main(QWidget* parent) :
         connect(this, &Window_Main::render, wnd, &Window_Meshgen::render);
         wnd->show();
     });
+
+    connect(sim_control->btnLoadObj, &QPushButton::released, [&]() {
+        try_load_mesh();
+    });
 }
 
 void Window_Main::start_simulation() {
@@ -231,4 +236,42 @@ void Window_Main::on_extension_changed(QString const& k) {
 
 bool Window_Main::is_simulation_running() {
     return simulation != nullptr && conn_sim_step.has_value();
+}
+
+void Window_Main::try_load_mesh() {
+    if (simulation == nullptr) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error", "No simulation!").exec();
+        return;
+    }
+
+    if (conn_sim_step.has_value()) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error", "Simulation is already in progress!").exec();
+        return;
+    }
+
+    auto path = QFileDialog::getOpenFileName(this, tr("Load an *.obj file into the simulator"), QString(), "Wavefront mesh (*.obj);;All files (*.*)");
+
+    if (path.isEmpty()) {
+        return;
+    }
+
+    auto path_arr = path.toLocal8Bit();
+
+    objscan_extra ex;
+    // TODO(danielm): users should be able to set this
+    ex.subdivisions = 16;
+
+    objscan_result res;
+    res.extra = &ex;
+    if (!objscan_from_obj_file(&res, path_arr.data())) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error", "Failed to load Wavefront mesh '%s'!").exec();
+        return;
+    }
+
+    if (res.particle_count > 0) {
+        simulation->add_particles(res.particle_count, (glm::vec4*)res.positions);
+        simulation->add_connections(res.connection_count, (long long*)res.connections);
+    }
+
+    objscan_free_result(&res);
 }

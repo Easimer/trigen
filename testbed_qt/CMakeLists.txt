@@ -41,7 +41,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes tree_meshifier ${FBX_SDK_LIBRARY})
+target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes tree_meshifier ${FBX_SDK_LIBRARY} objscan)
 target_include_directories(testbed_qt PRIVATE ${FBX_SDK_INCLUDE_DIR})
 
 add_custom_command(

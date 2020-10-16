@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>319</width>
-    <height>138</height>
+    <width>338</width>
+    <height>109</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -107,7 +107,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="layoutImageIO">
+    <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QPushButton" name="btnSaveImage">
        <property name="text">
@@ -126,6 +126,13 @@
       <widget class="QPushButton" name="btnMeshgen">
        <property name="text">
         <string>Meshgen</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnLoadObj">
+       <property name="text">
+        <string>Load 3D mesh</string>
        </property>
       </widget>
      </item>
