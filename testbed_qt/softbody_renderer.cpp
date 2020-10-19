@@ -133,14 +133,8 @@ private:
 
         for (iter = sim->get_connections(); !iter->ended(); iter->step()) {
             auto rel = iter->get();
-            lines.push_back(rel.parent_position);
-            lines.push_back(rel.child_position);
-        }
 
-        for (iter = sim->get_predicted_connections(); !iter->ended(); iter->step()) {
-            auto rel = iter->get();
-            lines.push_back(rel.parent_position);
-            lines.push_back(rel.child_position);
+            lines.insert(lines.end(), { rel.parent_position, rel.child_position });
         }
 
         renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(.35, 0, 0), Vec3(1, 0, 0));
