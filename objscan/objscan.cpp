@@ -17,6 +17,7 @@
 #include <objscan.h>
 #include "objscan_math.h"
 #include "mesh.h"
+#include "job_system.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -32,18 +33,6 @@
 #define threading_dbgprint(fmt, i)
 #endif
 
-
-template<typename Job_Type, typename Result_Type>
-struct Job_Source {
-    std::vector<std::thread> workers;
-    
-    std::mutex jobs_lock;
-    std::queue<Job_Type> jobs;
-    
-    std::mutex results_lock;
-    std::vector<Result_Type> results;
-};
-
 struct Space_Sampling_Job {
     float x_min, x_max, x_step;
     float y_min, y_max, y_step;
@@ -51,30 +40,11 @@ struct Space_Sampling_Job {
 };
 using Space_Sampling_Jobs = Job_Source<Space_Sampling_Job, std::vector<glm::vec4>>;
 
-template<typename JS, typename J>
-static inline bool try_get_job(J& job, JS* jobs) {
-    std::lock_guard G(jobs->jobs_lock);
-    if(jobs->jobs.empty()) {
-        return false;
-    }
-    
-    job = jobs->jobs.front();
-    jobs->jobs.pop();
-    
-    return true;
-}
-
-template<typename R, typename JS>
-static inline void publish_result(R& res, JS* jobs) {
-    std::lock_guard G(jobs->results_lock);
-    jobs->results.push_back(std::move(res));
-}
-
 static void threadproc_sample_points(int threadIdx, 
                                      Mesh* mesh,
                                      Space_Sampling_Jobs* jobs) {
     for(;;) {
-        Space_Sampling_Job job;
+        Space_Sampling_Jobs::Job job;
         if(!try_get_job(job, jobs)) {
             threading_dbgprint("objscan: thread=%d kind=sp exit\n", threadIdx);
             return;
@@ -104,7 +74,7 @@ static void threadproc_connform(int threadIdx,
                                 Mesh* mesh,
                                 Connection_Forming_Jobs* jobs) {
     for(;;) {
-        Connection_Forming_Job job;
+        Connection_Forming_Jobs::Job job;
         
         if(!try_get_job(job, jobs)) {
             threading_dbgprint("objscan: thread=%d kind=connform exit\n", threadIdx);
@@ -176,7 +146,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     for(unsigned x = 0; x < thread_count; x++) {
         for(unsigned y = 0; y < thread_count; y++) {
             for(unsigned z = 0; z < thread_count; z++) {
-                jobs.jobs.push({});
+                jobs.jobs.push_back({});
                 auto& job = jobs.jobs.back();
                 
                 job.x_min = x_min + x * blockDim_x;
@@ -232,7 +202,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     auto offset = 0;
     
     while(connform_remains >= connform_batch_size) {
-        connform.jobs.push({});
+        connform.jobs.push_back({});
         auto& job = connform.jobs.back();
         
         job.offset = offset;
@@ -246,7 +216,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
     }
     
     if(connform_remains > 0) {
-        connform.jobs.push({});
+        connform.jobs.push_back({});
         auto& job = connform.jobs.back();
         
         job.offset = offset;
