@@ -64,16 +64,16 @@ float sdEllipsoid(vec3 p, vec3 r) {
 float scene(vec3 p) {
     float ret = FAR_CLIPPING_PLANE;
 
-	vec4 p4 = vec4(p, 1);
+    vec4 p4 = vec4(p, 1);
 
     for(int i = 0; i < BATCH_SIZE; i++) {
         // Transform the sample point into model space
         //vec3 sp = matInvRotation[i] * (p - vTranslation[i]);
-		vec3 sp = (matInvRotation[i] * (p4 - vTranslation[i])).xyz;
+        vec3 sp = (matInvRotation[i] * (p4 - vTranslation[i])).xyz;
         ret = min(ret, sdEllipsoid(sp, vSize[i].xyz));
     }
-	
-	return ret;
+    
+    return ret;
 }
 
 
@@ -84,19 +84,19 @@ float scene(vec3 p) {
  * @return surface normal
  */
 vec3 normal(vec3 ray_hit_position, float smoothness) {
-	vec3 n;
-	vec2 dn = vec2(smoothness, 0.0);
-	n.x	= scene(ray_hit_position + dn.xyy) - scene(ray_hit_position - dn.xyy);
-	n.y	= scene(ray_hit_position + dn.yxy) - scene(ray_hit_position - dn.yxy);
-	n.z	= scene(ray_hit_position + dn.yyx) - scene(ray_hit_position - dn.yyx);
-	return normalize(n);
+    vec3 n;
+    vec2 dn = vec2(smoothness, 0.0);
+    n.x    = scene(ray_hit_position + dn.xyy) - scene(ray_hit_position - dn.xyy);
+    n.y    = scene(ray_hit_position + dn.yxy) - scene(ray_hit_position - dn.yxy);
+    n.z    = scene(ray_hit_position + dn.yyx) - scene(ray_hit_position - dn.yyx);
+    return normalize(n);
 }
 
 
 // Ray descriptor
 struct Ray {
-	vec3 eye;
-	vec3 dir;
+    vec3 eye;
+    vec3 dir;
 };
 
 /**
@@ -106,8 +106,8 @@ struct Ray {
  */
 Ray getRay() {
     //vec4 near = vec4(vUV, 0.0, 1.0);
-	vec4 near = vUV;
-	near = matInvVP * near;
+    vec4 near = vUV;
+    near = matInvVP * near;
     vec4 far = near + matInvVP[2];
     near.xyz /= near.w;
     far.xyz /= far.w;
@@ -120,46 +120,46 @@ Ray getRay() {
  * @return Fragment depth value (write it to gl_FragDepth)
  */
 float getFragmentDepth(vec3 intersect) {
-	float zc = (matVP * vec4(intersect, 1.0)).z;
-	float wc = (matVP * vec4(intersect, 1.0)).w;
-	return zc / wc;
+    float zc = (matVP * vec4(intersect, 1.0)).z;
+    float wc = (matVP * vec4(intersect, 1.0)).w;
+    return zc / wc;
 }
 
 void main() {
-	Ray r = getRay();
+    Ray r = getRay();
 
-	float dist = NEAR_CLIPPING_PLANE;
+    float dist = NEAR_CLIPPING_PLANE;
 
-	for(int i = 0; i < STEPS_N; i++) {
-		vec3 p = r.eye + dist * r.dir;
-		float temp = scene(p);
-		#if RETURN_EARLY
-		if(temp < EPSILON) {
-			break;
-		}
-		#endif /* RETURN_EARLY */
+    for(int i = 0; i < STEPS_N; i++) {
+        vec3 p = r.eye + dist * r.dir;
+        float temp = scene(p);
+        #if RETURN_EARLY
+        if(temp < EPSILON) {
+            break;
+        }
+        #endif /* RETURN_EARLY */
 
-		dist += temp * DISTANCE_BIAS;
+        dist += temp * DISTANCE_BIAS;
 
-		#if RETURN_EARLY
-		if(dist > FAR_CLIPPING_PLANE) {
-			break;
-		}
-		#endif /* RETURN_EARLY */
-	}
+        #if RETURN_EARLY
+        if(dist > FAR_CLIPPING_PLANE) {
+            break;
+        }
+        #endif /* RETURN_EARLY */
+    }
 
-	vec3 intersect = r.eye + dist * r.dir;
+    vec3 intersect = r.eye + dist * r.dir;
 
-	gl_FragDepth = getFragmentDepth(intersect);
+    gl_FragDepth = getFragmentDepth(intersect);
 
-	vec3 sunDir = normalize(vSun - intersect);
-	vec3 normal = normal(intersect, 1);
-	float illum = min(max(0.2, dot(normal, sunDir)), 1.0);
-	vFrag = vec4(illum * vColor, 1.0f);
+    vec3 sunDir = normalize(vSun - intersect);
+    vec3 normal = normal(intersect, 1);
+    float illum = min(max(0.2, dot(normal, sunDir)), 1.0);
+    vFrag = vec4(illum * vColor, 1.0f);
 
-	if(!(NEAR_CLIPPING_PLANE < dist && dist < FAR_CLIPPING_PLANE)) {
-		// Ray went beyond the far plane
-		// TODO(danielm): make this discard go away
-		discard;
-	}
+    if(!(NEAR_CLIPPING_PLANE < dist && dist < FAR_CLIPPING_PLANE)) {
+        // Ray went beyond the far plane
+        // TODO(danielm): make this discard go away
+        discard;
+    }
 }

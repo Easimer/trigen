@@ -7,5 +7,5 @@ VAO_LAYOUT(0) in vec3 aPosition;
 uniform mat4 matMVP;
 
 void main() {
-	gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
+    gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
 }

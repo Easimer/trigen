@@ -10,6 +10,6 @@ uniform mat4 matMVP;
 out float t;
 
 void main() {
-	gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
-	t = fT;
+    gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
+    t = fT;
 }
