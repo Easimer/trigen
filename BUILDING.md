@@ -76,6 +76,5 @@ If nvcc says that your GCC is unsupported, then you'll need an older version (fo
 
 # Running
 Right now the build system doesn't copy all the files to the build directory that are needed to run the programs and you must do this manually.
-- Copy all files from /shaders/ to the working directory
 - Copy all files from /fonts/ to the working directory
 - (Windows only) Copy your SDL2 and SDL2_ttf DLLs to the working directory
