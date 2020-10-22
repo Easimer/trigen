@@ -19,6 +19,7 @@
 #include <fstream>
 #include <sstream>
 #include <queue>
+#include <functional>
 
 #define SDF_BATCH_SIZE_ORDER (5)
 #define SDF_BATCH_SIZE (1 << SDF_BATCH_SIZE_ORDER)
@@ -28,6 +29,17 @@ using Mat4 = glm::mat4;
 using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
 using Quat = glm::quat;
+
+extern "C" {
+    extern char const* ellipsoid_vsh_glsl;
+    extern char const* ellipsoid_fsh_glsl;
+    extern char const* generic_vsh_glsl;
+    extern char const* generic_fsh_glsl;
+    extern char const* lines_vsh_glsl;
+    extern char const* lines_fsh_glsl;
+    extern char const* points_vsh_glsl;
+    extern char const* points_fsh_glsl;
+}
 
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
@@ -190,26 +202,21 @@ static bool CompileShaderFromString(Shader const& shader, char const* pszSource,
 }
 
 template<GLenum kType>
-static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath, Shader_Define_List const& defines) {
-    gl::Shader<kType> shader; 
+static std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource, Shader_Define_List const& defines) {
+    gl::Shader<kType> shader;
 
-    std::ifstream f(pszPath);
-    if (f) {
-        std::stringstream ss;
-        ss << f.rdbuf();
-        if (CompileShaderFromString(shader, ss.str().c_str(), pszPath, defines)) {
-            return shader;
-        }
+    if (!CompileShaderFromString(shader, pszSource, "<string>", defines)) {
+        return std::nullopt;
     }
 
-    return {};
+    return shader;
 }
 
 template<GLenum kType>
-static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) {
+static std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource) {
     Shader_Define_List x;
 
-    return FromFileLoadShader<kType>(pszPath, x);
+    return FromStringLoadShader<kType>(pszSource, x);
 }
 
 class GL_Renderer : public gfx::IRenderer {
@@ -226,47 +233,31 @@ public:
         m_view = glm::translate(Vec3(0.0f, 0.0f, 0.0f));
         m_proj = glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 8192.0f);
 
-        {
-            auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("points.vsh.glsl");
-            auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("points.fsh.glsl");
-            auto builder = gl::Shader_Program_Builder();
-            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
-            if (program) {
-                auto const locView = gl::Uniform_Location<Mat4>(*program, "matView");
-                auto const locProj = gl::Uniform_Location<Mat4>(*program, "matProj");
-                auto const locModel = gl::Uniform_Location<Mat4>(*program, "matModel");
-                m_point_cloud_shader = { std::move(program.value()), locView, locProj, locModel };
-            }
-        }
-        {
-            auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("lines.vsh.glsl");
-            auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("lines.fsh.glsl");
-            auto builder = gl::Shader_Program_Builder();
-            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
-            if (program) {
-                auto locMVP = gl::Uniform_Location<Mat4>(*program, "matMVP");
-                auto locColor0 = gl::Uniform_Location<Vec3>(*program, "vColor0");
-                auto locColor1 = gl::Uniform_Location<Vec3>(*program, "vColor1");
-                m_line_shader = { std::move(program.value()), locMVP, locColor0, locColor1 };
-            }
-        }
-        {
-            auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>("generic.vsh.glsl");
-            auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>("generic.fsh.glsl");
-            auto builder = gl::Shader_Program_Builder();
-            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
-            if (program) {
-                auto locMVP = gl::Uniform_Location<Mat4>(*program, "matMVP");
-                m_element_model_shader = { std::move(program.value()), locMVP };
-            }
-        }
+        std::optional<gl::Shader_Program> discard;
+        LoadShaderFromStrings(points_vsh_glsl, points_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+            auto const locView = gl::Uniform_Location<Mat4>(program, "matView");
+            auto const locProj = gl::Uniform_Location<Mat4>(program, "matProj");
+            auto const locModel = gl::Uniform_Location<Mat4>(program, "matModel");
+            m_point_cloud_shader = { std::move(program), locView, locProj, locModel };
+        });
+
+        LoadShaderFromStrings(lines_vsh_glsl, lines_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+            auto locColor0 = gl::Uniform_Location<Vec3>(program, "vColor0");
+            auto locColor1 = gl::Uniform_Location<Vec3>(program, "vColor1");
+            m_line_shader = { std::move(program), locMVP, locColor0, locColor1 };
+        });
+        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+            m_element_model_shader = { std::move(program), locMVP };
+        });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
         for (int order = 0; order < SDF_BATCH_SIZE_ORDER + 1; order++) {
             char buf[64];
             snprintf(buf, 63, "%d", 1 << order);
             defines[0].value = (char const*)buf;
-            LoadShader("ellipsoid.vsh.glsl", "ellipsoid.fsh.glsl", defines, m_sdf_ellipsoid_batch[order]);
+            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], {});
         }
 
         glEnable(GL_DEPTH_TEST);
@@ -274,13 +265,19 @@ public:
         glLineWidth(2.0f);
     }
 
-    void LoadShader(char const* pathVsh, char const* pathFsh, Shader_Define_List const& defines, std::optional<gl::Shader_Program>& out) {
-        auto vsh = FromFileLoadShader<GL_VERTEX_SHADER>(pathVsh, defines);
-        auto fsh = FromFileLoadShader<GL_FRAGMENT_SHADER>(pathFsh, defines);
+    void LoadShaderFromStrings(
+        char const* pszVertexSource,
+        char const* pszFragmentSource,
+        Shader_Define_List const& defines,
+        std::optional<gl::Shader_Program>& out,
+        std::function<void(gl::Shader_Program&)> const& on_link_success) {
+        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(pszVertexSource, defines);
+        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(pszFragmentSource, defines);
         if (vsh && fsh) {
             auto builder = gl::Shader_Program_Builder();
             auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
             if (program) {
+                on_link_success(program.value());
                 out = std::move(program.value());
             }
         }
