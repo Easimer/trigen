@@ -257,7 +257,7 @@ public:
             char buf[64];
             snprintf(buf, 63, "%d", 1 << order);
             defines[0].value = (char const*)buf;
-            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], {});
+            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto&){} );
         }
 
         glEnable(GL_DEPTH_TEST);

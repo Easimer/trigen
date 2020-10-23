@@ -17,11 +17,11 @@ private:
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         pman->defer([&](IParticle_Manager* pman, System_State&) {
-            auto const N = 96;
+            auto const N = 32;
             auto const N_half = N / 2;
             for (int y = 0; y < N; y++) {
                 for (int x = 0; x < N; x++) {
-                    auto pos = Vec3(x - N_half, 48, y - N_half);
+                    auto pos = Vec3(x - N_half, 16, y - N_half);
                     auto cur = pman->add_init_particle(pos, Vec3(0.25, 0.25, 1), 1);
 
                     if (x != 0) {

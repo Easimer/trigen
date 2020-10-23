@@ -173,7 +173,15 @@ static sb::Unique_Ptr<char[]> generate_ptx(nvrtcProgram& prog, sb::sdf::ast::Exp
         return nullptr;
     }
 
-    rc = nvrtcCompileProgram(prog, 0, NULL);
+#ifndef NDEBUG
+    char const* nvcc_options[] = { "--device-debug", "--generate-line-info" };
+    int nvcc_options_count = 2;
+#else
+    char const **nvcc_options = NULL;
+    int nvcc_options_count = 0;
+#endif
+
+    rc = nvrtcCompileProgram(prog, nvcc_options_count, nvcc_options);
     if(rc != NVRTC_SUCCESS) {
         printf("sb: nvrtcCompileProgram failure, rc=%d, msg='%s'\n", rc, nvrtcGetErrorString(rc));
 
@@ -220,7 +228,7 @@ static sb::Unique_Ptr<char[]> generate_ptx(nvrtcProgram& prog, sb::sdf::ast::Exp
     return ret;
 }
 
-static bool upload_ptx(CUmodule& mod, CUfunction& fun, char const* ptx) {
+static bool upload_ptx(CUmodule& mod, int fun_count, CUfunction* funs[], char const* syms[], char const* ptx) {
     CUresult rc;
 
     rc = cuModuleLoadData(&mod, ptx);
@@ -229,23 +237,26 @@ static bool upload_ptx(CUmodule& mod, CUfunction& fun, char const* ptx) {
         return false;
     }
 
-    rc = cuModuleGetFunction(&fun, mod, "k_exec_sdf");
-    if(rc != CUDA_SUCCESS) {
-        printf("sb: cuModuleGetFunction failed: rc=%d\n", rc);
-        return false;
+    for(int i = 0; i < fun_count; i++) {
+        rc = cuModuleGetFunction(funs[i], mod, syms[i]);
+        if(rc != CUDA_SUCCESS) {
+            printf("sb: cuModuleGetFunction(%s) failed: rc=%d\n", syms[i], rc);
+            return false;
+        }
     }
 
     return true;
 }
 
 namespace sb::CUDA {
-    struct AST_Kernel_Handle_ {
+    struct AST_Program_Handle_ {
         CUmodule mod;
-        CUfunction fun;
         nvrtcProgram prog;
+        CUfunction k_gen_coll_constraints;
+        CUfunction k_resolve_coll_constraints;
     };
 
-    bool compile_ast(AST_Kernel_Handle* out_handle, sb::sdf::ast::Expression<float>* expr) {
+    bool compile_ast(AST_Program_Handle* out_handle, sb::sdf::ast::Expression<float>* expr) {
         assert(out_handle != NULL);
         assert(expr != NULL);
 
@@ -260,24 +271,27 @@ namespace sb::CUDA {
         }
 
         CUmodule mod;
-        CUfunction fun;
+        CUfunction k_gen_coll_constraints, k_resolve_coll_constraints;
+        CUfunction* funs[] = { &k_gen_coll_constraints, &k_resolve_coll_constraints };
+        char const* syms[] = { "k_gen_coll_constraints", "k_resolve_coll_constraints" };
         CUresult rc;
 
-        if(!upload_ptx(mod, fun, ptx.get())) {
+        if(!upload_ptx(mod, 2, funs, syms, ptx.get())) {
             return false;
         }
 
-        auto k = new AST_Kernel_Handle_;
+        auto k = new AST_Program_Handle_;
 
         k->prog = prog;
         k->mod = mod;
-        k->fun = fun;
+        k->k_gen_coll_constraints = k_gen_coll_constraints;
+        k->k_resolve_coll_constraints = k_resolve_coll_constraints;
 
         *out_handle = k;
         return true;
     }
 
-    void free(AST_Kernel_Handle handle) {
+    void free(AST_Program_Handle handle) {
         assert(handle != NULL);
 
         if(handle != NULL) {
@@ -288,13 +302,83 @@ namespace sb::CUDA {
         }
     }
 
-    bool exec(AST_Kernel_Handle handle, int N, CUDA_Array<float4>& predicted_positions, CUDA_Array<float4>& positions, CUDA_Array<float>& masses) {
+    bool generate_collision_constraints(
+            AST_Program_Handle handle,
+            cudaStream_t stream,
+            int N,
+            CUDA_Array<unsigned char>& enable,
+            CUDA_Array<float3> intersections,
+            CUDA_Array<float3> normals,
+            CUDA_Array<float4>& predicted_positions,
+            CUDA_Array<float4>& positions,
+            CUDA_Array<float>& masses) {
         assert(handle != NULL);
         assert(!predicted_positions.is_empty());
+        assert(!enable.is_empty());
+        assert(!intersections.is_empty());
+        assert(!normals.is_empty());
         assert(!positions.is_empty());
         assert(!masses.is_empty());
 
-        if(handle == NULL || predicted_positions.is_empty() || positions.is_empty() || masses.is_empty()) {
+        if(handle == NULL || predicted_positions.is_empty() || positions.is_empty() || masses.is_empty() || enable.is_empty() || intersections.is_empty() || positions.is_empty()) {
+            return false;
+        }
+
+        CUresult rc;
+        auto const block_siz = 512;
+        auto block_count = (N - 1) / block_siz + 1;
+        int offset = 0;
+
+        auto p_enable = (unsigned char*)enable;
+        auto p_intersections = (float3*)intersections;
+        auto p_normals = (float3*)normals;
+        auto p_pred_pos = (float4*)predicted_positions;
+        auto p_pos = (float4*)positions;
+        auto p_masses = (float*)masses;
+
+        void* kparams[] = {
+            &offset, &N, &p_enable, &p_intersections, &p_normals, &p_pred_pos, &p_pos, &p_masses
+        };
+
+        ASSERT_CUDA_SUCCEEDED(cuLaunchKernel(
+            /* kernel: */ handle->k_gen_coll_constraints,
+            /* grid:   */ block_count, 1, 1,
+            /* block:  */ block_siz,   1, 1,
+            /* smem:   */ 0,
+            /* stream: */ stream,
+            /* params: */ kparams,
+            /* extra:  */ NULL
+        ));
+
+        return true;
+    }
+
+    bool resolve_collision_constraints(
+            AST_Program_Handle handle,
+            cudaStream_t stream,
+            int N,
+            CUDA_Array<float4>& predicted_positions,
+            CUDA_Array<unsigned char>& enable,
+            CUDA_Array<float3> intersections,
+            CUDA_Array<float3> normals,
+            CUDA_Array<float4>& positions,
+            CUDA_Array<float>& masses) {
+        assert(handle != NULL);
+        assert(!predicted_positions.is_empty());
+        assert(!enable.is_empty());
+        assert(!intersections.is_empty());
+        assert(!normals.is_empty());
+        assert(!positions.is_empty());
+        assert(!masses.is_empty());
+
+        assert(predicted_positions.N == N);
+        assert(enable.N == N);
+        assert(intersections.N == N);
+        assert(normals.N == N);
+        assert(positions.N == N);
+        assert(masses.N == N);
+
+        if(handle == NULL || predicted_positions.is_empty() || positions.is_empty() || masses.is_empty() || enable.is_empty() || intersections.is_empty() || positions.is_empty()) {
             return false;
         }
 
@@ -304,23 +388,26 @@ namespace sb::CUDA {
         auto block_count = (N - 1) / block_siz + 1;
         int offset = 0;
 
+        auto p_enable = (unsigned char*)enable;
+        auto p_intersections = (float3*)intersections;
+        auto p_normals = (float3*)normals;
+        auto p_pred_pos = (float4*)predicted_positions;
+        auto p_pos = (float4*)positions;
+        auto p_masses = (float*)masses;
+
         void* kparams[] = {
-            &offset, &N, (void*)predicted_positions, (void*)positions, (void*)masses
+            &offset, &N, &p_pred_pos, &p_enable, &p_intersections, &p_normals, &p_pos, &p_masses
         };
 
-        rc = cuLaunchKernel(
-            /* kernel: */ handle->fun,
+        ASSERT_CUDA_SUCCEEDED(cuLaunchKernel(
+            /* kernel: */ handle->k_resolve_coll_constraints,
             /* grid:   */ block_count, 1, 1,
             /* block:  */ block_siz,   1, 1,
             /* smem:   */ 0,
-            /* stream: */ 0,
+            /* stream: */ stream,
             /* params: */ kparams,
             /* extra:  */ NULL
-        );
-        if(rc != CUDA_SUCCESS) {
-            printf("sb: cuLaunchKernel(k_exec_sdf) failed, rc=%d\n", rc);
-            return false;
-        }
+        ));
 
         return true;
     }

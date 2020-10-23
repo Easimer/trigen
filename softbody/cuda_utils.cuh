@@ -9,6 +9,8 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 
+#include "cuda_memtrack.h"
+
 #define CUDA_SUCCEEDED(HR, APICALL) ((HR = APICALL) == cudaSuccess)
 
 inline void cuda_assert(char const* expr, size_t line, char const* file, char const* function, cudaError_t rc) {
@@ -16,7 +18,22 @@ inline void cuda_assert(char const* expr, size_t line, char const* file, char co
         return;
     }
 
-    printf("[!] CUDA API CALL FAILED: %s:%zu: %s: Assertion `%s` failed. Result code: %d\n", file, line, function, expr, rc);
+    char const* msg = cudaGetErrorString(rc);
+
+    printf("[!] CUDA API CALL FAILED: %s:%zu: %s: Assertion `%s` failed. Result code: %d (%s)\n", file, line, function, expr, rc, msg);
+    std::abort();
+}
+
+inline void cuda_assert(char const* expr, size_t line, char const* file, char const* function, CUresult rc) {
+    if(rc == CUDA_SUCCESS) {
+        return;
+    }
+
+    char const *msg, *name;
+    cuGetErrorName(rc, &name);
+    cuGetErrorString(rc, &msg);
+
+    printf("[!] CUDA API CALL FAILED: %s:%zu: %s: Assertion `%s` failed. Result code: %d (%s, '%s')\n", file, line, function, expr, rc, name, msg);
     std::abort();
 }
 
@@ -142,7 +159,7 @@ struct CUDA_Array {
         return cudaMemcpyAsync(d_buf, src, bytes(), cudaMemcpyHostToDevice, stream);
     }
 
-    cudaError_t read_async(T* dst, cudaStream_t stream) {
+    cudaError_t read_async(T* dst, cudaStream_t stream) const {
         return cudaMemcpyAsync(dst, d_buf, bytes(), cudaMemcpyDeviceToHost, stream);
     }
 
@@ -150,11 +167,15 @@ struct CUDA_Array {
         return cudaMemcpyAsync(&d_buf[offset], &src[offset], count * sizeof(T), cudaMemcpyHostToDevice, stream);
     }
 
-    cudaError_t read_sub(T* dst_base, size_t offset, size_t count, cudaStream_t stream) {
+    cudaError_t read_sub(T* dst_base, size_t offset, size_t count, cudaStream_t stream) const {
         return cudaMemcpyAsync(&dst_base[offset], &d_buf[offset], count * sizeof(T), cudaMemcpyDeviceToHost, stream);
     }
 
     operator T*() {
+        return d_buf;
+    }
+
+    operator T const*() const {
         return d_buf;
     }
 

@@ -11,11 +11,14 @@ if(${SOFTBODY_ENABLE_CUDA})
         s_compute_cuda.cu
         s_compute_cuda_codegen.cpp
         cuda_templates.cpp
+        cuda_memtrack.cpp cuda_memtrack.h
     )
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 
     set(SOFTBODY_CUDA_LIBS CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt)
+
+    option(SOFTBODY_CUDA_MEMTRACK "CUDA memtrack" OFF)
 endif()
 
 set(SRC_PUBLIC
@@ -83,4 +86,7 @@ target_include_directories(softbody_tests PRIVATE ${OpenCL_INCLUDE_DIRS})
 
 if(${SOFTBODY_ENABLE_CUDA})
     target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_ENABLED=1 _GLIBCXX_USE_CXX11_ABI=0)
+    if(${SOFTBODY_CUDA_MEMTRACK})
+        target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_MEMTRACK=1)
+    endif()
 endif()

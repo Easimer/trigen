@@ -275,7 +275,7 @@ void Softbody_Simulation::constraint_resolution(float dt) {
             compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         }
         do_one_iteration_of_distance_constraint_resolution(dt);
-        do_one_iteration_of_collision_constraint_resolution(dt);
+        // do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
 
@@ -605,6 +605,7 @@ void Softbody_Simulation::step(float delta_time) {
     if (time_accumulator > PHYSICS_STEP) {
         auto phdt = PHYSICS_STEP;
 
+        compute->begin_new_frame(s);
         prediction(phdt);
         constraint_resolution(phdt);
         integration(phdt);
@@ -635,13 +636,13 @@ public:
         switch (state) {
         case Single_Step_State::PREDICTION:
         {
+            sim->compute->begin_new_frame(sim->s);
             sim->prediction(PHYSICS_STEP);
             state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
             break;
         }
         case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
         {
-            sim->compute->begin_new_frame(sim->s);
             sim->compute->do_one_iteration_of_shape_matching_constraint_resolution(sim->s, PHYSICS_STEP);
             state = Single_Step_State::CONSTRAINT_FIXED;
             break;

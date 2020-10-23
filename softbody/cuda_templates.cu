@@ -148,3 +148,69 @@ extern "C" __global__ void k_exec_sdf(
         }
     }
 }
+
+extern "C" __global__ void k_gen_coll_constraints(
+        int offset, int N,
+        unsigned char* enable,
+        float3* intersections,
+        float3* normals,
+        float4 const* predicted_positions,
+        float4 const* positions,
+        float const* masses
+) {
+    int id = blockDim.x * blockIdx.x + threadIdx.x + offset;
+    if(id >= N) {
+        return;
+    }
+
+    enable[id] = 0;
+
+    float3 const start = xyz(positions[id]);
+    float3 thru = xyz(predicted_positions[id]);
+    float3 const dir = thru - start;
+
+    float dist = raymarch(start, dir, 32, 0.05f);
+
+    if(0 < dist && dist < 1) {
+        float3 intersect = start + dist * dir;
+        float3 normal = find_normal(intersect, 1.0f);
+        intersections[id] = intersect;
+        normals[id] = normal;
+        enable[id] = 1;
+    }
+}
+
+extern "C" __global__ void k_resolve_coll_constraints(
+        int offset, int N,
+        float4* predicted_positions,
+        unsigned char const* enable,
+        float3 const* intersections,
+        float3 const* normals,
+        float4 const* positions,
+        float const* masses
+) {
+    int id = blockDim.x * blockIdx.x + threadIdx.x + offset;
+    if(id >= N) {
+        return;
+    }
+
+    if(enable[id] == 0) {
+        return;
+    }
+
+    float3 normal = normals[id];
+    float3 intersect = intersections[id];
+
+    float3 p = xyz(predicted_positions[id]);
+    float w = 1 / masses[id];
+    float3 dir2 = p - intersect;
+    float d = dot(dir2, normal);
+    if(d < 0) {
+        float sf = d / w;
+        float3 corr = -sf * w * normal;
+
+        float3 from = p;
+        float3 to = from + corr;
+        predicted_positions[id] = make_float4(to.x, to.y, to.z, 0);
+    }
+}

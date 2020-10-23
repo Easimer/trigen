@@ -6,23 +6,44 @@
 #include "cuda_utils.cuh"
 
 namespace sb::CUDA {
-    typedef struct AST_Kernel_Handle_ *AST_Kernel_Handle;
+    typedef struct AST_Program_Handle_ *AST_Program_Handle;
 
-    bool compile_ast(AST_Kernel_Handle* out_handle, sb::sdf::ast::Expression<float>* expr);
-    void free(AST_Kernel_Handle handle);
-    bool exec(AST_Kernel_Handle handle, int N, CUDA_Array<float4>& predicted_positions, CUDA_Array<float4>& positions, CUDA_Array<float>& masses);
+    bool compile_ast(AST_Program_Handle* out_handle, sb::sdf::ast::Expression<float>* expr);
+    void free(AST_Program_Handle handle);
 
-    struct AST_Kernel {
-        AST_Kernel_Handle handle;
+    bool generate_collision_constraints(
+            AST_Program_Handle handle,
+            cudaStream_t stream,
+            int N,
+            CUDA_Array<unsigned char>& enable,
+            CUDA_Array<float3> intersections,
+            CUDA_Array<float3> normals,
+            CUDA_Array<float4>& predicted_positions,
+            CUDA_Array<float4>& positions,
+            CUDA_Array<float>& masses);
 
-        AST_Kernel() : handle(nullptr) {}
-        AST_Kernel(AST_Kernel_Handle handle) : handle(handle) {}
-        AST_Kernel(AST_Kernel const&) = delete;
-        AST_Kernel(AST_Kernel&& other) : handle(nullptr) {
+    bool resolve_collision_constraints(
+            AST_Program_Handle handle,
+            cudaStream_t stream,
+            int N,
+            CUDA_Array<float4>& predicted_positions,
+            CUDA_Array<unsigned char>& enable,
+            CUDA_Array<float3> intersections,
+            CUDA_Array<float3> normals,
+            CUDA_Array<float4>& positions,
+            CUDA_Array<float>& masses);
+
+    struct AST_Program {
+        AST_Program_Handle handle;
+
+        AST_Program() : handle(nullptr) {}
+        AST_Program(AST_Program_Handle handle) : handle(handle) {}
+        AST_Program(AST_Program const&) = delete;
+        AST_Program(AST_Program&& other) : handle(nullptr) {
             std::swap(handle, other.handle);
         }
 
-        AST_Kernel& operator=(AST_Kernel&& other) {
+        AST_Program& operator=(AST_Program&& other) {
             if(handle != nullptr) {
                 free(handle);
                 handle = nullptr;
@@ -32,5 +53,19 @@ namespace sb::CUDA {
 
             return *this;
         }
+
+        ~AST_Program() {
+            if(handle != nullptr) {
+                free(handle);
+            }
+        }
+
+        operator AST_Program_Handle() const {
+            return handle;
+        }
     };
+
+    using AST_Kernel = AST_Program;
+
+    using AST_Kernel_Handle = AST_Program_Handle;
 }
