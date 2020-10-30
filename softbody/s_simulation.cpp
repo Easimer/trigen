@@ -275,7 +275,7 @@ void Softbody_Simulation::constraint_resolution(float dt) {
             compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         }
         do_one_iteration_of_distance_constraint_resolution(dt);
-        // do_one_iteration_of_collision_constraint_resolution(dt);
+        do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
     }
 

@@ -3,7 +3,7 @@
 // ==================================================================
 
 __device__ float3 operator+(float3 lhs, float3 rhs) {
-    return make_float3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z);
+    return make_float3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z);
 }
 
 __device__ float3 operator*(float s, float3 v) {
@@ -113,42 +113,6 @@ __device__ float3 xyz(float4 v) {
     return make_float3(v.x, v.y, v.z);
 }
 
-extern "C" __global__ void k_exec_sdf(
-        int offset, int N,
-        float4* predicted_positions,
-        float4 const* positions,
-        float const* masses
-) {
-    int id = blockDim.x * blockIdx.x + threadIdx.x + offset;
-    if(id >= N) {
-        return;
-    }
-
-    float3 const start = xyz(positions[id]);
-    float3 thru = xyz(predicted_positions[id]);
-    float3 const dir = thru - start;
-
-    float dist = raymarch(start, dir, 32, 0.05f);
-
-    if(0 < dist && dist < 1) {
-        float3 intersect = start + dist * dir;
-        float3 normal = find_normal(intersect, 1.0f);
-
-        float3 p = thru;
-        float w = 1 / masses[id];
-        float3 dir2 = p - intersect;
-        float d = dot(dir2, normal);
-        if(d < 0) {
-            float sf = d / w;
-            float3 corr = -sf * w * normal;
-
-            float3 from = p;
-            float3 to = from + corr;
-            predicted_positions[id] = make_float4(to.x, to.y, to.z, 0);
-        }
-    }
-}
-
 extern "C" __global__ void k_gen_coll_constraints(
         int offset, int N,
         unsigned char* enable,
@@ -171,9 +135,9 @@ extern "C" __global__ void k_gen_coll_constraints(
 
     float dist = raymarch(start, dir, 32, 0.05f);
 
-    if(0 < dist && dist < 1) {
+    if(dist < 1) {
         float3 intersect = start + dist * dir;
-        float3 normal = find_normal(intersect, 1.0f);
+        float3 normal = find_normal(intersect, 0.5f);
         intersections[id] = intersect;
         normals[id] = normal;
         enable[id] = 1;
@@ -200,7 +164,6 @@ extern "C" __global__ void k_resolve_coll_constraints(
 
     float3 normal = normals[id];
     float3 intersect = intersections[id];
-
     float3 p = xyz(predicted_positions[id]);
     float w = 1 / masses[id];
     float3 dir2 = p - intersect;

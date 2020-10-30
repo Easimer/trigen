@@ -307,11 +307,11 @@ namespace sb::CUDA {
             cudaStream_t stream,
             int N,
             CUDA_Array<unsigned char>& enable,
-            CUDA_Array<float3> intersections,
-            CUDA_Array<float3> normals,
-            CUDA_Array<float4>& predicted_positions,
-            CUDA_Array<float4>& positions,
-            CUDA_Array<float>& masses) {
+            CUDA_Array<float3>& intersections,
+            CUDA_Array<float3>& normals,
+            CUDA_Array<float4> const& predicted_positions,
+            CUDA_Array<float4> const& positions,
+            CUDA_Array<float> const& masses) {
         assert(handle != NULL);
         assert(!predicted_positions.is_empty());
         assert(!enable.is_empty());
@@ -332,9 +332,9 @@ namespace sb::CUDA {
         auto p_enable = (unsigned char*)enable;
         auto p_intersections = (float3*)intersections;
         auto p_normals = (float3*)normals;
-        auto p_pred_pos = (float4*)predicted_positions;
-        auto p_pos = (float4*)positions;
-        auto p_masses = (float*)masses;
+        auto p_pred_pos = (float4 const*)predicted_positions;
+        auto p_pos = (float4 const*)positions;
+        auto p_masses = (float const*)masses;
 
         void* kparams[] = {
             &offset, &N, &p_enable, &p_intersections, &p_normals, &p_pred_pos, &p_pos, &p_masses
@@ -358,11 +358,11 @@ namespace sb::CUDA {
             cudaStream_t stream,
             int N,
             CUDA_Array<float4>& predicted_positions,
-            CUDA_Array<unsigned char>& enable,
-            CUDA_Array<float3> intersections,
-            CUDA_Array<float3> normals,
-            CUDA_Array<float4>& positions,
-            CUDA_Array<float>& masses) {
+            CUDA_Array<unsigned char> const& enable,
+            CUDA_Array<float3> const& intersections,
+            CUDA_Array<float3> const& normals,
+            CUDA_Array<float4> const& positions,
+            CUDA_Array<float> const& masses) {
         assert(handle != NULL);
         assert(!predicted_positions.is_empty());
         assert(!enable.is_empty());
@@ -388,12 +388,12 @@ namespace sb::CUDA {
         auto block_count = (N - 1) / block_siz + 1;
         int offset = 0;
 
-        auto p_enable = (unsigned char*)enable;
-        auto p_intersections = (float3*)intersections;
-        auto p_normals = (float3*)normals;
+        auto p_enable = (unsigned char const*)enable;
+        auto p_intersections = (float3 const*)intersections;
+        auto p_normals = (float3 const*)normals;
         auto p_pred_pos = (float4*)predicted_positions;
-        auto p_pos = (float4*)positions;
-        auto p_masses = (float*)masses;
+        auto p_pos = (float4 const*)positions;
+        auto p_masses = (float const*)masses;
 
         void* kparams[] = {
             &offset, &N, &p_pred_pos, &p_enable, &p_intersections, &p_normals, &p_pos, &p_masses

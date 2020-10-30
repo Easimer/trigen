@@ -16,22 +16,22 @@ namespace sb::CUDA {
             cudaStream_t stream,
             int N,
             CUDA_Array<unsigned char>& enable,
-            CUDA_Array<float3> intersections,
-            CUDA_Array<float3> normals,
-            CUDA_Array<float4>& predicted_positions,
-            CUDA_Array<float4>& positions,
-            CUDA_Array<float>& masses);
+            CUDA_Array<float3>& intersections,
+            CUDA_Array<float3>& normals,
+            CUDA_Array<float4> const& predicted_positions,
+            CUDA_Array<float4> const& positions,
+            CUDA_Array<float> const& masses);
 
     bool resolve_collision_constraints(
             AST_Program_Handle handle,
             cudaStream_t stream,
             int N,
             CUDA_Array<float4>& predicted_positions,
-            CUDA_Array<unsigned char>& enable,
-            CUDA_Array<float3> intersections,
-            CUDA_Array<float3> normals,
-            CUDA_Array<float4>& positions,
-            CUDA_Array<float>& masses);
+            CUDA_Array<unsigned char> const& enable,
+            CUDA_Array<float3> const& intersections,
+            CUDA_Array<float3> const& normals,
+            CUDA_Array<float4> const& positions,
+            CUDA_Array<float> const& masses);
 
     struct AST_Program {
         AST_Program_Handle handle;
