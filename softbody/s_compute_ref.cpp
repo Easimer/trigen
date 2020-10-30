@@ -20,6 +20,10 @@
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
+public:
+    Compute_CPU_Single_Threaded(ILogger* logger) : _log(logger) {
+    }
+protected:
     float mass_of_particle(System_State& s, index_t i) const {
         auto const d_i = s.density[i];
         auto const s_i = s.size[i];
@@ -216,8 +220,11 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT_MASKED(0xF);
     }
+
+protected:
+    ILogger* _log;
 };
 
-sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend() {
-    return std::make_unique<Compute_CPU_Single_Threaded>();
+sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend(ILogger* logger) {
+    return std::make_unique<Compute_CPU_Single_Threaded>(logger);
 }

@@ -11,6 +11,7 @@
 #define SB_BENCHMARK 1
 #include "s_benchmark.h"
 #include <cstdlib>
+#include <cstdarg>
 #include <array>
 #include <raymarching.h>
 #include <glm/gtx/matrix_operation.hpp>
@@ -78,8 +79,8 @@ static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
 
-Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
-    : assert_parallel(false), assert_init(true) {
+Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration, sb::Debug_Proc dbg_msg_cb, void* dbg_msg_user)
+    : assert_parallel(false), assert_init(true), debugproc(dbg_msg_cb), debugproc_user(dbg_msg_user) {
     auto o = configuration.seed_position;
 #ifdef DEBUG_TETRAHEDRON
 #if 1
@@ -121,7 +122,7 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration)
 
     s.center_of_mass.resize(particle_count());
 
-    compute = Make_Compute_Backend(configuration.compute_preference);
+    compute = Make_Compute_Backend(configuration.compute_preference, this);
     create_extension(params.ext, params);
     pump_deferred_requests();
 }
@@ -591,8 +592,8 @@ void Softbody_Simulation::add_fixed_constraint(unsigned count, index_t* pidx) {
     }
 }
 
-sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration) {
-    return std::make_unique<Softbody_Simulation>(configuration);
+sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& configuration, sb::Debug_Proc dbg_msg_cb, void* dbg_msg_user) {
+    return std::make_unique<Softbody_Simulation>(configuration, dbg_msg_cb, dbg_msg_user);
 }
 
 void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
@@ -611,7 +612,7 @@ void Softbody_Simulation::step(float delta_time) {
         integration(phdt);
 
         if (time_accumulator > 8 * PHYSICS_STEP) {
-            fprintf(stderr, "sb: warning: extreme lag, acc = %f\n", time_accumulator);
+            log(sb::Debug_Message_Source::Simulation_Driver, sb::Debug_Message_Type::Debug, sb::Debug_Message_Severity::Low, "extreme-lag acc=%f", time_accumulator);
         }
 
         pump_deferred_requests();
@@ -723,4 +724,39 @@ private:
 
 sb::Unique_Ptr<sb::ISingle_Step_State> Softbody_Simulation::begin_single_step() {
     return std::make_unique<Single_Step_State>(this);
+}
+
+void Softbody_Simulation::debug_message_callback(sb::Debug_Proc callback, void* user) {
+    debugproc = callback;
+    debugproc_user = user;
+}
+
+void Softbody_Simulation::log(sb::Debug_Message_Source s, sb::Debug_Message_Type t, sb::Debug_Message_Severity l, char const* fmt, ...) {
+    if(debugproc != nullptr) {
+        int size = 128;
+        char* buf;
+        va_list ap;
+        int n;
+
+        // Does it fit into 128 bytes?
+        buf = new char[size];
+        va_start(ap, fmt);
+        n = vsnprintf(buf, size, fmt, ap);
+        va_end(ap);
+
+        if(n >= size) {
+            // It doesn't, so we resize the buffer to the exact amount needed
+            size = n + 1;
+            delete[] buf;
+            buf = new char[size];
+
+            va_start(ap, fmt);
+            n = vsnprintf(buf, size, fmt, ap);
+            va_end(ap);
+        }
+
+        debugproc(s, t, l, buf, debugproc_user);
+
+        delete[] buf;
+    }
 }

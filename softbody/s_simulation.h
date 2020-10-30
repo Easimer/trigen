@@ -11,9 +11,9 @@
 
 class ICompute_Backend;
 
-class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Manager, public IParticle_Manager_Deferred {
+class Softbody_Simulation : public sb::ISoftbody_Simulation, public IParticle_Manager, public IParticle_Manager_Deferred, public ILogger {
 public:
-    Softbody_Simulation(sb::Config const& configuration);
+    Softbody_Simulation(sb::Config const& configuration, sb::Debug_Proc dbg_msg_cb, void* dbg_msg_user);
 
     void add_particles(int N, glm::vec4 const* positions) override;
     void add_connections(int N, long long* pairs) override;
@@ -83,6 +83,12 @@ public:
     void invalidate_particle_cache() override;
 
     sb::IPlant_Simulation* get_extension_plant_simulation() override;
+
+    void debug_message_callback(sb::Debug_Proc callback, void* user) override;
+    void log(sb::Debug_Message_Source s, sb::Debug_Message_Type t, sb::Debug_Message_Severity l, char const* fmt, ...) override;
+
+    sb::Debug_Proc debugproc = nullptr;
+    void* debugproc_user = nullptr;
 
     sb::Unique_Ptr<ICompute_Backend> compute;
     sb::Unique_Ptr<ISimulation_Extension> ext;

@@ -66,6 +66,10 @@
 std::unique_ptr<sb::ISerializer> make_serializer(QString const& path);
 std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path);
 
+static void sb_msg_callback(sb::Debug_Message_Source src, sb::Debug_Message_Type type, sb::Debug_Message_Severity severity, char const* msg, void* user) {
+    printf("sb: %s\n", msg);
+}
+
 Window_Main::Window_Main(QWidget* parent) :
     QMainWindow(parent),
     render_timer(this),
@@ -216,7 +220,7 @@ void Window_Main::stop_simulation() {
 }
 
 void Window_Main::reset_simulation() {
-    simulation = sb::create_simulation(sim_cfg);
+    simulation = sb::create_simulation(sim_cfg, sb_msg_callback);
     sb::sdf::ast::Expression<float>* expr;
     sb::sdf::ast::Sample_Point* sp;
     collider_builder->get_ast(&expr, &sp);

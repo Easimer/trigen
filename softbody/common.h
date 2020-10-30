@@ -94,3 +94,11 @@ struct System_State {
 
     Set<index_t> fixed_particles;
 };
+
+class ILogger {
+public:
+    virtual ~ILogger() = default;
+
+
+    virtual void log(sb::Debug_Message_Source s, sb::Debug_Message_Type t, sb::Debug_Message_Severity l, char const* fmt, ...) = 0;
+};

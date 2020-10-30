@@ -24,6 +24,8 @@
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
+#define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
+
 extern "C" {
     extern char const* shape_matching_cl;
     extern unsigned long long shape_matching_cl_len;
@@ -33,12 +35,13 @@ class calc_mass;
 
 class Compute_CL : public ICompute_Backend {
 public:
-    Compute_CL(cl::Context&& _ctx, cl::Device&& _dev, cl::Program&& _program)
+    Compute_CL(ILogger* logger, cl::Context&& _ctx, cl::Device&& _dev, cl::Program&& _program)
         : ctx(std::move(_ctx)), dev(std::move(_dev)), program(std::move(_program)),
         k_test_mat_mul(program, "mat_mul_main"),
         k_test_rotation_extraction(program, "mueller_rotation_extraction"),
         k_calculate_particle_masses(program, "calculate_particle_masses"),
-        k_do_shape_matching(program, "do_shape_matching")
+        k_do_shape_matching(program, "do_shape_matching"),
+        _log(logger)
     {
         queue = cl::CommandQueue(ctx);
 
@@ -49,18 +52,16 @@ public:
         auto private_mem_size = k_do_shape_matching.getKernel().getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(dev);
         auto preferred_work_group_size_multiple = k_do_shape_matching.getKernel().getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(dev);
 
-        printf("sb: do_shape_matching kernel details:\n");
-        printf("\tLocal memory size: %llu\n", local_mem_size);
-        printf("\tPrivate memory size: %llu\n", private_mem_size);
-        printf("\tPreferred work-group size multiple: %zu\n\n", preferred_work_group_size_multiple);
+        LOG(Informational, Low, "opencl-shape-matching-kernel-details local-mem=%llu private-mem=%llu preferred-workgroup-size-multiple=%zu", local_mem_size, private_mem_size, preferred_work_group_size_multiple);
 
-        compute_ref = Make_Reference_Backend();
+        compute_ref = Make_Reference_Backend(logger);
     }
 private:
     cl::Context ctx;
     cl::Device dev;
     cl::Program program;
     cl::CommandQueue queue;
+    ILogger* _log;
 
     using Test_Mat_Mul = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl::Buffer>;
     using Test_Rotation_Extraction = cl::KernelFunctor<cl::Buffer, cl::Buffer>;
@@ -166,10 +167,6 @@ private:
             auto a = glm::normalize(approx[i]);
 
             if (glm::length(e - a) > 4 * glm::epsilon<float>()) {
-                printf("sb: MUELLER_ROTATION_EXTRACTION SANITY CHECK FAILED!\n");
-                printf("\texpected: %f %f %f %f  got: %f %f %f %f\n",
-                    e[0], e[1], e[2], e[3],
-                    a[0], a[1], a[2], a[3]);
                 ret = false;
             }
         }
@@ -208,26 +205,6 @@ private:
         auto diff = matrix_difference(expected, out);
 
         if (glm::abs(diff) > 4 * glm::epsilon<float>()) {
-            printf("sb: MAT_MUL SANITY CHECK FAILED!\n");
-
-            printf("Output:\n");
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    printf("%f ", out[j][i]);
-                }
-                printf("\n");
-            }
-            printf("\n");
-
-            printf("Expected:\n");
-            for (int i = 0; i < 4; i++) {
-                for (int j = 0; j < 4; j++) {
-                    printf("%f ", expected[j][i]);
-                }
-                printf("\n");
-            }
-            printf("\n");
-
             return false;
         }
 
@@ -458,7 +435,11 @@ private:
     }
 };
 
+#undef LOG
+#define LOG(t, l, fmt, ...) logger->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
+
 static std::optional<cl::Program> from_string_load_program(
+    ILogger* logger,
     char const* pszSource,
     unsigned long long nLen,
     cl::Context& ctx,
@@ -477,10 +458,7 @@ static std::optional<cl::Program> from_string_load_program(
         auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
         auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
         if (!log.empty()) {
-            printf(
-                "sb: CL program built with warnings:\n\ton device '%s'\n\tfile: '<string>'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                dev_name.c_str(), log.c_str()
-            );
+            LOG(Informational, Low, "opencl-program-built-with-warnings device=\"%s\" log=\"%s\"", dev_name.c_str(), log.c_str());
         }
 
         return program;
@@ -493,17 +471,15 @@ static std::optional<cl::Program> from_string_load_program(
 
             auto dev_name = dev.getInfo<CL_DEVICE_NAME>();
             auto log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(dev);
-            printf(
-                "sb: CL program build failure\n\ton device '%s'\n\tfile: '<string>'\nbuild log:\n%s\n\t=== END OF BUILD LOG ===\n",
-                dev_name.c_str(), log.c_str()
-            );
+            LOG(Error, Low, "opencl-program-build-failure device=\"%s\" log=\"%s\"", dev_name.c_str(), log.c_str());
         }
 
         return std::nullopt;
     }
 }
 
-sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
+sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend(ILogger* logger) {
+    // LOGGER
     try {
         std::optional<cl::Device> selected_device;
         Vector<cl::Platform> platforms;
@@ -518,7 +494,7 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
                     break;
                 }
             } catch (cl::Error& e1) {
-                printf("sb: couldn't enumerate OpenCL GPU devices: [%d] %s\n", e1.err(), e1.what());
+                LOG(Error, Low, "opencl-device-enumeration-fail attempt=gpu rc=%d msg=\"%s\"", e1.err(), e1.what());
                 try {
                     platform.getDevices(CL_DEVICE_TYPE_CPU, &devices_buffer);
                     if (devices_buffer.size() > 0) {
@@ -526,33 +502,28 @@ sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend() {
                         break;
                     }
                 } catch (cl::Error& e2) {
-                    printf("sb: couldn't enumerate OpenCL CPU devices: [%d] %s\n", e2.err(), e2.what());
+                    LOG(Error, Low, "opencl-device-enumeration-fail attempt=cpu rc=%d msg=\"%s\"", e2.err(), e2.what());
                 }
             }
         }
 
         if (selected_device) {
-            printf("sb: OpenCL device selected:\n");
-            std::string name;
+            std::string name, vendor;
             selected_device->getInfo(CL_DEVICE_NAME, &name);
-            printf("- %s\n", name.c_str());
-            selected_device->getInfo(CL_DEVICE_VENDOR, &name);
-            printf("\tVendor: %s\n", name.c_str());
-            printf("\tCompute units: %d\n", selected_device->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>());
-            printf("\tGlobal memory: %llu\n", selected_device->getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>());
-            printf("\tConstant memory: %llu\n", selected_device->getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>());
-            printf("\n");
+            selected_device->getInfo(CL_DEVICE_VENDOR, &vendor);
+
+            LOG(Informational, Low, "opencl-device name=\"%s\" vendor=\"%s\" max-compute-units=%d global-memory=%llu constant-buffer-size=%llu", name.c_str(), vendor.c_str(), selected_device->getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>(), selected_device->getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>(), selected_device->getInfo<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>());
 
             cl::Context ctx(*selected_device);
-            auto program = from_string_load_program(shape_matching_cl, shape_matching_cl_len, ctx, *selected_device);
+            auto program = from_string_load_program(logger, shape_matching_cl, shape_matching_cl_len, ctx, *selected_device);
             if (program) {
-                return std::make_unique<Compute_CL>(std::move(ctx), std::move(*selected_device), std::move(*program));
+                return std::make_unique<Compute_CL>(logger, std::move(ctx), std::move(*selected_device), std::move(*program));
             }
         }
     } catch(cl::Error& e) {
-        printf("sb: couldn't create CL backend: [%d] %s\n", e.err(), e.what());
+        LOG(Error, Low, "opencl-backend-creation-fail rc=%d msg=\"%s\"", e.err(), e.what());
     }
 
-    fprintf(stderr, "sb: can't make CL compute backend\n");
+    LOG(Error, Low, "%s", "opencl-backend-creation-failed"); // HACKHACKHACK: must have a variadic argument ¯\_(ツ)_/¯
     return NULL;
 }

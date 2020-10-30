@@ -36,6 +36,8 @@
 
 #define EXPLODE_F32x4(v) v.x, v.y, v.z, v.w
 
+#define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
+
 struct CUDA_Range {
     CUDA_Range(char const* label) {
         nvtxRangePushA(label);
@@ -489,13 +491,13 @@ class Compute_CUDA : public ICompute_Backend {
 public:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
 
-    Compute_CUDA(std::array<cudaStream_t, (size_t)Stream::Max>&& streams) :
+    Compute_CUDA(ILogger* logger, std::array<cudaStream_t, (size_t)Stream::Max>&& streams) :
         scheduler(Scheduler(std::move(streams))),
-        current_particle_count(0) {
-        printf("sb: CUDA compute backend created\n");
-        // TODO(danielm): not sure if cudaEventBlockingSync would be a good idea for this event
+        current_particle_count(0),
+       _log(logger) {
+        LOG(Informational, Low, "cuda-backend-created", 0);
 
-        compute_ref = Make_Reference_Backend();
+        compute_ref = Make_Reference_Backend(logger);
 
         sb::CUDA::memtrack::activate();
     }
@@ -1023,7 +1025,7 @@ public:
             auto q = s.predicted_orientation[i];
             auto l = length(q);
             if(glm::abs(1 - l) > glm::epsilon<float>()) {
-                printf("Particle #%d has degenerate orientation [%f %f %f %f]\n", i, q.w, q.x, q.y, q.z);
+                LOG(Error, High, "cuda-sanity-check-degenerate-orient particle-idx=%d orient=(%f %f %f %f)", i, q.x, q.y, q.z, q.w);
                 assert(!"Orientation is degenerate");
             }
         }
@@ -1051,13 +1053,18 @@ private:
 
     // TODO(danielm): rename to ast_programs
     Map<sb::ISoftbody_Simulation::Collider_Handle, sb::CUDA::AST_Kernel> ast_kernels;
+
+    ILogger* _log;
 };
+
+#undef LOG
+#define LOG(t, l, fmt, ...) logger->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
 
 static int g_cudaInit = 0;
 static CUdevice g_cudaDevice;
 static CUcontext g_cudaContext;
 
-static bool init_cuda() {
+static bool init_cuda(ILogger* logger) {
     assert(g_cudaInit >= 0);
 
     if(g_cudaInit == 0) {
@@ -1069,38 +1076,38 @@ static bool init_cuda() {
 
         rc = cuDeviceGetCount(&count);
         if(rc != CUDA_SUCCESS) {
-            printf("sb: cuDeviceGetCount has failed: rc=%d\n", rc);
+            LOG(Error, High, "cuda-device-get-count-failed rc=%d", rc);
             assert(!"cuDeviceGetCount has failed");
             return false;
         }
 
         if(count == 0) {
-            printf("sb: No CUDA devices were found on this host!\n");
+            LOG(Error, High, "cuda-no-cuda-devices", 0);
             return false;
         }
 
         rc = cuDeviceGet(&g_cudaDevice, 0);
         if(rc != CUDA_SUCCESS) {
-            printf("sb: cuDeviceGet has failed: rc=%d\n", rc);
+            LOG(Error, High, "cuda-device-get-failed rc=%d", rc);
             assert(!"cuDeviceGet has failed");
             return false;
         }
 
         rc = cuDeviceGetName(dev_name, 64, g_cudaDevice);
         if(rc == CUDA_SUCCESS) {
-            printf("sb: cuda-device='%s'\n", dev_name);
+            LOG(Informational, High, "cuda-device name=\"%s\"", dev_name);
         }
 
         rc = cuCtxCreate(&g_cudaContext, 0, g_cudaDevice);
         if(rc != CUDA_SUCCESS) {
-            printf("sb: cuCtxCreate has failed: rc=%d\n", rc);
+            LOG(Error, High, "cuda-context-create-failed rc=%d", rc);
             assert(!"cuCtxCreate has failed");
             return false;
         }
 
         rc = cuCtxSetCurrent(g_cudaContext);
         if(rc != CUDA_SUCCESS) {
-            printf("sb: cuCtxSetCurrent has failed: rc=%d\n", rc);
+            LOG(Error, High, "cuda-context-make-current rc=%d", rc);
             assert(!"cuCtxSetCurrent has failed");
             return false;
         }
@@ -1122,10 +1129,11 @@ static void fini_cuda() {
     g_cudaInit--;
 }
 
-sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend() {
+sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend(ILogger* logger) {
+    // TODO(danielm): logger
     cudaError_t hr;
 
-    if(init_cuda()) {
+    if(init_cuda(logger)) {
         constexpr auto stream_n = (size_t)Stream::Max;
         std::array<cudaStream_t, stream_n> streams;
         int i;
@@ -1143,15 +1151,15 @@ sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend() {
                 i--;
             }
 
-            printf("sb: failed to create CUDA stream: err=%d\n", hr);
+            LOG(Error, High, "cuda-stream-create-failed rc=%d", hr);
             fini_cuda();
             return nullptr;
         }
 
-        auto ret = std::make_unique<Compute_CUDA>(std::move(streams));
+        auto ret = std::make_unique<Compute_CUDA>(logger, std::move(streams));
         return ret;
     }
 
-    fprintf(stderr, "sb: can't make CUDA compute backend\n");
+    LOG(Error, High, "cuda-backend-creation-failed", 0);
     return nullptr;
 }

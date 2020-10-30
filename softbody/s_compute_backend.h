@@ -28,21 +28,21 @@ public:
     virtual void on_collider_changed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
 };
 
-sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend();
-sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend();
-sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend();
+sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend(ILogger* logger);
+sb::Unique_Ptr<ICompute_Backend> Make_CL_Backend(ILogger* logger);
+sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend(ILogger* logger);
 
-inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Preference pref) {
+inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Preference pref, ILogger* logger) {
     sb::Unique_Ptr<ICompute_Backend> ret;
     bool np = pref == sb::Compute_Preference::None;
 
     if (pref == sb::Compute_Preference::Reference) {
-        return Make_Reference_Backend();
+        return Make_Reference_Backend(logger);
     }
 
 #if SOFTBODY_CUDA_ENABLED
     if (pref == sb::Compute_Preference::GPU_Proprietary || np) {
-        ret = Make_CUDA_Backend();
+        ret = Make_CUDA_Backend(logger);
         if (ret != nullptr) {
             return ret;
         }
@@ -53,11 +53,11 @@ inline sb::Unique_Ptr<ICompute_Backend> Make_Compute_Backend(sb::Compute_Prefere
         (ret == nullptr && pref == sb::Compute_Preference::GPU_Proprietary) ||
         pref == sb::Compute_Preference::GPU_OpenCL ||
         np) {
-        ret = Make_CL_Backend();
+        ret = Make_CL_Backend(logger);
         if (ret != nullptr) {
             return ret;
         }
     }
 
-    return Make_Reference_Backend();
+    return Make_Reference_Backend(logger);
 }

@@ -71,6 +71,30 @@ namespace sb {
         glm::vec3 origin, direction;
     };
 
+    enum class Debug_Message_Source {
+        Simulation_Driver,
+        Compute_Backend,
+        Other
+    };
+
+    enum class Debug_Message_Type {
+        Debug, // debug messages [unstructured]
+        Informational, // informational messages [structured]
+        Error, // error messages [structured]
+        Benchmark, // benchmark metrics (if was enabled at build time) [structured]
+    };
+
+    enum class Debug_Message_Severity {
+        Low,
+        High
+    };
+
+    using Debug_Proc = void (*)(Debug_Message_Source source,
+            Debug_Message_Type type,
+            Debug_Message_Severity severity,
+            char const* message,
+            void* user);
+
     class ISerializer {
     public:
         virtual ~ISerializer() {}
@@ -244,7 +268,13 @@ namespace sb {
         virtual bool load_image(IDeserializer* deserializer) = 0;
 
         virtual IPlant_Simulation* get_extension_plant_simulation() = 0;
+
+        // Specify a callback to receive debug messages from the simulator.
+        //
+        // @param callback Pointer to the function that will be called.
+        // @param user A user supplied pointer that will be passed to the callback function.
+        virtual void debug_message_callback(Debug_Proc callback, void* user) = 0;
     };
 
-    Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration);
+    Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration, Debug_Proc dbg_msg_cb = nullptr, void* dbg_msg_user = nullptr);
 }
