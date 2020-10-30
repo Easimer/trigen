@@ -127,7 +127,7 @@ protected:
         }
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
@@ -196,7 +196,7 @@ protected:
         }
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(0xF);
+        PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }
 
     void do_one_iteration_of_collision_constraint_resolution(System_State& s, float phdt) override {
@@ -218,7 +218,7 @@ protected:
             }
         }
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(0xF);
+        PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }
 
 protected:

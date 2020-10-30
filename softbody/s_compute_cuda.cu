@@ -578,7 +578,7 @@ public:
         scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
@@ -860,7 +860,7 @@ public:
 #endif /* OUTPUT_SANITY_CHECK */
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) override {
@@ -969,7 +969,7 @@ public:
         scheduler.synchronize<Stream::CopyToHost>();
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void generate_collision_constraints(System_State& s) override {
@@ -1013,7 +1013,7 @@ public:
         });
 
         END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void output_sanity_check(System_State const& s) {

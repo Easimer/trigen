@@ -25,16 +25,16 @@
 
 #define _XX(s) #s
 
-#define PRINT_BENCHMARK_RESULT_MASKED(mask) \
+#define PRINT_BENCHMARK_RESULT_MASKED(logger, mask) \
     auto const sbbm_diff = sbbm_end - sbbm_begin; \
     sbbm_dur = std::chrono::duration_cast<std::chrono::SB_BENCHMARK_UNITS>(sbbm_diff); \
     sbbm_count++; \
     if((sbbm_count & (mask)) == 0) { \
-        printf("sb: benchmark: file='%s' func='%s' time='%llu' units='" SB_BENCHMARK_UNITS_STR "'\n", __FILE__, __func__, sbbm_dur.count()); \
+        logger->log(sb::Debug_Message_Source::Other, sb::Debug_Message_Type::Benchmark, sb::Debug_Message_Severity::Low, "benchmark: file='%s' func='%s' time='%llu' units='" SB_BENCHMARK_UNITS_STR "'", __FILE__, __func__, sbbm_dur.count()); \
     }
 
 
-#define PRINT_BENCHMARK_RESULT() PRINT_BENCHMARK_RESULT_MASKED(0x00000000)
+#define PRINT_BENCHMARK_RESULT(logger) PRINT_BENCHMARK_RESULT_MASKED(logger, 0x00000000)
 
 #else /* SB_BENCHMARK */
 
