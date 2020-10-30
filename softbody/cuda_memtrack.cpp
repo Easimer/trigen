@@ -86,6 +86,28 @@ namespace sb::CUDA::memtrack {
         attach_sighandler();
     }
 
+    void diagnose_address(void *p) {
+        Allocation *src = NULL;
+        for(auto& alloc : g_allocations) {
+            if(alloc.start <= p && p < alloc.end) {
+                src = &alloc;
+                break;
+            }
+        }
+
+        if(src == NULL) {
+            printf("[ memtrack ] diagnostic for address %p: wasn't allocated using CUDA\n", p);
+            return;
+        }
+
+        printf("[ memtrack ] diagnostic for address %p: %p-%p locked(%d); trace:\n", p, src->start, src->end, src->page_locked ? 1 : 0);
+        for(int i = 0; i < src->backtrace.size(); i++) {
+            auto& frame = src->backtrace[i];
+            printf("#%d %p '%s'\n", i, frame.ptr, frame.sym.c_str());
+        }
+        printf("[ memtrack ] end of diagnostic\n");
+    }
+
     static void add_allocation(void *start, void *end, bool page_locked, std::vector<Frame>&& trace) {
         g_allocations.push_front({ start, end, page_locked, std::move(trace) });
 
@@ -202,5 +224,6 @@ namespace sb::CUDA::memtrack {
 #else
 namespace sb::CUDA::memtrack {
     void activate() {}
+    void diagnose_address(void *) {}
 }
 #endif

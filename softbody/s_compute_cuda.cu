@@ -28,6 +28,9 @@
 
 #include "cuda_memtrack.h"
 
+// #define OUTPUT_SANITY_CHECK (1)
+// #define ENABLE_SCHEDULER_PRINTFS (1)
+
 // TODO(danielm): double leading underscores violate the standard
 #define __hybrid__ __device__ __host__
 
@@ -50,6 +53,16 @@ __hybrid__ float4 angle_axis(float a, float4 axis) {
     float w = cos(0.5f * a);
 
     return make_float4(v.x, v.y, v.z, w);
+}
+
+__device__ void dbg_print_mat4x4(float4 const* mat, char const* label, int id) {
+    printf("[ %s ] #%d:\n| %f %f %f %f |\n| %f %f %f %f |\n| %f %f %f %f |\n| %f %f %f %f |\n",
+            label, id,
+            EXPLODE_F32x4(mat[0]), EXPLODE_F32x4(mat[1]), EXPLODE_F32x4(mat[2]), EXPLODE_F32x4(mat[3]));
+}
+
+__device__ void dbg_print_v4(float4 v, char const* label, int id) {
+    printf("[ %s ] #%d:\n| %f %f %f %f |\n", label, id, EXPLODE_F32x4(v));
 }
 
 __hybrid__ float4 mueller_rotation_extraction_impl(
@@ -117,7 +130,7 @@ __hybrid__ void calculate_A_i(
     mat_scale(mass, A_i);
 }
 
-__hybrid__ void calculate_cluster_moment_matrix(
+__device__ void calculate_cluster_moment_matrix(
     float4* A,
     unsigned id,
     unsigned const* adjacency, unsigned adjacency_stride, unsigned N,
@@ -416,6 +429,7 @@ public:
     template<Index_Type StreamID>
     void printf(char const* fmt, ...) {
         static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
+#if ENABLE_SCHEDULER_PRINTFS
         va_list ap;
         va_start(ap, fmt);
         auto siz = vsnprintf(NULL, 0, fmt, ap);
@@ -427,6 +441,7 @@ public:
         va_end(ap);
 
         cudaLaunchHostFunc(_streams[(size_t)StreamID], cuda_cb_printf, buf);
+#endif /* ENABLE_SCHEDULER_PRINTFS */
     }
 
 private:
@@ -747,7 +762,7 @@ public:
     }
 
     void init_rotations(int N, CUDA_Array<float4>& next_rotations) {
-        next_rotations = CUDA_Array<float4>(N);
+        next_rotations = std::move(CUDA_Array<float4>(N));
     }
 
     void extract_rotations(
@@ -756,6 +771,7 @@ public:
             CUDA_Array<float4> const& clstr_mat,
             CUDA_Array<float4> const& pred_rot) {
         scheduler.printf<Stream::Compute>("[ExtRot] begins\n");
+        assert(offset + batch_size <= N);
         scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
             auto block_size = 256;
             auto blocks = (batch_size - 1) / block_size + 1;
@@ -780,7 +796,6 @@ public:
         });
         scheduler.printf<Stream::CopyToHost>("[WriteBack] done\n");
     }
-
 
     void do_one_iteration_of_shape_matching_constraint_resolution(System_State& s, float dt) override {
         DECLARE_BENCHMARK_BLOCK();
@@ -836,8 +851,11 @@ public:
         extract_rotations(N, 0, N, next_rotations, clstr_mat, pred_rot);
         apply_rotations(N, 0, N, next_positions, next_goal_positions, next_rotations, com, pred_pos, pred_rot, corrinfo);
 
-        copy_next_state(N, 0, N, s, next_positions, next_goal_positions, next_rotations, com);
+        copy_next_state(N, 0, N, s, next_positions, next_rotations, next_goal_positions,  com);
         scheduler.synchronize<Stream::CopyToHost>();
+#if OUTPUT_SANITY_CHECK
+        output_sanity_check(s);
+#endif /* OUTPUT_SANITY_CHECK */
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
@@ -948,16 +966,6 @@ public:
 
         scheduler.synchronize<Stream::CopyToHost>();
 
-        for(int i = 0; i < N; i++) {
-            auto p = s.predicted_position[i];
-            for(int j = 0; j < 4; j++) {
-                assert(!glm::isnan(p[j]));
-                assert(!glm::isinf(p[j]));
-            }
-            printf("%d [%f %f %f] ", i, p.x, p.y, p.z);
-        }
-        printf("\n");
-
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
     }
@@ -1004,6 +1012,21 @@ public:
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT();
+    }
+
+    void output_sanity_check(System_State const& s) {
+        cudaDeviceSynchronize();
+        // === PREDICTED ORIENTATION CHECK ===
+        // Orientations are unit quaternion. Quats with lengths deviating far from 1.0 are therefore degenerate.
+        auto N = particle_count(s);
+        for(int i = 0; i < N; i++) {
+            auto q = s.predicted_orientation[i];
+            auto l = length(q);
+            if(glm::abs(1 - l) > glm::epsilon<float>()) {
+                printf("Particle #%d has degenerate orientation [%f %f %f %f]\n", i, q.w, q.x, q.y, q.z);
+                assert(!"Orientation is degenerate");
+            }
+        }
     }
 
 private:

@@ -18,6 +18,7 @@
 namespace sb::CUDA::memtrack {
     void activate();
     void flush();
+    void diagnose_address(void *p);
 
     CUresult _cuMemAlloc(CUdeviceptr *dptr, size_t bytesize);
     CUresult _cuMemFree(CUdeviceptr dptr);

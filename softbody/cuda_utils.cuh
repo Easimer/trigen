@@ -156,18 +156,22 @@ struct CUDA_Array {
     }
 
     cudaError_t write_async(T const* src, cudaStream_t stream) {
+        assert(!is_empty());
         return cudaMemcpyAsync(d_buf, src, bytes(), cudaMemcpyHostToDevice, stream);
     }
 
     cudaError_t read_async(T* dst, cudaStream_t stream) const {
+        assert(!is_empty());
         return cudaMemcpyAsync(dst, d_buf, bytes(), cudaMemcpyDeviceToHost, stream);
     }
 
     cudaError_t write_sub(T const* src, size_t offset, size_t count, cudaStream_t stream) {
+        assert(!is_empty());
         return cudaMemcpyAsync(&d_buf[offset], &src[offset], count * sizeof(T), cudaMemcpyHostToDevice, stream);
     }
 
     cudaError_t read_sub(T* dst_base, size_t offset, size_t count, cudaStream_t stream) const {
+        assert(!is_empty());
         return cudaMemcpyAsync(&dst_base[offset], &d_buf[offset], count * sizeof(T), cudaMemcpyDeviceToHost, stream);
     }
 
