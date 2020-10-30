@@ -11,6 +11,8 @@
 #include "l_iterators.h"
 #include "s_compute_backend.h"
 #define SB_BENCHMARK (1)
+#define SB_BENCHMARK_UNITS microseconds
+#define SB_BENCHMARK_UNITS_STR "us"
 #include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm/gtx/matrix_operation.hpp>
@@ -194,7 +196,9 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
     }
 
     void do_one_iteration_of_collision_constraint_resolution(System_State& s, float phdt) override {
-        for (auto& C : s.collision_constraints) {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
+        for (auto& C : collision_constraints) {
             auto p = s.predicted_position[C.pidx];
             auto w = 1 / mass_of_particle(s, C.pidx);
             auto dir = p - C.intersect;
@@ -209,6 +213,8 @@ class Compute_CPU_Single_Threaded : public ICompute_Backend {
                 s.predicted_position[C.pidx] = to;
             }
         }
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT_MASKED(0xF);
     }
 };
 
