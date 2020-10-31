@@ -5,7 +5,8 @@
 
 #include "cuda_utils.cuh"
 
-namespace sb::CUDA {
+namespace sb {
+namespace CUDA {
     typedef struct AST_Program_Handle_ *AST_Program_Handle;
 
     bool compile_ast(AST_Program_Handle* out_handle, sb::sdf::ast::Expression<float>* expr);
@@ -68,4 +69,5 @@ namespace sb::CUDA {
     using AST_Kernel = AST_Program;
 
     using AST_Kernel_Handle = AST_Program_Handle;
+}
 }

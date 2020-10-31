@@ -13,6 +13,7 @@ else()
 	if(WIN32)
 		set(FBX_SDK_PLAT "vs2017")
 		set(FBX_SDK_LIBRARY_EXT ".lib")
+		set(FBX_SDK_DLL_EXT ".dll")
 
 		if(MSVC_RUNTIME_LIBRARY EQUAL "MultiThreaded")
 			set(FBX_SDK_LIBRARY_SUFFIX "-mt")
@@ -28,6 +29,7 @@ else()
 	if(UNIX AND NOT APPLE)
 		set(FBX_SDK_PLAT "gcc")
 		set(FBX_SDK_LIBRARY_EXT ".a")
+		set(FBX_SDK_DLL_EXT ".so")
 		# The Linux SDK doesn't come with libxml and zlib
 		find_package(ZLIB REQUIRED)
 		find_package(LibXml2 REQUIRED)
@@ -47,6 +49,19 @@ else()
 	list(APPEND FBX_SDK_LIBRARY "${FBX_SDK_LIB_ROOT}/libfbxsdk${FBX_SDK_LIBRARY_SUFFIX}${FBX_SDK_LIBRARY_EXT}")
 	list(APPEND FBX_SDK_INCLUDE_DIR "${FBX_SDK_DIR}/include/")
 	message("FBX SDK version: '${FBX_SDK_VERSION_STRING}' lib: ${FBX_SDK_LIBRARY} include: ${FBX_SDK_INCLUDE_DIR}")
+	set(FBX_SDK_DLL "${FBX_SDK_LIB_ROOT}/libfbxsdk${FBX_SDK_LIBRARY_SUFFIX}${FBX_SDK_DLL_EXT}")
+
+	if(NOT TARGET FbxSdk::FbxSdk)
+		add_library(FbxSdk::FbxSdk UNKNOWN IMPORTED)
+		set_target_properties(FbxSdk::FbxSdk PROPERTIES
+			IMPORTED_LOCATION             "${FBX_SDK_LIBRARY}"
+			INTERFACE_INCLUDE_DIRECTORIES "${FBX_SDK_INCLUDE_DIR}"
+		)
+	endif()
+
+	if(WIN32)
+		install(FILES ${FBX_SDK_DLL} DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})
+	endif()
 endif()
 
 include(FindPackageHandleStandardArgs)

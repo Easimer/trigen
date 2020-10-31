@@ -15,7 +15,9 @@
 #undef cuMemFreeHost
 #endif
 
-namespace sb::CUDA::memtrack {
+namespace sb {
+namespace CUDA {
+namespace memtrack {
     void activate();
     void flush();
     void diagnose_address(void *p);
@@ -49,6 +51,8 @@ namespace sb::CUDA::memtrack {
     cudaError_t cudaFreeHost(T *ptr) {
         return _cudaFreeHost((void*)ptr);
     }
+}
+}
 }
 
 #ifdef SOFTBODY_CUDA_MEMTRACK

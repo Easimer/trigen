@@ -46,7 +46,6 @@ static void GLMessageCallback
     if (length == 0) return;
     if (severity == GL_DEBUG_SEVERITY_HIGH) {
         printf("[ gfx ] BACKEND ERROR!! '%s'\n", message);
-        assert(0);
     }
 #ifndef NDEBUG
     else if (severity == GL_DEBUG_SEVERITY_MEDIUM) {

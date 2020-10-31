@@ -11,7 +11,6 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include "device_launch_parameters.h"
-#include "nvToolsExt.h"
 #include <numeric>
 #include "l_iterators.h"
 #include <glm/glm.hpp>
@@ -37,16 +36,6 @@
 #define EXPLODE_F32x4(v) v.x, v.y, v.z, v.w
 
 #define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
-
-struct CUDA_Range {
-    CUDA_Range(char const* label) {
-        nvtxRangePushA(label);
-    }
-
-    ~CUDA_Range() {
-        nvtxRangePop();
-    }
-};
 
 __hybrid__ float4 angle_axis(float a, float4 axis) {
     float s = sin(0.5f * a);
