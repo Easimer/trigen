@@ -268,7 +268,6 @@ void Softbody_Simulation::do_one_iteration_of_fixed_constraint_resolution(float 
 
 void Softbody_Simulation::constraint_resolution(float dt) {
     ext->pre_constraint(this, s, dt);
-    compute->begin_new_frame(s);
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
         // If simulating plants, don't do shape matching
@@ -382,6 +381,7 @@ index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_
     s.size.push_back(size);
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    s.predicted_orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
     //age.push_back(0);
     s.edges[index] = {};
@@ -429,6 +429,7 @@ index_t Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size,
     s.size.push_back(size);
     s.density.push_back(p_density);
     s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
+    s.predicted_orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
     s.edges[index] = {};
 
@@ -610,6 +611,7 @@ void Softbody_Simulation::step(float delta_time) {
         prediction(phdt);
         constraint_resolution(phdt);
         integration(phdt);
+        compute->end_frame(s);
 
         if (time_accumulator > 8 * PHYSICS_STEP) {
             log(sb::Debug_Message_Source::Simulation_Driver, sb::Debug_Message_Type::Debug, sb::Debug_Message_Severity::Low, "extreme-lag acc=%f", time_accumulator);

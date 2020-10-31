@@ -515,6 +515,26 @@ public:
         auto N = particle_count(s);
         assert(N > 0);
         current_particle_count = N;
+
+        mp_predicted_orientation = CUDA_Memory_Pin(s.predicted_orientation);
+        mp_bind_pose_inverse_bind_pose = CUDA_Memory_Pin(s.bind_pose_inverse_bind_pose);
+        mp_predicted_position = CUDA_Memory_Pin(s.predicted_position);
+        mp_goal_position = CUDA_Memory_Pin(s.goal_position);
+        mp_com0 = CUDA_Memory_Pin(s.bind_pose_center_of_mass);
+        mp_com = CUDA_Memory_Pin(s.center_of_mass);
+        mp_sizes = CUDA_Memory_Pin(s.size);
+        mp_densities = CUDA_Memory_Pin(s.density);
+    }
+
+    void end_frame(System_State const& sim) override {
+        mp_predicted_orientation = CUDA_Memory_Pin();
+        mp_bind_pose_inverse_bind_pose = CUDA_Memory_Pin();
+        mp_predicted_position = CUDA_Memory_Pin();
+        mp_goal_position = CUDA_Memory_Pin();
+        mp_com0 = CUDA_Memory_Pin();
+        mp_com = CUDA_Memory_Pin();
+        mp_sizes = CUDA_Memory_Pin();
+        mp_densities = CUDA_Memory_Pin();
     }
 
     void make_adjacency_table(int N, System_State const& s, CUDA_Array<unsigned>& adjacency, int& adjacency_stride) {
@@ -547,6 +567,7 @@ public:
         auto const stride = N;
         auto const table_size = header_element_count + N * stride;
         auto table = std::make_unique<unsigned[]>(table_size);
+        CUDA_Memory_Pin mp_adjacency(table.get(), table_size * sizeof(unsigned));
 
         // Make header
         for(index_t i = 0; i < N; i++) {
@@ -726,7 +747,7 @@ public:
     void calculate_coms(
             int N, int offset, int batch_size,
             CUDA_Array<float4>& coms,
-            CUDA_Array<unsigned> adjacency, int adjacency_stride,
+            CUDA_Array<unsigned> const& adjacency, int adjacency_stride,
             CUDA_Array<float> const& masses,
             CUDA_Array<float4> const& pred_pos) {
         scheduler.printf<Stream::Compute>("[CoM] begins\n");
@@ -805,15 +826,6 @@ public:
         auto const N = particle_count(s);
 
         ev_recycler.flip();
-
-        CUDA_Memory_Pin mp_predicted_orientation(s.predicted_orientation);
-        CUDA_Memory_Pin mp_bind_pose_inverse_bind_pose(s.bind_pose_inverse_bind_pose);
-        CUDA_Memory_Pin mp_predicted_position(s.predicted_position);
-        CUDA_Memory_Pin mp_goal_position(s.goal_position);
-        CUDA_Memory_Pin mp_com0(s.bind_pose_center_of_mass);
-        CUDA_Memory_Pin mp_com(s.center_of_mass);
-        CUDA_Memory_Pin mp_sizes(s.size);
-        CUDA_Memory_Pin mp_densities(s.density);
 
         CUDA_Array<float4> positions;
         CUDA_Array<float4> bp_inv;
@@ -927,8 +939,6 @@ public:
         }
 
         auto N = particle_count(s);
-        CUDA_Memory_Pin mp_positions(s.position);
-        CUDA_Memory_Pin mp_predicted_positions(s.predicted_position);
 
         CUDA_Array<float4> pred_pos(N);
         CUDA_Array<float4> pos(N);
@@ -976,8 +986,6 @@ public:
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
         auto N = particle_count(s);
-        CUDA_Memory_Pin mp_positions(s.position);
-        CUDA_Memory_Pin mp_predicted_positions(s.predicted_position);
 
         CUDA_Array<float4> sizes;
         CUDA_Array<float> densities;
@@ -1046,6 +1054,15 @@ private:
     CUDA_Event ev_centers_of_masses_arrived;
     CUDA_Event ev_correction_info_present;
     CUDA_Event ev_rotations_extracted;
+
+    CUDA_Memory_Pin mp_predicted_orientation;
+    CUDA_Memory_Pin mp_bind_pose_inverse_bind_pose;
+    CUDA_Memory_Pin mp_predicted_position;
+    CUDA_Memory_Pin mp_goal_position;
+    CUDA_Memory_Pin mp_com0;
+    CUDA_Memory_Pin mp_com;
+    CUDA_Memory_Pin mp_sizes;
+    CUDA_Memory_Pin mp_densities;
 
     CUDA_Event_Recycler ev_recycler;
 

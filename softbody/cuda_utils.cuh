@@ -64,27 +64,42 @@ private:
 // RAII wrapper for memory pinning
 struct CUDA_Memory_Pin {
 public:
-    CUDA_Memory_Pin(void* ptr, size_t size) : _ptr(ptr) {
-        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(ptr, size, cudaHostRegisterDefault));
+    CUDA_Memory_Pin() : _ptr(nullptr) {}
+
+    CUDA_Memory_Pin(void const* ptr, size_t size) : _ptr(ptr) {
+        ASSERT_CUDA_SUCCEEDED(cudaHostRegister((void*)ptr, size, cudaHostRegisterDefault));
     }
 
     template<typename T>
-    CUDA_Memory_Pin(std::vector<T>& v) : _ptr(v.data()) {
+    CUDA_Memory_Pin(std::vector<T> const& v) : _ptr(v.data()) {
         // NOTE(danielm): you must be careful not to push items into the vector
         // since a vector grow might move the memory away from the current address.
         auto size = v.size() * sizeof(T);
-        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(_ptr, size, cudaHostRegisterDefault));
+        ASSERT_CUDA_SUCCEEDED(cudaHostRegister((void*)_ptr, size, cudaHostRegisterDefault));
     }
+
+    CUDA_Memory_Pin& operator=(CUDA_Memory_Pin&& other) {
+        if(_ptr != nullptr) {
+            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister((void*)_ptr));
+            _ptr = nullptr;
+        }
+
+        std::swap(_ptr, other._ptr);
+
+        return *this;
+    }
+
+    CUDA_Memory_Pin& operator=(CUDA_Memory_Pin const&) = delete;
 
     ~CUDA_Memory_Pin() {
         if(_ptr != nullptr) {
-            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(_ptr));
+            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister((void*)_ptr));
         }
     }
 
 
 private:
-    void* _ptr;
+    void const* _ptr;
 };
 
 
@@ -99,12 +114,7 @@ struct CUDA_Array {
         }
     }
 
-    CUDA_Array(CUDA_Array const& other) : d_buf(nullptr), N(other.N) {
-        if(!other.is_empty()) {
-            ASSERT_CUDA_SUCCEEDED(cudaMalloc(&d_buf, N * sizeof(T)));
-            ASSERT_CUDA_SUCCEEDED(cudaMemcpy(d_buf, other.d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice));
-        }
-    }
+    CUDA_Array(CUDA_Array const& other) = delete;
 
     CUDA_Array(CUDA_Array&& other) : d_buf(nullptr), N(0) {
         std::swap(d_buf, other.d_buf);
@@ -117,21 +127,7 @@ struct CUDA_Array {
         }
     }
 
-    CUDA_Array& operator=(CUDA_Array const& other) {
-        if(!is_empty()) {
-            ASSERT_CUDA_SUCCEEDED(cudaFree(d_buf));
-            d_buf = nullptr;
-            N = 0;
-        }
-
-        N = other.N;
-        if(N != 0) {
-            ASSERT_CUDA_SUCCEEDED(cudaMalloc(&d_buf, N * sizeof(T)));
-            ASSERT_CUDA_SUCCEEDED(cudaMemcpy(d_buf, other.d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice));
-        }
-
-        return *this;
-    }
+    CUDA_Array& operator=(CUDA_Array const& other) = delete;
 
     CUDA_Array& operator=(CUDA_Array&& other) {
         if(!is_empty()) {
@@ -173,6 +169,12 @@ struct CUDA_Array {
     cudaError_t read_sub(T* dst_base, size_t offset, size_t count, cudaStream_t stream) const {
         assert(!is_empty());
         return cudaMemcpyAsync(&dst_base[offset], &d_buf[offset], count * sizeof(T), cudaMemcpyDeviceToHost, stream);
+    }
+
+    CUDA_Array<T> duplicate(cudaStream_t stream) const {
+        CUDA_Array<T> ret(N);
+        ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(ret.d_buf, d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice));
+        return ret;
     }
 
     operator T*() {

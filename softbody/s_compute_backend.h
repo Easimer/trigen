@@ -15,6 +15,7 @@ public:
     virtual ~ICompute_Backend() = default;
 
     virtual void begin_new_frame(System_State const& sim) = 0;
+    virtual void end_frame(System_State const& sim) {}
 
     virtual void generate_collision_constraints(System_State& sim) = 0;
 
