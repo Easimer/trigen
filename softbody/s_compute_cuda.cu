@@ -3,7 +3,6 @@
 // Purpose: CUDA computation backend
 //
 
-#define GLM_FORCE_CUDA
 #include <cassert>
 #include <cstdarg>
 #include <array>
@@ -36,6 +35,29 @@
 #define EXPLODE_F32x4(v) v.x, v.y, v.z, v.w
 
 #define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
+
+struct Adjacency_Table_Buffer {
+public:
+    void maybe_realloc(size_t new_size) {
+        // NOTE(danielm): we only reallocate when the requested size is either
+        // greater than the current size or itsat least half as small
+        auto half_size = _siz / 2;
+
+        if(new_size > _siz || new_size <= half_size) {
+            _buf = std::make_unique<unsigned[]>(new_size);
+            _pin = CUDA_Memory_Pin(_buf.get(), new_size * sizeof(unsigned));
+            _siz = new_size;
+        }
+    }
+
+    operator unsigned*() {
+        return _buf.get();
+    }
+private:
+    std::unique_ptr<unsigned[]> _buf;
+    size_t _siz = 0;
+    CUDA_Memory_Pin _pin;
+};
 
 __hybrid__ float4 angle_axis(float a, float4 axis) {
     float s = sin(0.5f * a);
@@ -439,43 +461,6 @@ private:
     std::array<cudaStream_t, (size_t)N> _streams;
 };
 
-struct Adjacency_Table {
-    using Table_Type = sb::Unique_Ptr<unsigned[]>;
-    Table_Type table;
-    unsigned stride;
-    unsigned size;
-
-    Adjacency_Table() : table(nullptr), stride(0), size(0) {}
-
-    Adjacency_Table(Table_Type&& table, unsigned stride, unsigned size) :
-        table(std::move(table)), stride(stride), size(size) {
-        assert(this->table != nullptr);
-
-        ASSERT_CUDA_SUCCEEDED(cudaHostRegister(this->table.get(), size * sizeof(unsigned), 0));
-    }
-
-    ~Adjacency_Table() {
-        if(table != nullptr) {
-            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(table.get()));
-        }
-    }
-
-    Adjacency_Table& operator=(Adjacency_Table&& other) {
-        if(table != nullptr) {
-            ASSERT_CUDA_SUCCEEDED(cudaHostUnregister(table.get()));
-        }
-
-        table = nullptr;
-        stride = 0;
-        size = 0;
-        std::swap(table, other.table);
-        std::swap(stride, other.stride);
-        std::swap(size, other.size);
-
-        return *this;
-    }
-};
-
 class Compute_CUDA : public ICompute_Backend {
 public:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
@@ -557,8 +542,8 @@ public:
         auto const header_element_count = N;
         auto const stride = N;
         auto const table_size = header_element_count + N * stride;
-        auto table = std::make_unique<unsigned[]>(table_size);
-        CUDA_Memory_Pin mp_adjacency(table.get(), table_size * sizeof(unsigned));
+        h_adjacency.maybe_realloc(table_size);
+        unsigned* table = h_adjacency;
 
         // Make header
         for(index_t i = 0; i < N; i++) {
@@ -567,7 +552,7 @@ public:
             table[i] = count;
         }
 
-        unsigned* indices = table.get() + header_element_count;
+        unsigned* indices = table + header_element_count;
 
         for(index_t i = 0; i < N; i++) {
             auto& neighbors = s.edges.at(i);
@@ -583,7 +568,7 @@ public:
 
         scheduler.printf<Stream::CopyToDev>("[Adjacency] begins\n");
         scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(adjacency.write_async(table.get(), stream));
+            ASSERT_CUDA_SUCCEEDED(adjacency.write_async(table, stream));
         });
         scheduler.printf<Stream::CopyToDev>("[Adjacency] done\n");
 
@@ -1047,6 +1032,7 @@ private:
     CUDA_Memory_Pin mp_sizes;
     CUDA_Memory_Pin mp_densities;
 
+    Adjacency_Table_Buffer h_adjacency;
     CUDA_Array<unsigned> d_adjacency;
     int d_adjacency_stride;
 
