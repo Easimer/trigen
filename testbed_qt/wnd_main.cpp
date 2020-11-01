@@ -68,6 +68,10 @@ std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path);
 
 static void sb_msg_callback(sb::Debug_Message_Source src, sb::Debug_Message_Type type, sb::Debug_Message_Severity severity, char const* msg, void* user) {
     printf("sb: %s\n", msg);
+
+    if (user != nullptr) {
+        reinterpret_cast<Window_Main*>(user)->on_debug_output(src, type, severity, msg);
+    }
 }
 
 Window_Main::Window_Main(QWidget* parent) :
@@ -220,7 +224,7 @@ void Window_Main::stop_simulation() {
 }
 
 void Window_Main::reset_simulation() {
-    simulation = sb::create_simulation(sim_cfg, sb_msg_callback);
+    simulation = sb::create_simulation(sim_cfg, sb_msg_callback, this);
     sb::sdf::ast::Expression<float>* expr;
     sb::sdf::ast::Sample_Point* sp;
     collider_builder->get_ast(&expr, &sp);
@@ -240,6 +244,42 @@ void Window_Main::on_extension_changed(QString const& k) {
 
 bool Window_Main::is_simulation_running() {
     return simulation != nullptr && conn_sim_step.has_value();
+}
+
+void Window_Main::on_debug_output(sb::Debug_Message_Source src, sb::Debug_Message_Type type, sb::Debug_Message_Severity sever, char const* msg) {
+    if (type == sb::Debug_Message_Type::Benchmark) {
+        // TODO(danielm): route benchmark messages to a separate benchmark info window
+        return;
+    }
+
+    char* buf = NULL;
+    int n;
+    size_t siz = 0;
+
+    n = snprintf(buf, siz, "sb: %s\n", msg);
+
+    if (n < 0) {
+        return;
+    }
+
+    siz = (size_t)n + 1;
+    buf = new char[siz];
+    if (buf == nullptr) {
+        return;
+    }
+
+    n = snprintf(buf, siz, "sb: %s\n", msg);
+
+    if (n < 0) {
+        delete[] buf;
+        return;
+    }
+
+    QString const& currentOutput = sim_control->simOutput->toPlainText();
+    int currentLength = currentOutput.length();
+    int newLength = currentLength + n;
+    auto newOutput = currentOutput + (char const*)buf;
+    sim_control->simOutput->setPlainText(newOutput);
 }
 
 void Window_Main::try_load_mesh() {

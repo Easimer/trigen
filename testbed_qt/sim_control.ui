@@ -138,6 +138,27 @@
      </item>
     </layout>
    </item>
+   <item>
+    <layout class="QVBoxLayout">
+     <item>
+      <widget class="QLabel" name="lblDebugOutput">
+       <property name="text">
+        <string>Debug output</string>
+       </property>
+       <property name="textFormat">
+        <enum>Qt::AutoText</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPlainTextEdit" name="simOutput">
+       <property name="readOnly">
+        <bool>1</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
   </layout>
  </widget>
  <resources/>

@@ -116,6 +116,7 @@ public:
     }
 
     void render_world(gfx::Render_Queue* rq);
+    void on_debug_output(sb::Debug_Message_Source src, sb::Debug_Message_Type type, sb::Debug_Message_Severity sever, char const* msg);
 
 signals:
     void render(gfx::Render_Queue* rq);
