@@ -102,34 +102,33 @@ private:
     void const* _ptr;
 };
 
-
 template<typename T>
-struct CUDA_Array {
-    CUDA_Array() : d_buf(nullptr), N(0) {
+struct CUDA_Array_Base {
+    CUDA_Array_Base() : d_buf(nullptr), N(0) {
     }
 
-    CUDA_Array(size_t N) : d_buf(nullptr), N(N) {
+    CUDA_Array_Base(size_t N) : d_buf(nullptr), N(N) {
         if(N != 0) {
             ASSERT_CUDA_SUCCEEDED(cudaMalloc(&d_buf, N * sizeof(T)));
         }
     }
 
-    CUDA_Array(CUDA_Array const& other) = delete;
+    CUDA_Array_Base(CUDA_Array_Base const& other) = delete;
 
-    CUDA_Array(CUDA_Array&& other) : d_buf(nullptr), N(0) {
+    CUDA_Array_Base(CUDA_Array_Base&& other) : d_buf(nullptr), N(0) {
         std::swap(d_buf, other.d_buf);
         std::swap(N, other.N);
     }
 
-    ~CUDA_Array() {
+    ~CUDA_Array_Base() {
         if(d_buf != nullptr) {
             ASSERT_CUDA_SUCCEEDED(cudaFree(d_buf));
         }
     }
 
-    CUDA_Array& operator=(CUDA_Array const& other) = delete;
+    CUDA_Array_Base& operator=(CUDA_Array_Base const& other) = delete;
 
-    CUDA_Array& operator=(CUDA_Array&& other) {
+    CUDA_Array_Base& operator=(CUDA_Array_Base&& other) {
         if(!is_empty()) {
             ASSERT_CUDA_SUCCEEDED(cudaFree(d_buf));
         }
@@ -171,8 +170,8 @@ struct CUDA_Array {
         return cudaMemcpyAsync(&dst_base[offset], &d_buf[offset], count * sizeof(T), cudaMemcpyDeviceToHost, stream);
     }
 
-    CUDA_Array<T> duplicate(cudaStream_t stream) const {
-        CUDA_Array<T> ret(N);
+    CUDA_Array_Base<T> duplicate(cudaStream_t stream) const {
+        CUDA_Array_Base<T> ret(N);
         ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(ret.d_buf, d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice));
         return ret;
     }
@@ -187,6 +186,25 @@ struct CUDA_Array {
 
     T* d_buf;
     size_t N;
+};
+
+template<typename T, typename Tag = void>
+struct CUDA_Array : public CUDA_Array_Base<T> {
+    CUDA_Array() : CUDA_Array_Base<T>() {}
+
+    CUDA_Array(size_t N) : CUDA_Array_Base<T>(N) {}
+
+    CUDA_Array(CUDA_Array const& other) = delete;
+
+    CUDA_Array(CUDA_Array&& other) : CUDA_Array_Base<T>(std::move(other)) {}
+
+    CUDA_Array& operator=(CUDA_Array&& other) {
+        CUDA_Array_Base<T>::operator=(std::move(other));
+        return *this;
+    }
+
+    CUDA_Array<T>& untag() { return reinterpret_cast<CUDA_Array<T>&>(*this); }
+    CUDA_Array<T> const& untag() const { return reinterpret_cast<CUDA_Array<T> const&>(*this); }
 };
 
 class CUDA_Event_Recycler {

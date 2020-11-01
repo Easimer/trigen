@@ -36,7 +36,7 @@
 
 #define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
 
-struct Adjacency_Table_Buffer {
+struct Adjacency_Table {
 public:
     void maybe_realloc(size_t new_size) {
         // NOTE(danielm): we only reallocate when the requested size is either
@@ -364,6 +364,7 @@ enum class Stream : size_t {
     CopyToDev = 0,
     CopyToHost,
     Compute,
+    CorrInfo,
 
     Max
 };
@@ -461,6 +462,24 @@ private:
     std::array<cudaStream_t, (size_t)N> _streams;
 };
 
+using Adjacency_Table_Buffer = CUDA_Array<unsigned, struct Adjacency_Table_Buffer_Tag>;
+using Cluster_Matrix_Buffer = CUDA_Array<float4, struct Cluster_Matrix_Buffer_Tag>;
+using Position_Buffer = CUDA_Array<float4, struct Position_Buffer_Tag>;
+using Center_Of_Mass_Buffer = CUDA_Array<float4, struct Center_Of_Mass_Buffer_Tag>;
+using Predicted_Position_Buffer = CUDA_Array<float4, struct Predicted_Position_Buffer_Tag>;
+using Predicted_Rotation_Buffer = CUDA_Array<float4, struct Predicted_Rotation_Buffer_Tag>;
+using Bind_Pose_Position_Buffer = CUDA_Array<float4, struct Bind_Pose_Position_Buffer_Tag>;
+using Bind_Pose_Inverse_Bind_Pose_Buffer = CUDA_Array<float4, struct Bind_Pose_Inverse_Bind_Pose_Buffer_Tag>;
+using Bind_Pose_Center_Of_Mass_Buffer = CUDA_Array<float4, struct Bind_Pose_Center_Of_Mass_Buffer_Tag>;
+using Mass_Buffer = CUDA_Array<float, struct Mass_Buffer_Tag>;
+using Size_Buffer = CUDA_Array<float4, struct Size_Buffer_Tag>;
+using Density_Buffer = CUDA_Array<float, struct Density_Buffer_Tag>;
+using Particle_Correction_Info_Buffer = CUDA_Array<Particle_Correction_Info, struct Particle_Correction_Info_Buffer_Tag>;
+
+using New_Position_Buffer = CUDA_Array<float4, struct New_Position_Buffer_Tag>;
+using New_Rotation_Buffer = CUDA_Array<float4, struct New_Rotation_Buffer_Tag>;
+using New_Goal_Position_Buffer = CUDA_Array<float4, struct New_Goal_Position_Buffer_Tag>;
+
 class Compute_CUDA : public ICompute_Backend {
 public:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
@@ -513,7 +532,7 @@ public:
         mp_densities = CUDA_Memory_Pin();
     }
 
-    void make_adjacency_table(int N, System_State const& s, CUDA_Array<unsigned>& adjacency, int& adjacency_stride) {
+    void make_adjacency_table(int N, System_State const& s, Adjacency_Table_Buffer& adjacency, int& adjacency_stride) {
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
 
@@ -563,7 +582,7 @@ public:
             }
         }
 
-        adjacency = CUDA_Array<unsigned>(table_size);
+        adjacency = Adjacency_Table_Buffer(table_size);
         adjacency_stride = stride;
 
         scheduler.printf<Stream::CopyToDev>("[Adjacency] begins\n");
@@ -589,24 +608,21 @@ public:
     void upload_essentials(
             int N,
             System_State const& s,
-            CUDA_Array<float4>& positions,
-            CUDA_Array<float4>& bp_inv,
-            CUDA_Array<float4>& bp_com,
-            CUDA_Array<float4>& pred_rot,
-            CUDA_Array<float4>& pred_pos,
-            CUDA_Array<float4>& bp_pos) {
+            Bind_Pose_Inverse_Bind_Pose_Buffer& bp_inv,
+            Bind_Pose_Center_Of_Mass_Buffer& bp_com,
+            Predicted_Rotation_Buffer& pred_rot,
+            Predicted_Position_Buffer& pred_pos,
+            Bind_Pose_Position_Buffer& bp_pos) {
         // Upload data that the kernels depend on in their entirety
-        positions = CUDA_Array<float4>(N);
-        bp_inv = CUDA_Array<float4>(4 * N);
-        bp_com = CUDA_Array<float4>(N);
-        pred_rot = CUDA_Array<float4>(N);
-        pred_pos = CUDA_Array<float4>(N);
-        bp_pos = CUDA_Array<float4>(N);
+        bp_inv = Bind_Pose_Inverse_Bind_Pose_Buffer(4 * N);
+        bp_com = Bind_Pose_Center_Of_Mass_Buffer(N);
+        pred_rot = Predicted_Rotation_Buffer(N);
+        pred_pos = Predicted_Position_Buffer(N);
+        bp_pos = Bind_Pose_Position_Buffer(N);
 
         scheduler.printf<Stream::CopyToDev>("[Essential] begins\n");
         scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
             ASSERT_CUDA_SUCCEEDED(bp_inv.write_async((float4*)s.bind_pose_inverse_bind_pose.data(), stream));
-            ASSERT_CUDA_SUCCEEDED(positions.write_async((float4*)s.position.data(), stream));
             ASSERT_CUDA_SUCCEEDED(bp_com.write_async((float4*)s.bind_pose_center_of_mass.data(), stream));
             ASSERT_CUDA_SUCCEEDED(pred_rot.write_async((float4*)s.predicted_orientation.data(), stream));
             ASSERT_CUDA_SUCCEEDED(pred_pos.write_async((float4*)s.predicted_position.data(), stream));
@@ -618,10 +634,10 @@ public:
 
     void upload_sizes(
             int N,
-            CUDA_Array<float4>& sizes,
+            Size_Buffer& sizes,
             System_State const& s
             ) {
-        sizes = CUDA_Array<float4>(N);
+        sizes = Size_Buffer(N);
         scheduler.printf<Stream::CopyToDev>("[Size] begins\n");
         scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
             ASSERT_CUDA_SUCCEEDED(sizes.write_async((float4*)s.size.data(), stream));
@@ -631,10 +647,10 @@ public:
 
     void upload_densities(
             int N,
-            CUDA_Array<float>& densities,
+            Density_Buffer& densities,
             System_State const& s
             ) {
-        densities = CUDA_Array<float>(N);
+        densities = Density_Buffer(N);
         scheduler.printf<Stream::CopyToDev>("[Density] begins\n");
         scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
             ASSERT_CUDA_SUCCEEDED(densities.write_async((float*)s.density.data(), stream));
@@ -644,10 +660,10 @@ public:
 
     void calculate_masses(
             int N,
-            CUDA_Array<float>& masses,
-            CUDA_Array<float4> const& sizes,
-            CUDA_Array<float> const& densities) {
-        masses = CUDA_Array<float>(N);
+            Mass_Buffer& masses,
+            Size_Buffer const& sizes,
+            Density_Buffer const& densities) {
+        masses = Mass_Buffer(N);
 
         auto block_size = 1024;
         auto blocks = (N - 1) / block_size + 1;
@@ -662,17 +678,17 @@ public:
 
     void generate_correction_info(
             int N,
-            CUDA_Array<Particle_Correction_Info>& corrinfo,
-            CUDA_Array<unsigned> const& adjacency,
+            Particle_Correction_Info_Buffer& corrinfo,
+            Adjacency_Table_Buffer const& adjacency,
             int adjacency_stride,
-            CUDA_Array<float4> const& bp_com,
-            CUDA_Array<float4> const& bp_pos
+            Bind_Pose_Center_Of_Mass_Buffer const& bp_com,
+            Bind_Pose_Position_Buffer const& bp_pos
             ) {
-        corrinfo = CUDA_Array<Particle_Correction_Info>(N);
+        corrinfo = Particle_Correction_Info_Buffer(N);
 
-        scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
-        scheduler.printf<Stream::Compute>("[Corr] begins\n");
-        scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+        scheduler.insert_dependency<Stream::CopyToDev, Stream::CorrInfo>(ev_recycler);
+        scheduler.printf<Stream::CorrInfo>("[Corr] begins\n");
+        scheduler.on_stream<Stream::CorrInfo>([&](cudaStream_t stream) {
             constexpr auto block_size = 32;
             auto blocks = get_block_count<block_size>(N);
 
@@ -683,23 +699,24 @@ public:
                 bp_pos 
             );
         });
-        scheduler.printf<Stream::Compute>("[Corr] done\n");
+        scheduler.printf<Stream::CorrInfo>("[Corr] done\n");
     }
 
     void apply_rotations(
             int N, int offset, int batch_size,
-            CUDA_Array<float4>& next_pos,
-            CUDA_Array<float4>& next_goal_pos,
-            CUDA_Array<float4> const& next_orient,
-            CUDA_Array<float4> const& com,
-            CUDA_Array<float4> const& pred_pos, CUDA_Array<float4> const& pred_rot,
-            CUDA_Array<Particle_Correction_Info> const& corrinfo) {
-        next_pos = CUDA_Array<float4>(N);
-        next_goal_pos = CUDA_Array<float4>(N);
+            New_Position_Buffer& next_pos,
+            New_Goal_Position_Buffer& next_goal_pos,
+            New_Rotation_Buffer const& next_orient,
+            Center_Of_Mass_Buffer const& com,
+            Predicted_Position_Buffer const& pred_pos, Predicted_Rotation_Buffer const& pred_rot,
+            Particle_Correction_Info_Buffer const& corrinfo) {
+        next_pos = New_Position_Buffer(N);
+        next_goal_pos = New_Goal_Position_Buffer(N);
 
         auto block_size = 512;
         auto blocks = (batch_size - 1) / block_size + 1;
 
+        scheduler.insert_dependency<Stream::CorrInfo, Stream::Compute>(ev_recycler);
         scheduler.printf<Stream::Compute>("[Apply] begins\n");
         scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
             k_apply_rotations<<<blocks, block_size, 0, stream>>>(
@@ -716,16 +733,16 @@ public:
         scheduler.printf<Stream::Compute>("[Apply] done\n");
     } 
 
-    void init_coms(int N, CUDA_Array<float4>& coms) {
-        coms = CUDA_Array<float4>(N);
+    void init_coms(int N, Center_Of_Mass_Buffer& coms) {
+        coms = Center_Of_Mass_Buffer(N);
     }
 
     void calculate_coms(
             int N, int offset, int batch_size,
-            CUDA_Array<float4>& coms,
-            CUDA_Array<unsigned> const& adjacency, int adjacency_stride,
-            CUDA_Array<float> const& masses,
-            CUDA_Array<float4> const& pred_pos) {
+            Center_Of_Mass_Buffer& coms,
+            Adjacency_Table_Buffer const& adjacency, int adjacency_stride,
+            Mass_Buffer const& masses,
+            Predicted_Position_Buffer const& pred_pos) {
         scheduler.printf<Stream::Compute>("[CoM] begins\n");
         scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
             auto block_size = 256;
@@ -735,22 +752,22 @@ public:
         scheduler.printf<Stream::Compute>("[CoM] done\n");
     }
 
-    void init_cluster_matrices(int N, CUDA_Array<float4>& clstr_mat) {
-        clstr_mat = CUDA_Array<float4>(4 * N);
+    void init_cluster_matrices(int N, Cluster_Matrix_Buffer& clstr_mat) {
+        clstr_mat = Cluster_Matrix_Buffer(4 * N);
     }
 
     void calculate_cluster_matrices(
             int N, int offset, int batch_size,
-            CUDA_Array<float4>& clstr_mat,
-            CUDA_Array<unsigned> const& adjacency, int adjacency_stride,
-            CUDA_Array<float> const& masses,
-            CUDA_Array<float4> const& sizes,
-            CUDA_Array<float4> const& pred_pos,
-            CUDA_Array<float4> const& pred_rot,
-            CUDA_Array<float4> const& com,
-            CUDA_Array<float4> const& bp_pos,
-            CUDA_Array<float4> const& bp_com,
-            CUDA_Array<float4> const& bp_inv) {
+            Cluster_Matrix_Buffer& clstr_mat,
+            Adjacency_Table_Buffer const& adjacency, int adjacency_stride,
+            Mass_Buffer const& masses,
+            Size_Buffer const& sizes,
+            Predicted_Position_Buffer const& pred_pos,
+            Predicted_Rotation_Buffer const& pred_rot,
+            Center_Of_Mass_Buffer const& com,
+            Bind_Pose_Position_Buffer const& bp_pos,
+            Bind_Pose_Center_Of_Mass_Buffer const& bp_com,
+            Bind_Pose_Inverse_Bind_Pose_Buffer const& bp_inv) {
         scheduler.printf<Stream::Compute>("[Clstr] begins\n");
         scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
             auto block_size = 256;
@@ -760,15 +777,15 @@ public:
         scheduler.printf<Stream::Compute>("[Clstr] done\n");
     }
 
-    void init_rotations(int N, CUDA_Array<float4>& next_rotations) {
-        next_rotations = std::move(CUDA_Array<float4>(N));
+    void init_rotations(int N, New_Rotation_Buffer& next_rotations) {
+        next_rotations = New_Rotation_Buffer(N);
     }
 
     void extract_rotations(
             int N, int offset, int batch_size,
-            CUDA_Array<float4>& next_rotations,
-            CUDA_Array<float4> const& clstr_mat,
-            CUDA_Array<float4> const& pred_rot) {
+            New_Rotation_Buffer& next_rotations,
+            Cluster_Matrix_Buffer const& clstr_mat,
+            Predicted_Rotation_Buffer const& pred_rot) {
         scheduler.printf<Stream::Compute>("[ExtRot] begins\n");
         assert(offset + batch_size <= N);
         scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
@@ -782,10 +799,10 @@ public:
     void copy_next_state(
             int N, int offset, int batch_size,
             System_State& s,
-            CUDA_Array<float4> const& next_pos,
-            CUDA_Array<float4> const& next_rot,
-            CUDA_Array<float4> const& next_goal_pos,
-            CUDA_Array<float4> const& com) {
+            New_Position_Buffer const& next_pos,
+            New_Rotation_Buffer const& next_rot,
+            New_Goal_Position_Buffer const& next_goal_pos,
+            Center_Of_Mass_Buffer const& com) {
         scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
         scheduler.printf<Stream::CopyToHost>("[WriteBack] begins\n");
         scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
@@ -804,21 +821,20 @@ public:
 
         ev_recycler.flip();
 
-        CUDA_Array<float4> positions;
-        CUDA_Array<float4> bp_inv;
-        CUDA_Array<float4> bp_com;
-        CUDA_Array<float4> pred_rot;
-        CUDA_Array<float4> pred_pos;
-        CUDA_Array<float4> bp_pos;
-        CUDA_Array<float4> com;
-        CUDA_Array<float> masses;
-        CUDA_Array<float4> sizes;
-        CUDA_Array<float4> clstr_mat;
-        CUDA_Array<float4> next_rotations;
-        CUDA_Array<float4> next_positions;
-        CUDA_Array<float4> next_goal_positions;
-        CUDA_Array<float> densities;
-        CUDA_Array<Particle_Correction_Info> corrinfo;
+        Bind_Pose_Inverse_Bind_Pose_Buffer bp_inv;
+        Bind_Pose_Center_Of_Mass_Buffer bp_com;
+        Predicted_Rotation_Buffer pred_rot;
+        Predicted_Position_Buffer pred_pos;
+        Bind_Pose_Position_Buffer bp_pos;
+        Center_Of_Mass_Buffer com;
+        Mass_Buffer masses;
+        Size_Buffer sizes;
+        Cluster_Matrix_Buffer clstr_mat;
+        New_Rotation_Buffer next_rotations;
+        New_Position_Buffer next_positions;
+        New_Goal_Position_Buffer next_goal_positions;
+        Density_Buffer densities;
+        Particle_Correction_Info_Buffer corrinfo;
 
         init_coms(N, com);
         init_rotations(N, next_rotations);
@@ -827,7 +843,7 @@ public:
         upload_sizes(N, sizes, s);
         upload_densities(N, densities, s);
         calculate_masses(N, masses, sizes, densities);
-        upload_essentials(N, s, positions, bp_inv, bp_com, pred_rot, pred_pos, bp_pos);
+        upload_essentials(N, s, bp_inv, bp_com, pred_rot, pred_pos, bp_pos);
         generate_correction_info(N, corrinfo, d_adjacency, d_adjacency_stride, bp_com, bp_pos);
         calculate_coms(N, 0, N, com, d_adjacency, d_adjacency_stride, masses, pred_pos);
         calculate_cluster_matrices(N, 0, N, clstr_mat, d_adjacency, d_adjacency_stride, masses, sizes, pred_pos, pred_rot, com, bp_pos, bp_com, bp_inv);
@@ -908,11 +924,11 @@ public:
 
         auto N = particle_count(s);
 
-        CUDA_Array<float4> pred_pos(N);
-        CUDA_Array<float4> pos(N);
-        CUDA_Array<float> masses;
-        CUDA_Array<float4> sizes;
-        CUDA_Array<float> densities;
+        Predicted_Position_Buffer pred_pos(N);
+        Position_Buffer pos(N);
+        Mass_Buffer masses;
+        Size_Buffer sizes;
+        Density_Buffer densities;
 
         upload_sizes(N, sizes, s);
         upload_densities(N, densities, s);
@@ -932,9 +948,9 @@ public:
         for(auto& constraint : coll_constraints) {
             scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
                 sb::CUDA::resolve_collision_constraints(program.second, stream, N,
-                        pred_pos,
+                        pred_pos.untag(),
                         constraint.enable, constraint.intersections, constraint.normals,
-                        pos, masses);
+                        pos.untag(), masses.untag());
             });
         }
 
@@ -955,10 +971,11 @@ public:
         BEGIN_BENCHMARK();
         auto N = particle_count(s);
 
-        CUDA_Array<float4> sizes;
-        CUDA_Array<float> densities;
-        CUDA_Array<float> masses;
-        CUDA_Array<float4> pos(N), pred_pos(N);
+        Size_Buffer sizes;
+        Density_Buffer densities;
+        Mass_Buffer masses;
+        Position_Buffer pos(N);
+        Predicted_Position_Buffer pred_pos(N);
 
         upload_sizes(N, sizes, s);
         upload_densities(N, densities, s);
@@ -982,7 +999,7 @@ public:
                 CUDA_Array<float3> intersections(N);
                 CUDA_Array<float3> normals(N);
 
-                sb::CUDA::generate_collision_constraints(kv.second, stream, N, enable, intersections, normals, pred_pos, pos, masses);
+                sb::CUDA::generate_collision_constraints(kv.second, stream, N, enable, intersections, normals, pred_pos.untag(), pos.untag(), masses.untag());
 
                 coll_constraints.emplace_back(Collision_Constraints { std::move(enable), std::move(intersections), std::move(normals) });
             }
@@ -1032,8 +1049,8 @@ private:
     CUDA_Memory_Pin mp_sizes;
     CUDA_Memory_Pin mp_densities;
 
-    Adjacency_Table_Buffer h_adjacency;
-    CUDA_Array<unsigned> d_adjacency;
+    Adjacency_Table h_adjacency;
+    Adjacency_Table_Buffer d_adjacency;
     int d_adjacency_stride;
 
     CUDA_Event_Recycler ev_recycler;
