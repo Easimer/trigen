@@ -335,11 +335,17 @@ __global__ void k_predict(
         return;
     }
 
+    // Velocity damping
+    float3 v0_predamp = xyz(d_velocities[id]);
+    float3 ang_v0_predamp = xyz(d_angular_velocities[id]);
+    float d = 1 / pow(2, dt);
+    float3 v0 = d * v0_predamp;
+    float3 ang_v0 = d * ang_v0_predamp;
+
+    float3 pos0 = xyz(d_positions[id]);
+
     float3 ext_forces = make_float3(0, -10, 0);
     float w = 1 / d_masses[id];
-    float3 v0 = xyz(d_velocities[id]);
-    float3 ang_v0 = xyz(d_angular_velocities[id]);
-    float3 pos0 = xyz(d_positions[id]);
 
     float3 v = v0 + dt * w * ext_forces;
     float3 pos = pos0 + dt * v;

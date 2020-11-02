@@ -39,9 +39,11 @@ protected:
 
     void velocity_damping(System_State& s, float dt) {
         auto N = particle_count(s);
+        float d = 1 / glm::pow(2, dt);
+        // TODO(danielm): this should have timestep-dependency
         for (index_t i = 0; i < N; i++) {
-            s.velocity[i] *= 0.9f;
-            s.angular_velocity[i] *= 0.9f;
+            s.velocity[i] *= d;
+            s.angular_velocity[i] *= d;
         }
 
         return;
