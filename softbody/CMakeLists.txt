@@ -16,7 +16,7 @@ if(${SOFTBODY_ENABLE_CUDA})
         cuda_templates.cpp
         cuda_memtrack.cpp cuda_memtrack.h
     )
-    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 
     set(SOFTBODY_CUDA_LIBS CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt)
