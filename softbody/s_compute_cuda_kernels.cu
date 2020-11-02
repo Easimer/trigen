@@ -29,6 +29,15 @@ __device__ float4 angle_axis(float a, float4 axis) {
     return make_float4(v.x, v.y, v.z, w);
 }
 
+__device__ float4 angle_axis(float a, float3 axis) {
+    float s = sin(0.5f * a);
+
+    float3 v = s * axis;
+    float w = cos(0.5f * a);
+
+    return make_float4(v.x, v.y, v.z, w);
+}
+
 __device__ void dbg_print_mat4x4(float4 const* mat, char const* label, int id) {
     printf("[ %s ] #%d:\n| %f %f %f %f |\n| %f %f %f %f |\n| %f %f %f %f |\n| %f %f %f %f |\n",
             label, id,
@@ -311,6 +320,50 @@ __global__ void k_apply_rotations(
     d_goal_positions[id] = goal;
 }
 
+__global__ void k_predict(
+        int N, float dt,
+        float4* d_predicted_positions,
+        float4* d_predicted_orientations,
+        float4 const* d_positions,
+        float4 const* d_orientations,
+        float4 const* d_velocities,
+        float4 const* d_angular_velocities,
+        float const* d_masses
+        ) {
+    int const id = threadIdx.x + blockDim.x * blockIdx.x;
+    if(id >= N) {
+        return;
+    }
+
+    float3 ext_forces = make_float3(0, -10, 0);
+    float w = 1 / d_masses[id];
+    float3 v0 = xyz(d_velocities[id]);
+    float3 ang_v0 = xyz(d_angular_velocities[id]);
+    float3 pos0 = xyz(d_positions[id]);
+
+    float3 v = v0 + dt * w * ext_forces;
+    float3 pos = pos0 + dt * v;
+    float ang_v_len = length(ang_v0);
+
+    float4 orient0 = d_orientations[id];
+
+    float4 q;
+    if(ang_v_len < 0.01f) {
+        // Angular velocity is too small; for stability reasons we keep
+        // the old orientation
+        q = orient0;
+    } else {
+        // Convert angular velocity to quaternion
+        float s = ang_v_len * dt / 2;
+        float angle = cos(s);
+        float3 axis = ang_v0 / ang_v_len * sin(s);
+        q = angle_axis(angle, axis);
+    }
+
+    d_predicted_positions[id] = make_float4(pos.x, pos.y, pos.z, 0);
+    d_predicted_orientations[id] = q;
+}
+
 #include "s_compute_cuda.h"
 
 void Compute_CUDA::calculate_masses(
@@ -437,4 +490,28 @@ void Compute_CUDA::extract_rotations(
         k_extract_rotations<<<blocks, block_size, 0, stream>>>(next_rotations, N, offset, clstr_mat, pred_rot);
     });
     scheduler.printf<Stream::Compute>("[ExtRot] done\n");
+}
+
+void Compute_CUDA::predict(
+        int N, float dt,
+        CUDA_Array<float4>& predicted_positions,
+        CUDA_Array<float4>& predicted_orientations,
+        CUDA_Array<float4> const& positions,
+        CUDA_Array<float4> const& orientations,
+        CUDA_Array<float4> const& velocities,
+        CUDA_Array<float4> const& angular_velocities,
+        Mass_Buffer const& masses) {
+    scheduler.printf<Stream::Compute>("[Predict] begins\n");
+    scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+        auto const block_size = 256;
+        auto blocks = (N - 1) / block_size + 1;
+        k_predict<<<blocks, block_size, 0, stream>>>(
+            N, dt,
+            predicted_positions, predicted_orientations,
+            positions, orientations,
+            velocities, angular_velocities,
+            masses
+        );
+    });
+    scheduler.printf<Stream::Compute>("[Predict] done\n");
 }

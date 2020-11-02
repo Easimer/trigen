@@ -74,7 +74,50 @@ void Compute_CUDA::end_frame(System_State const& sim) {
 }
 
 void Compute_CUDA::predict(System_State& s, float dt) {
-    compute_ref->predict(s, dt);
+    ZoneScoped;
+    DECLARE_BENCHMARK_BLOCK();
+    BEGIN_BENCHMARK();
+    auto const N = particle_count(s);
+    CUDA_Array<float4> predicted_positions(N);
+    CUDA_Array<float4> predicted_orientations(N);
+    CUDA_Array<float4> positions(N);
+    CUDA_Array<float4> orientations(N);
+    CUDA_Array<float4> velocities(N);
+    CUDA_Array<float4> angular_velocities(N);
+    Density_Buffer densities(N);
+    Size_Buffer sizes(N);
+    Mass_Buffer masses(N);
+
+    upload_densities(N, densities, s);
+    upload_sizes(N, sizes, s);
+    calculate_masses(N, masses, sizes, densities);
+
+    scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
+        ASSERT_CUDA_SUCCEEDED(positions.write_async((float4*)s.position.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(orientations.write_async((float4*)s.orientation.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(velocities.write_async((float4*)s.velocity.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(angular_velocities.write_async((float4*)s.angular_velocity.data(), stream));
+    });
+
+    scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
+
+    predict(N, dt,
+            predicted_positions, predicted_orientations,
+            positions, orientations,
+            velocities, angular_velocities,
+            masses);
+
+    scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
+
+    scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
+        ASSERT_CUDA_SUCCEEDED(predicted_positions.read_async((float4*)s.predicted_position.data(), stream));
+        ASSERT_CUDA_SUCCEEDED(predicted_orientations.read_async((float4*)s.predicted_orientation.data(), stream));
+    });
+
+    scheduler.synchronize<Stream::CopyToHost>();
+
+    END_BENCHMARK();
+    PRINT_BENCHMARK_RESULT(_log);
 }
 
 void Compute_CUDA::integrate(System_State& s, float dt) {
@@ -355,6 +398,7 @@ void Compute_CUDA::do_one_iteration_of_collision_constraint_resolution(System_St
     if(coll_constraints.size() == 0) {
         return;
     }
+
 
     if(ast_kernels.size() == 0) {
         return;

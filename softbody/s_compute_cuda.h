@@ -269,6 +269,16 @@ private:
         New_Goal_Position_Buffer const& next_goal_pos,
         Center_Of_Mass_Buffer const& com);
 
+    void predict(
+            int N, float dt,
+            CUDA_Array<float4>& predicted_positions,
+            CUDA_Array<float4>& predicted_orientations,
+            CUDA_Array<float4> const& positions,
+            CUDA_Array<float4> const& orientations,
+            CUDA_Array<float4> const& velocities,
+            CUDA_Array<float4> const& angular_velocities,
+            Mass_Buffer const& masses);
+
     void do_one_iteration_of_shape_matching_constraint_resolution(System_State& s, float dt) override;
 
     void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) override;
