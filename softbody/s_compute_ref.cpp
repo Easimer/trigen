@@ -116,6 +116,9 @@ protected:
     }
 
     void predict(System_State& s, float dt) override {
+        DECLARE_BENCHMARK_BLOCK();
+        BEGIN_BENCHMARK();
+
         auto const N = particle_count(s);
         velocity_damping(s, dt);
 
@@ -141,6 +144,9 @@ protected:
             s.predicted_position[i] = pos;
             s.predicted_orientation[i] = q;
         }
+
+        END_BENCHMARK();
+        PRINT_BENCHMARK_RESULT(_log);
     }
 
 

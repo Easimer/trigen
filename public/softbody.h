@@ -89,7 +89,8 @@ namespace sb {
         High
     };
 
-    using Debug_Proc = void (*)(Debug_Message_Source source,
+    using Debug_Proc = void (*)(
+            Debug_Message_Source source,
             Debug_Message_Type type,
             Debug_Message_Severity severity,
             char const* message,
