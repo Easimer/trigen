@@ -1,3 +1,6 @@
 [submodule "nodeeditor"]
 	path = nodeeditor
 	url = https://github.com/paceholder/nodeeditor
+[submodule "tracy"]
+	path = tracy
+	url = https://github.com/wolfpld/tracy
