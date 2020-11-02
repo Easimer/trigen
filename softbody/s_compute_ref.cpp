@@ -37,10 +37,143 @@ protected:
 
     void begin_new_frame(System_State const& sim) override {}
 
+    void velocity_damping(System_State& s, float dt) {
+        auto N = particle_count(s);
+        for (index_t i = 0; i < N; i++) {
+            s.velocity[i] *= 0.9f;
+            s.angular_velocity[i] *= 0.9f;
+        }
+
+        return;
+
+        // TODO(danielm): something is wrong with these calculations
+        // Probably the r_i_tilde matrix
+
+        auto k_damping = 0.5f;
+        for (index_t i = 0; i < N; i++) {
+            std::array<index_t, 1> me{ i };
+            auto& neighbors = s.edges[i];
+            auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
+            auto x_cm = s.center_of_mass[i];
+
+            auto M = std::accumulate(
+                neighbors.begin(), neighbors.end(),
+                mass_of_particle(s, i),
+                [&](float acc, index_t pidx) {
+                    return acc + mass_of_particle(s, pidx);
+                }
+            );
+
+            auto v_cm = std::accumulate(
+                neighbors.begin(), neighbors.end(),
+                s.velocity[i] * mass_of_particle(s, i),
+                [&](Vec4 const& acc, index_t pidx) {
+                    return acc + s.velocity[pidx] * mass_of_particle(s, pidx);
+                }
+            ) / M;
+
+            auto get_r_i = [&](index_t pidx) {
+                return Vec3(s.position[pidx] - x_cm);
+            };
+
+            if (length(v_cm) > glm::epsilon<float>()) {
+                auto L = std::accumulate(
+                    neighbors.begin(), neighbors.end(),
+                    cross(get_r_i(i), mass_of_particle(s, i) * Vec3(s.velocity[i])),
+                    [&](Vec3 const& acc, index_t pidx) {
+                        return acc + cross(get_r_i(i), mass_of_particle(s, i) * Vec3(s.velocity[i]));
+                    }
+                );
+
+                auto get_r_i_tilde = [&](index_t pidx) -> Mat3 {
+                    Mat3 ret(1.0f);
+                    auto v = Vec3(s.velocity[pidx]);
+                    if (length(v) > glm::epsilon<float>()) {
+                        auto r_cross_v = cross(get_r_i(pidx), v);
+                        ret[0][0] = r_cross_v.x / v.x;
+                        ret[1][1] = r_cross_v.y / v.y;
+                        ret[2][2] = r_cross_v.z / v.z;
+                    }
+                    return ret;
+                };
+
+                auto I = std::accumulate(
+                    neighbors.begin(), neighbors.end(),
+                    mass_of_particle(s, i) * get_r_i_tilde(i) * transpose(get_r_i_tilde(i)),
+                    [&](Mat3 const& acc, index_t pidx) {
+                        return mass_of_particle(s, pidx) * get_r_i_tilde(pidx) * transpose(get_r_i_tilde(pidx));
+                    }
+                );
+
+                auto ang_v = glm::inverse(I) * L;
+
+                for (auto pidx : neighbors_and_me) {
+                    auto dv = v_cm + Vec4(cross(ang_v, get_r_i(pidx)), 0) - s.velocity[pidx];
+                    s.velocity[i] += k_damping * dv;
+                }
+            }
+        }
+    }
+
+    void predict(System_State& s, float dt) override {
+        auto const N = particle_count(s);
+        velocity_damping(s, dt);
+
+        for (unsigned i = 0; i < N; i++) {
+            // prediction step
+
+            // TODO(danielm): sum forces acting on the system here instead of
+            // hardcoding it to the gravitational force
+            auto external_forces = Vec4(0, -10, 0, 0);
+            auto v = s.velocity[i] + dt * (1 / mass_of_particle(s, i)) * external_forces;
+            auto pos = s.position[i] + dt * v;
+
+            auto ang_v = glm::length(s.angular_velocity[i]);
+            Quat q;
+            if (ang_v < 0.01) {
+                // Angular velocity is too small; for stability reasons we keep
+                // the old orientation
+                q = s.orientation[i];
+            } else {
+                q = Quat(glm::cos(ang_v * dt / 2.0f), s.angular_velocity[i] / ang_v * glm::sin(ang_v * dt / 2.0f));
+            }
+
+            s.predicted_position[i] = pos;
+            s.predicted_orientation[i] = q;
+        }
+    }
+
+
+    void integrate(System_State& s, float dt) override {
+        auto const N = particle_count(s);
+
+        for (unsigned i = 0; i < N; i++) {
+            s.velocity[i] = (s.predicted_position[i] - s.position[i]) / dt;
+            s.position[i] = s.predicted_position[i];
+
+            auto r_tmp = s.predicted_orientation[i] * glm::conjugate(s.orientation[i]);
+            auto r = (r_tmp.w < 0) ? -r_tmp : r_tmp;
+            auto q_angle = glm::angle(r);
+            if (glm::abs(q_angle) < 0.1) {
+                s.angular_velocity[i] = Vec4(0, 0, 0, 0);
+            } else {
+                s.angular_velocity[i] = Vec4(glm::axis(r) * q_angle / dt, 0);
+            }
+
+            s.orientation[i] = s.predicted_orientation[i];
+            // TODO(danielm): friction?
+        }
+
+        for (auto& C : s.collision_constraints) {
+            s.velocity[C.pidx] = Vec4();
+            // TODO(danielm): friction?
+        }
+    }
+
     void do_one_iteration_of_shape_matching_constraint_resolution(
-        System_State& s,
-        float phdt
-    ) override {
+            System_State& s,
+            float phdt
+            ) override {
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
 
@@ -52,12 +185,12 @@ protected:
 
             // Sum particle weights in the current cluster
             auto M = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(s, i),
-                [&](float acc, index_t idx) {
+                    neighbors.begin(), neighbors.end(),
+                    mass_of_particle(s, i),
+                    [&](float acc, index_t idx) {
                     return acc + mass_of_particle(s, idx);
-                }
-            );
+                    }
+                    );
 
             assert(M != 0);
 
@@ -66,12 +199,12 @@ protected:
 
             // Center of mass calculated using the predicted positions
             auto com_cur = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(s, i) * s.predicted_position[i],
-                [&](Vec4 const& acc, index_t idx) {
+                    neighbors.begin(), neighbors.end(),
+                    mass_of_particle(s, i) * s.predicted_position[i],
+                    [&](Vec4 const& acc, index_t idx) {
                     return acc + mass_of_particle(s, idx) * s.predicted_position[idx];
-                }
-            ) / M;
+                    }
+                    ) / M;
 
             s.center_of_mass[i] = com_cur;
 

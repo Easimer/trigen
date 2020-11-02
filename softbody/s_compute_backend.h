@@ -17,6 +17,9 @@ public:
     virtual void begin_new_frame(System_State const& sim) = 0;
     virtual void end_frame(System_State const& sim) {}
 
+    virtual void predict(System_State& sim, float dt) = 0;
+    virtual void integrate(System_State& sim, float dt) = 0;
+
     virtual void generate_collision_constraints(System_State& sim) = 0;
 
     virtual void do_one_iteration_of_collision_constraint_resolution(System_State& sim, float phdt) = 0;

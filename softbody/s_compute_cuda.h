@@ -175,6 +175,9 @@ private:
 
     void end_frame(System_State const& sim) override;
 
+    void predict(System_State& sim, float dt) override;
+    void integrate(System_State& sim, float dt) override; 
+
     void make_adjacency_table(int N, System_State const& s, Adjacency_Table_Buffer& adjacency, int& adjacency_stride);
 
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override;

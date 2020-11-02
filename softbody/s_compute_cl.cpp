@@ -111,6 +111,14 @@ private:
         particle_masses = calculate_particle_masses(sim);
     }
 
+    void predict(System_State& sim, float dt) override {
+        compute_ref->predict(sim, dt);
+    }
+
+    void integrate(System_State& sim, float dt) override {
+        compute_ref->integrate(sim, dt);
+    }
+
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
         compute_ref->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
     }

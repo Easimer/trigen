@@ -73,6 +73,14 @@ void Compute_CUDA::end_frame(System_State const& sim) {
     mp_densities = CUDA_Memory_Pin();
 }
 
+void Compute_CUDA::predict(System_State& s, float dt) {
+    compute_ref->predict(s, dt);
+}
+
+void Compute_CUDA::integrate(System_State& s, float dt) {
+    compute_ref->integrate(s, dt);
+}
+
 void Compute_CUDA::make_adjacency_table(int N, System_State const& s, Adjacency_Table_Buffer& adjacency, int& adjacency_stride) {
     ZoneScoped;
     DECLARE_BENCHMARK_BLOCK();
