@@ -1,3 +1,8 @@
+# === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
+#
+# Purpose: CMake module for the Autodesk FBX SDK
+#
+
 # TODO: dynamic linking fbxsdk is not supported
 
 if(NOT FBX_SDK_DIR)

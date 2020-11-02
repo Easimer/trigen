@@ -3,6 +3,7 @@
 // Purpose: SDF AST to CUDA code generator
 //
 
+#pragma once
 #include "cuda_utils.cuh"
 
 namespace sb {

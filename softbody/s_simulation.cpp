@@ -18,6 +18,8 @@
 #include "s_compute_backend.h"
 #include "f_serialization.h"
 
+#include <Tracy.hpp>
+
 #define PHYSICS_STEP (1.0f / 25.0f)
 #define TAU (PHYSICS_STEP)
 #define SIM_SIZE_LIMIT (4096)
@@ -605,6 +607,7 @@ void Softbody_Simulation::step(float delta_time) {
     time_accumulator += delta_time;
 
     if (time_accumulator > PHYSICS_STEP) {
+        FrameMark;
         auto phdt = PHYSICS_STEP;
 
         compute->begin_new_frame(s);
