@@ -183,6 +183,18 @@ namespace sb {
                 }
             };
 
+            class Transform : public Expression<glm::vec3> {
+            public:
+                enum Kind {
+                    TRANSLATE, ROTATE,
+                };
+
+                virtual size_t parameter_count() const = 0;
+                virtual void parameters(size_t count, Node const** out_arr) const = 0;
+
+                virtual Kind kind() const noexcept = 0;
+            };
+
             class Primitive : public Expression<float> {
             public:
                 enum Kind {
@@ -214,10 +226,15 @@ namespace sb {
                 void visit(Primitive const& expr) {
                     do_visit(expr);
                 }
+
+                void visit(Transform const& trans) {
+                    do_visit(trans);
+                }
             protected:
                 virtual void do_visit(Sample_Point const&) = 0;
                 virtual void do_visit(Base_Vector_Constant const&, size_t len) = 0;
                 virtual void do_visit(Primitive const&) = 0;
+                virtual void do_visit(Transform const&) = 0;
             };
         };
     };

@@ -86,6 +86,33 @@ public:
         bufprintf(")");
     }
 
+    void do_visit(ast::Transform const& t) override {
+        switch(t.kind()) {
+            case ast::Transform::TRANSLATE:
+                bufprintf("_translate(");
+                break;
+            //case ast::Primitive::ROTATION:
+            //    bufprintf("_rotate(");
+            //    break;
+            default:
+                assert(!"UNIMPLEMENTED TRANSFORM");
+                break;
+        }
+
+        auto param_count = t.parameter_count();
+        auto params = std::make_unique<ast::Node const*[]>(param_count);
+        t.parameters(param_count, params.get());
+
+        for(size_t i = 0; i < param_count; i++) {
+            params[i]->visit(this);
+
+            if(i != param_count - 1) {
+                bufprintf(", ");
+            }
+        }
+        bufprintf(")");
+    }
+
     void bufprintf(char const* format, ...) {
         va_list ap;
         int size;

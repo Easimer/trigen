@@ -47,6 +47,10 @@ __device__ float3 max(float3 lhs, float3 rhs) {
     return make_float3(max(lhs.x, rhs.x), max(lhs.y, rhs.y), max(lhs.z, rhs.z));
 }
 
+__device__ float3 _translate(float3 sp, float3 offset) {
+    return sp - offset;
+}
+
 __device__ float _sphere(float3 sp, float radius) {
     return length(sp) - radius;
 }
@@ -177,3 +181,4 @@ extern "C" __global__ void k_resolve_coll_constraints(
         predicted_positions[id] = make_float4(to.x, to.y, to.z, 0);
     }
 }
+

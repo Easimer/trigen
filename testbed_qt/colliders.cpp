@@ -482,6 +482,88 @@ private:
     std::shared_ptr<Data::Float> distance;
 };
 
+class Base_Transformation_Data_Model : public QtNodes::NodeDataModel, public ast::Transform {
+public:
+    ~Base_Transformation_Data_Model() override = default;
+    Base_Transformation_Data_Model() : output_sp(std::make_shared<Data::Vec3>()) {
+    }
+
+    /*
+     * Gets the unique name of the transform.
+     */
+    virtual QString transform_name() const = 0;
+
+    /*
+     * Gets the number of input ports.
+     */
+    virtual unsigned input_port_count() const = 0;
+
+    /*
+     * Gets the port data type for a given input port.
+     * @param idx Input port index
+     */
+    virtual QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const = 0;
+
+    /*
+     * Called when a node is connected to a given input port.
+     * @param idx Input port index
+     * @param input_node Pointer to the node that was connected.
+     *
+     * @note `input_node` should implement the Ast_Node<T> interface. Use this
+     * fact to build the AST.
+     */
+    virtual void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) = 0;
+
+    /*
+     * Called when a node is disconnected from a given input port.
+     * @param idx Input port index
+     */
+    virtual void input_disconnected(QtNodes::PortIndex idx) = 0;
+private:
+    QString caption() const override { return transform_name(); }
+    QString name() const override { return transform_name(); }
+
+    unsigned nPorts(QtNodes::PortType type) const override {
+        switch (type) {
+        case QtNodes::PortType::In: return input_port_count();
+        case QtNodes::PortType::Out: return 1;
+        default: assert(!"Unknown port type"); return 0;
+        }
+    }
+
+    QtNodes::NodeDataType dataType(QtNodes::PortType port_type, QtNodes::PortIndex idx) const override {
+        switch (port_type) {
+        // If the caller is asking about input ports, redirect the request to the subclass
+        case QtNodes::PortType::In: return input_port(idx);
+        // If the caller is asking about output ports, return the default
+        case QtNodes::PortType::Out: return NODE_TYPE_VEC3("Transformed sample point");
+        default: assert(!"Unknown port type");
+        }
+    }
+
+    void setInData(std::shared_ptr<QtNodes::NodeData> data, QtNodes::PortIndex portIndex) override {}
+
+    QWidget* embeddedWidget() override { return nullptr; }
+
+    QtNodes::NodeValidationState validationState() const override { return QtNodes::NodeValidationState::Valid; }
+
+    std::shared_ptr<QtNodes::NodeData> outData(QtNodes::PortIndex) override { return output_sp; }
+
+    void inputConnectionCreated(QtNodes::Connection const& conn) override {
+        auto input_node = conn.getNode(QtNodes::PortType::Out)->nodeDataModel();
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+        input_connected(idx, input_node);
+    }
+
+    void inputConnectionDeleted(QtNodes::Connection const& conn) override {
+        auto idx = conn.getPortIndex(QtNodes::PortType::In);
+        input_disconnected(idx);
+    }
+
+private:
+    std::shared_ptr<Data::Vec3> output_sp;
+};
+
 class Base_Combination_Data_Model : public QtNodes::NodeDataModel, public ast::Primitive {
 public:
     ~Base_Combination_Data_Model() override = default;
@@ -741,6 +823,70 @@ private:
     ast::Expression<float>* ast_radius;
 };
 
+class Translation_Data_Model : public Base_Transformation_Data_Model {
+public:
+    QString transform_name() const override {
+        return "Translation";
+    }
+
+    unsigned input_port_count() const override {
+        return 2;
+    }
+
+    QtNodes::NodeDataType input_port(QtNodes::PortIndex idx) const override {
+        switch(idx) {
+            case 0: return NODE_TYPE_VEC3("Sample point");
+            case 1: return NODE_TYPE_VEC3("Translation");
+            default: assert(!"Unknown port index");
+        }
+        std::terminate();
+    }
+
+    void input_connected(QtNodes::PortIndex idx, QtNodes::NodeDataModel* input_node) override {
+        switch (idx) {
+        case 0: NODE_TO_AST_NODE(ast_sample_point, Vec3); break;
+        case 1: NODE_TO_AST_NODE(ast_translation, Vec3); break;
+        }
+    }
+
+    void input_disconnected(QtNodes::PortIndex idx) override {
+        switch (idx) {
+        case 0: RESET_AST_NODE(ast_sample_point); break;
+        case 1: RESET_AST_NODE(ast_translation); break;
+        }
+    }
+
+    glm::vec3 evaluate() override {
+        auto sp = evaluate_ast_or_default(ast_sample_point, {});
+        auto translation = evaluate_ast_or_default(ast_translation, {});
+
+        return sp - translation;
+    }
+
+    size_t parameter_count() const override { return 2; }
+
+    void parameters(size_t count, Node const** out_arr) const override {
+        if(count > 0) {
+            out_arr[0] = ast_sample_point;
+            if(count > 1) {
+                out_arr[1] = ast_translation;
+            }
+        }
+    }
+
+    ast::Transform::Kind kind() const noexcept override {
+        return ast::Transform::Kind::TRANSLATE;
+    }
+
+    void visit(ast::Visitor* v) const override {
+        v->visit(*this);
+    }
+
+private:
+    ast::Expression<Vec3>* ast_sample_point;
+    ast::Expression<Vec3>* ast_translation;
+};
+
 inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
     auto ret = std::make_shared<QtNodes::DataModelRegistry>();
 
@@ -754,6 +900,8 @@ inline std::shared_ptr<QtNodes::DataModelRegistry> register_data_models() {
     ret->registerModel<Union_Combination_Data_Model>("Operations");
     ret->registerModel<Subtract_Combination_Data_Model>("Operations");
     ret->registerModel<Intersect_Combination_Data_Model>("Operations");
+
+    ret->registerModel<Translation_Data_Model>("Operations");
 
     return ret;
 }
