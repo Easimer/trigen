@@ -194,6 +194,17 @@ static sb::Unique_Ptr<char[]> generate_ptx(nvrtcProgram& prog, sb::sdf::ast::Exp
     generate_scene_function(source_buffer, expr);
     source_buffer.push_back('\0');
 
+#ifndef NDEBUG
+    char path[512];
+    int t = time(NULL);
+    snprintf(path, 511, "sb_sdf.generated_%d.cu", t);
+    FILE* f = fopen(path, "wb");
+    if(f != NULL) {
+        fwrite(source_buffer.data(), source_buffer.size(), 1, f);
+        fclose(f);
+    }
+#endif
+
     rc = nvrtcCreateProgram(&prog, source_buffer.data(), name, 0, NULL, NULL);
     if(rc != NVRTC_SUCCESS) {
         printf("sb: nvrtcCreateProgram failure, rc=%d, msg='%s'\n", rc, nvrtcGetErrorString(rc));
