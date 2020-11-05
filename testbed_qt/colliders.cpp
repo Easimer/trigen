@@ -78,6 +78,8 @@ public:
 
         for (int i = 0; i < N; i++) {
             sb[i] = new QDoubleSpinBox(widget);
+            sb[i]->setMinimum(-10000);
+            sb[i]->setMaximum(10000);
             layout->addWidget(sb[i]);
             connect(
                 sb[i], (void (QDoubleSpinBox::*)(double))&QDoubleSpinBox::valueChanged,
