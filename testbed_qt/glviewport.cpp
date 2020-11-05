@@ -11,6 +11,8 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
+#include <Tracy.hpp>
+
 static QOpenGLContext* gpCtx = NULL;
 static void* GLGetProcAddress(char const* pFun) {
     assert(gpCtx != NULL);
@@ -53,6 +55,7 @@ void GLViewport::resizeGL(int width, int height) {
 }
 
 void GLViewport::paintGL() {
+    ZoneScoped;
     gfx::Render_Queue rq(4096);
     renderer->new_frame();
     if (fill_render_queue) {
@@ -60,6 +63,8 @@ void GLViewport::paintGL() {
     }
 
     rq.execute(renderer.get());
+
+    renderer->present();
 }
 
 void GLViewport::mousePressEvent(QMouseEvent* ev) {

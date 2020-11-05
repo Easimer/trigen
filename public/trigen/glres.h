@@ -106,15 +106,46 @@ namespace gl {
         }
     };
 
+    struct Texture_Allocator {
+        static void Allocate(GLuint* pHandle) {
+            glGenTextures(1, pHandle);
+        }
+
+        static void Deallocate(GLuint* pHandle) {
+            glDeleteTextures(1, pHandle);
+        }
+    };
+
+    struct Framebuffer_Allocator {
+        static void Allocate(GLuint* pHandle) {
+            glGenFramebuffers(1, pHandle);
+        }
+
+        static void Deallocate(GLuint* pHandle) {
+            glDeleteFramebuffers(1, pHandle);
+        }
+    };
+
+    struct Renderbuffer_Allocator {
+        static void Allocate(GLuint* pHandle) {
+            glGenRenderbuffers(1, pHandle);
+        }
+
+        static void Deallocate(GLuint* pHandle) {
+            glDeleteRenderbuffers(1, pHandle);
+        }
+    };
+
     using VBO = Managed_Resource<GLuint, VBO_Allocator>;
     using VAO = Managed_Resource<GLuint, VAO_Allocator>;
     template<GLenum kType>
     using Shader = Managed_Resource<GLuint, Shader_Allocator<kType>>;
-    // using Vertex_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_VERTEX_SHADER>>;
-    // using Fragment_Shader = Managed_Resource<GLuint, Shader_Allocator<GL_FRAGMENT_SHADER>>;
     using Vertex_Shader = Shader<GL_VERTEX_SHADER>;
     using Fragment_Shader = Shader<GL_FRAGMENT_SHADER>;
     using Shader_Program = Managed_Resource<GLuint, Shader_Program_Allocator>;
+    using Texture = Managed_Resource<GLuint, Texture_Allocator>;
+    using Framebuffer = Managed_Resource<GLuint, Framebuffer_Allocator>;
+    using Renderbuffer = Managed_Resource<GLuint, Renderbuffer_Allocator>;
 
     class Shader_Program_Builder {
     public:
@@ -170,6 +201,11 @@ namespace gl {
 
     template<typename T>
     inline void SetUniformLocationArray(Uniform_Location<T*> const&, T const*, unsigned count) = delete;
+
+    template<>
+    inline void SetUniformLocation<GLint>(Uniform_Location<GLint> const &uiLoc, GLint const& id) {
+        glUniform1i(uiLoc, id);
+    }
 
 #ifdef GLRES_GLM
     template<>

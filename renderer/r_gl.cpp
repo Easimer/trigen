@@ -20,6 +20,11 @@
 #include <sstream>
 #include <queue>
 #include <functional>
+#include <array>
+
+#include "r_gl_shadercompiler.h"
+
+#include <Tracy.hpp>
 
 #define SDF_BATCH_SIZE_ORDER (5)
 #define SDF_BATCH_SIZE (1 << SDF_BATCH_SIZE_ORDER)
@@ -39,7 +44,159 @@ extern "C" {
     extern char const* lines_fsh_glsl;
     extern char const* points_vsh_glsl;
     extern char const* points_fsh_glsl;
+    extern char const* deferred_vsh_glsl;
+    extern char const* deferred_fsh_glsl;
 }
+
+struct G_Buffer {
+public:
+    static std::optional<G_Buffer> make_gbuffer(int width, int height) {
+        gl::Framebuffer fb;
+        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+
+        std::array<gl::Texture, BUFFER_MAX> texarr;
+        texarr[BUFFER_POSITION] = create_texture_and_attach<BUFFER_POSITION>(width, height);
+        texarr[BUFFER_ALBEDO] = create_texture_and_attach<BUFFER_ALBEDO>(width, height);
+
+        gl::Renderbuffer rb;
+        glBindRenderbuffer(GL_RENDERBUFFER, rb);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rb);
+
+        GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+        glDrawBuffers(3, attachments);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            printf("[ gfx ] couldn't create framebuffer. this shouldn't happen.");
+            assert(0);
+            return std::nullopt;
+        }
+
+        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(deferred_vsh_glsl, {});
+        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(deferred_fsh_glsl, {});
+        if (!vsh && !fsh) {
+            assert(0);
+            return std::nullopt;
+        }
+
+        auto builder = gl::Shader_Program_Builder();
+        auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
+
+        if(!program) {
+            assert(0);
+            return std::nullopt;
+        }
+
+        char const *uniforms_textures[] = { "gPosition", "gAlbedo" };
+        std::vector<gl::Uniform_Location<GLint>> uniforms;
+        for (auto &name : uniforms_textures) {
+            uniforms.emplace_back(*program, name);
+        }
+
+        return G_Buffer(std::move(fb), std::move(texarr), std::move(program.value()), std::move(uniforms));
+    }
+
+    void bind() {
+        glBindFramebuffer(GL_FRAMEBUFFER, _fb);
+    }
+
+    void bind_for_read() {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, _fb);
+    }
+
+    void bind_for_draw() {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fb);
+    }
+
+    void unbind() {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    void render() {
+        ZoneScoped;
+        glUseProgram(_render_pass);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        for (int i = 0; i < BUFFER_MAX; i++) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, _textures[i]);
+            gl::SetUniformLocation(_uniforms[i], i);
+        }
+        
+        float quad[] = {
+            //  pos:    uv:
+                -1,  1,  0,  1,
+                 1,  1,  1,  1,
+                -1, -1,  0,  0,
+                 1, -1,  1,  0,
+        };
+        GLuint vao, vbo;
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+        glBindVertexArray(vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, 4 * 4 * sizeof(float), quad, GL_STREAM_DRAW);
+
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(0));
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glDeleteBuffers(1, &vbo);
+        glDeleteVertexArrays(1, &vao);
+    }
+
+    enum {
+        BUFFER_POSITION = 0,
+        BUFFER_ALBEDO,
+        BUFFER_MAX
+    };
+
+protected:
+    
+
+    G_Buffer(gl::Framebuffer&& fb, std::array<gl::Texture, BUFFER_MAX>&& textures, gl::Shader_Program&& render_pass, std::vector<gl::Uniform_Location<GLint>>&& uniforms) :
+        _fb(std::move(fb)), _textures(std::move(textures)), _render_pass(std::move(render_pass)), _uniforms(std::move(uniforms)) {
+    }
+
+    template<int kind>
+    static gl::Texture create_texture_and_attach(int width, int height);
+
+    template<>
+    static gl::Texture create_texture_and_attach<BUFFER_POSITION>(int width, int height) {
+        return create_texture_and_attach(width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_COLOR_ATTACHMENT0);
+    }
+
+    template<>
+    static gl::Texture create_texture_and_attach<BUFFER_ALBEDO>(int width, int height) {
+        return create_texture_and_attach(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT1);
+    }
+
+    static gl::Texture create_texture_and_attach(int width, int height, GLenum internalformat, GLenum format, GLenum type, GLenum attachment) {
+        gl::Texture ret;
+        glBindTexture(GL_TEXTURE_2D, ret);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalformat, width, height, 0, format, type, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, ret, 0);
+
+        return ret;
+    }
+
+private:
+    gl::Framebuffer _fb;
+    gl::Shader_Program _render_pass;
+    std::array<gl::Texture, BUFFER_MAX> _textures;
+    std::vector<gl::Uniform_Location<GLint>> _uniforms;
+};
 
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
@@ -57,13 +214,6 @@ static void GLMessageCallback
     }
 #endif
 }
-
-struct Shader_Define {
-    std::string key;
-    std::string value;
-};
-
-using Shader_Define_List = std::vector<Shader_Define>;
 
 struct Line {
     gl::VAO arr;
@@ -138,86 +288,6 @@ private:
     std::vector<Tuple> arrays;
 };
 
-
-template<typename Shader>
-static bool CompileShaderFromString(Shader const& shader, char const* pszSource, char const* pszPath, Shader_Define_List const& defines) {
-    GLint bSuccess;
-    std::vector<std::string> defines_fmt;
-    std::vector<char const*> sources;
-
-    bool is_mesa_gpu = false;
-
-    // Detect open-source Intel drivers
-    char const* vendor = (char*)glGetString(GL_VENDOR);
-    printf("[GFX] GPU vendor: '%s'\n", vendor);
-    is_mesa_gpu |= (strcmp(vendor, "Intel Open Source Technology Center") == 0);
-    is_mesa_gpu |= (strcmp(vendor, "VMware, Inc.") == 0);
-
-    char const* pszVersion = "#version 330 core\n";
-    char const* pszLineReset = "#line -1\n";
-
-    if (is_mesa_gpu) {
-        pszVersion = "#version 130\n";
-    }
-
-    sources.push_back(pszVersion);
-
-    if (is_mesa_gpu) {
-        sources.push_back("#define VAO_LAYOUT(i)\n");
-    }
-
-    for (auto& def : defines) {
-        char buf[64];
-        snprintf(buf, 63, "#define %s %s\n", def.key.c_str(), def.value.c_str());
-        defines_fmt.push_back(std::string((char const*)buf));
-        sources.push_back(defines_fmt.back().c_str());
-    }
-
-    if (!is_mesa_gpu) {
-        sources.push_back(pszLineReset);
-    }
-
-    sources.push_back(pszSource);
-
-    glShaderSource(shader, sources.size(), sources.data(), NULL);
-    glCompileShader(shader);
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &bSuccess);
-
-    if (bSuccess == 0) {
-        char pchMsgBuf[256];
-        glGetShaderInfoLog(shader, 256, NULL, pchMsgBuf);
-        if (defines.size() > 0) {
-            printf("Compilation of shader '%s', with defines:\n", pszPath);
-            for (auto& def : defines) {
-                printf("\t%s = %s\n", def.key.c_str(), def.value.c_str());
-            }
-            printf("has failed:\n%s\n", pchMsgBuf);
-        } else {
-            printf("Compilation of shader '%s' has failed:\n%s\n", pszPath, pchMsgBuf);
-        }
-    }
-
-    return bSuccess != 0;
-}
-
-template<GLenum kType>
-static std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource, Shader_Define_List const& defines) {
-    gl::Shader<kType> shader;
-
-    if (!CompileShaderFromString(shader, pszSource, "<string>", defines)) {
-        return std::nullopt;
-    }
-
-    return shader;
-}
-
-template<GLenum kType>
-static std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource) {
-    Shader_Define_List x;
-
-    return FromStringLoadShader<kType>(pszSource, x);
-}
-
 class GL_Renderer : public gfx::IRenderer {
 public:
     GL_Renderer() {
@@ -256,12 +326,19 @@ public:
             char buf[64];
             snprintf(buf, 63, "%d", 1 << order);
             defines[0].value = (char const*)buf;
-            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto&){} );
+            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto&){});
         }
 
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
         glLineWidth(2.0f);
+        glFrontFace(GL_CCW);
+
+        // unsigned width, height;
+        // get_resolution(&width, &height);
+        // auto gbuf = G_Buffer::make_gbuffer(width, height);
+        // assert(gbuf.has_value());
+        // g_buffer = std::move(gbuf.value());
     }
 
     void LoadShaderFromStrings(
@@ -287,6 +364,7 @@ public:
     }
 
     void draw_points(size_t nCount, Vec3 const* pPoints, Vec3 const& vWorldPosition) override {
+        ZoneScoped;
         if (m_point_cloud_shader.has_value()) {
             Point* p;
             auto h_p = point_recycler.get(&p);
@@ -339,6 +417,7 @@ public:
         Quat const* rotations,
         Vec3 const& color
     ) override {
+        ZoneScoped;
         if (m_sdf_ellipsoid_batch[0]) {
             // Setup screen quad
             float quad[] = {
@@ -431,6 +510,9 @@ public:
     }
 
     void new_frame() override {
+        // assert(g_buffer.has_value());
+        ZoneScoped;
+        // g_buffer->bind_for_draw();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         line_recycler.flip();
@@ -438,14 +520,23 @@ public:
     }
 
     double present() override {
+        // assert(g_buffer.has_value());
+        ZoneScoped;
+        // g_buffer->render();
         return 0;
     }
 
     void change_resolution(unsigned* inout_width, unsigned* inout_height) override {
         m_proj = glm::perspective(glm::radians(90.0f), (*inout_width) / (float)(*inout_height), 0.01f, 8192.0f);
+        surf_width = *inout_width;
+        surf_height = *inout_height;
+
+        // g_buffer = std::move(G_Buffer::make_gbuffer(surf_width, surf_height).value());
     }
 
     void get_resolution(unsigned* out_width, unsigned* out_height) override {
+        *out_width = surf_width;
+        *out_height = surf_height;
     }
 
     void draw_lines(
@@ -455,6 +546,7 @@ public:
         Vec3 const& vStartColor,
         Vec3 const& vEndColor
     ) override {
+        ZoneScoped;
         if (nLineCount == 0) return;
 
         Line* l;
@@ -504,6 +596,7 @@ public:
         unsigned const* elements,
         glm::vec3 const& vWorldPosition
     ) override {
+        ZoneScoped;
         if (element_count == 0) return;
 
         if (m_element_model_shader.has_value()) {
@@ -536,10 +629,13 @@ public:
 
 private:
     Mat4 m_proj, m_view;
+    unsigned surf_width = 256, surf_height = 256;
 
     Array_Recycler<Line> line_recycler;
     Array_Recycler<Point> point_recycler;
     Array_Recycler<Element_Model> element_model_recycler;
+
+    // std::optional<G_Buffer> g_buffer;
 
     struct Line_Shader {
         gl::Shader_Program program;

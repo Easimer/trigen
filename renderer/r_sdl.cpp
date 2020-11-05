@@ -17,6 +17,8 @@
 #include <sstream>
 #include <queue>
 
+#include <Tracy.hpp>
+
 class SDL_Renderer : public sdl::Renderer, public gfx::ISDL_Window {
 public:
     SDL_Renderer(gfx::Surface_Config const& cfg, gfx::Renderer_Backend backend) :
@@ -67,6 +69,7 @@ public:
     }
 
     void new_frame() override {
+        ZoneScoped;
         backend->new_frame();
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -75,6 +78,8 @@ public:
     }
 
     double present() override {
+        ZoneScoped;
+        backend->present();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -94,18 +99,22 @@ public:
     }
 
     void set_camera(glm::mat4 const& view_matrix) override {
+        ZoneScoped;
         backend->set_camera(view_matrix);
     }
 
     void draw_points(size_t nCount, glm::vec3 const* pPoints, glm::vec3 const& vWorldPosition) override {
+        ZoneScoped;
         backend->draw_points(nCount, pPoints, vWorldPosition);
     }
 
     void draw_lines(glm::vec3 const* pEndpoints, size_t nLineCount, glm::vec3 const& vWorldPosition, glm::vec3 const& vStartColor, glm::vec3 const& vEndColor) override {
+        ZoneScoped;
         backend->draw_lines(pEndpoints, nLineCount, vWorldPosition, vStartColor, vEndColor);
     }
 
     void draw_ellipsoids(gfx::Render_Context_Supplement const& ctx, size_t count, glm::vec3 const* centers, glm::vec3 const* sizes, glm::quat const* rotations, glm::vec3 const& color) override {
+        ZoneScoped;
         backend->draw_ellipsoids(ctx, count, centers, sizes, rotations, color);
     }
 
@@ -126,6 +135,7 @@ public:
     }
 
     bool poll_event(SDL_Event* ev) override {
+        ZoneScoped;
         auto& io = ImGui::GetIO();
         bool filtered = false;
 
@@ -162,6 +172,7 @@ public:
     }
 
     void draw_triangle_elements(size_t vertex_count, std::array<float, 3> const* vertices, size_t element_count, unsigned const* elements, glm::vec3 const& vWorldPosition) override {
+        ZoneScoped;
         backend->draw_triangle_elements(vertex_count, vertices, element_count, elements, vWorldPosition);
     }
 
