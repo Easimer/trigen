@@ -55,8 +55,8 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
 
         std::array<gl::Texture, BUFFER_MAX> texarr;
-        texarr[BUFFER_POSITION] = create_texture_and_attach<BUFFER_POSITION>(width, height);
-        texarr[BUFFER_ALBEDO] = create_texture_and_attach<BUFFER_ALBEDO>(width, height);
+        texarr[BUFFER_POSITION] = create_and_attach_position_buffer(width, height);
+        texarr[BUFFER_ALBEDO] = create_and_attach_albedo_buffer(width, height);
 
         gl::Renderbuffer rb;
         glBindRenderbuffer(GL_RENDERBUFFER, rb);
@@ -167,16 +167,11 @@ protected:
         _fb(std::move(fb)), _textures(std::move(textures)), _render_pass(std::move(render_pass)), _uniforms(std::move(uniforms)) {
     }
 
-    template<int kind>
-    static gl::Texture create_texture_and_attach(int width, int height);
-
-    template<>
-    static gl::Texture create_texture_and_attach<BUFFER_POSITION>(int width, int height) {
+    static gl::Texture create_and_attach_position_buffer(int width, int height) {
         return create_texture_and_attach(width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_COLOR_ATTACHMENT0);
     }
 
-    template<>
-    static gl::Texture create_texture_and_attach<BUFFER_ALBEDO>(int width, int height) {
+    static gl::Texture create_and_attach_albedo_buffer(int width, int height) {
         return create_texture_and_attach(width, height, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT1);
     }
 
