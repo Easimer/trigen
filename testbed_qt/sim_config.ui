@@ -223,6 +223,36 @@
      </layout>
     </widget>
    </item>
+   <item>
+    <widget class="QGroupBox" name="gbClothSim">
+     <property name="title">
+      <string>Cloth demo parameters</string>
+     </property>
+     <layout class="QVBoxLayout">
+      <item>
+       <layout class="QHBoxLayout" name="">
+        <item>
+         <widget class="QLabel" name="lblClothDim">
+          <property name="text">
+           <string>Cloth square dimensions</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sbClothSimDim">
+          <property name="minimum">
+           <number>2</number>
+          </property>
+          <property name="maximum">
+           <number>65536</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
  <resources/>

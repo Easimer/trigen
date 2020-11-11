@@ -16,25 +16,33 @@
 #include <thread>
 #include <objscan.h>
 
-#define BIND_DATA_DBLSPINBOX(field, elem)                                                                   \
+#define BIND_DATA_DBLSPINBOX(data, Data_Type, field, elem)                                                  \
     connect(                                                                                                \
-        &sim_cfg, &Simulation_Config::field##_changed,                                                      \
+        &data, &Data_Type::field##_changed,                                                                 \
         sim_config->elem, &QDoubleSpinBox::setValue                                                         \
     );                                                                                                      \
     connect(                                                                                                \
         sim_config->elem, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),     \
-        &sim_cfg, [&](float v) { sim_cfg.setProperty(#field, v); }                                          \
+        &data, [&](float v) { sim_cfg.setProperty(#field, v); }                                             \
     );                                                                                                      \
 
-#define BIND_DATA_SPINBOX(field, elem)                                                      \
+#define BIND_DATA_DBLSPINBOX_PLANTSIM(field, elem) \
+    BIND_DATA_DBLSPINBOX(plant_sim_cfg, Plant_Simulation_Extension_Extra, field, elem)
+
+#define BIND_DATA_SPINBOX(data, Data_Type, field, elem)                                     \
     connect(                                                                                \
-        &sim_cfg, &Simulation_Config::field##_changed,                                      \
+        &data, &Data_Type::field##_changed,                                                 \
         sim_config->elem, &QSpinBox::setValue                                               \
     );                                                                                      \
     connect(                                                                                \
         sim_config->elem, static_cast<void (QSpinBox::*)(int )>(&QSpinBox::valueChanged),   \
-        &sim_cfg, [&](int v) { sim_cfg.setProperty(#field, (unsigned)v); }                  \
+        &data, [&](int v) { data.setProperty(#field, (unsigned)v); }                        \
     );                                                                                      \
+
+#define BIND_DATA_SPINBOX_PLANTSIM(field, elem) \
+    BIND_DATA_SPINBOX(plant_sim_cfg, Plant_Simulation_Extension_Extra, field, elem)
+#define BIND_DATA_SPINBOX_CLOTHSIM(field, elem) \
+    BIND_DATA_SPINBOX(cloth_sim_cfg, Debug_Cloth_Extension_Extra, field, elem)
 
 #define BIND_DATA_COMBOBOX(field, elem)                 \
     connect(                                            \
@@ -52,11 +60,11 @@
 
 #define BIND_DATA_VEC3_COMPONENT(obj_field, field, sig, set)                                             \
     connect(                                                                                             \
-        &sim_cfg.obj_field, &QVec3::sig,                                                                 \
+        &obj_field, &QVec3::sig,                                                                         \
         sim_config->field, &QDoubleSpinBox::setValue);                                                   \
     connect(                                                                                             \
         sim_config->field, static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), \
-        &sim_cfg.seed_position, &QVec3::set);                                                            \
+        &obj_field, &QVec3::set);                                                                        \
 
 #define BIND_DATA_VEC3(vec, fieldx, fieldy, fieldz)             \
     BIND_DATA_VEC3_COMPONENT(vec, fieldx, x_changed, set_x);    \
@@ -124,16 +132,18 @@ Window_Main::Window_Main(QWidget* parent) :
     sim_config->cbExtension->addItems(QStringList(extensions.keys()));
     sim_config->cbExtension->setCurrentIndex(0);
 
-    BIND_DATA_SPINBOX(particle_count_limit, sbParticleCountLimit);
-    BIND_DATA_DBLSPINBOX(density, sbDensity);
-    BIND_DATA_DBLSPINBOX(attachment_strength, sbAttachmentStrength);
-    BIND_DATA_DBLSPINBOX(surface_adaption_strength, sbAdaptionStrength);
-    BIND_DATA_DBLSPINBOX(stiffness, sbStiffness);
-    BIND_DATA_DBLSPINBOX(aging_rate, sbAgingRate);
-    BIND_DATA_DBLSPINBOX(phototropism_response_strength, sbPhototropismResponseStrength);
-    BIND_DATA_DBLSPINBOX(branching_probability, sbBranchingProbability);
-    BIND_DATA_DBLSPINBOX(branch_angle_variance, sbBranchAngleVariance);
-    BIND_DATA_VEC3(seed_position, sbOriginX, sbOriginY, sbOriginZ);
+    BIND_DATA_SPINBOX_PLANTSIM(particle_count_limit, sbParticleCountLimit);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(density, sbDensity);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(attachment_strength, sbAttachmentStrength);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(surface_adaption_strength, sbAdaptionStrength);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(stiffness, sbStiffness);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(aging_rate, sbAgingRate);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(phototropism_response_strength, sbPhototropismResponseStrength);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(branching_probability, sbBranchingProbability);
+    BIND_DATA_DBLSPINBOX_PLANTSIM(branch_angle_variance, sbBranchAngleVariance);
+    BIND_DATA_VEC3(plant_sim_cfg.seed_position, sbOriginX, sbOriginY, sbOriginZ);
+
+    BIND_DATA_SPINBOX_CLOTHSIM(dim, sbClothSimDim);
 
     connect(sim_config->cbExtension, &QComboBox::currentTextChanged, this, &Window_Main::on_extension_changed);
 
@@ -141,16 +151,21 @@ Window_Main::Window_Main(QWidget* parent) :
     auto extension = sim_cfg.property("ext");
     sim_cfg.setProperty("ext", "Plant_Simulation");
     extension = sim_cfg.property("ext");
-    sim_cfg.seed_position = Vec3(0, 0, 0);
-    sim_cfg.setProperty("density", 1.0f);
-    sim_cfg.setProperty("attachment_strength", 1.0f);
-    sim_cfg.setProperty("surface_adaption_strength", 1.0f);
-    sim_cfg.setProperty("stiffness", 0.2f);
-    sim_cfg.setProperty("aging_rate", 0.1f);
-    sim_cfg.setProperty("phototropism_response_strength", 1.0f);
-    sim_cfg.setProperty("branching_probability", 0.25f);
-    sim_cfg.setProperty("branch_angle_variance", glm::pi<float>());
-    sim_cfg.setProperty("particle_count_limit", 128u);
+
+    cloth_sim_cfg.setProperty("dim", 64);
+
+    plant_sim_cfg.seed_position = Vec3(0, 0, 0);
+    plant_sim_cfg.setProperty("density", 1.0f);
+    plant_sim_cfg.setProperty("attachment_strength", 1.0f);
+    plant_sim_cfg.setProperty("surface_adaption_strength", 1.0f);
+    plant_sim_cfg.setProperty("stiffness", 0.2f);
+    plant_sim_cfg.setProperty("aging_rate", 0.1f);
+    plant_sim_cfg.setProperty("phototropism_response_strength", 1.0f);
+    plant_sim_cfg.setProperty("branching_probability", 0.25f);
+    plant_sim_cfg.setProperty("branch_angle_variance", glm::pi<float>());
+    plant_sim_cfg.setProperty("particle_count_limit", 128u);
+
+    sim_cfg.extra.ptr = nullptr;
     
     // Not settable from UI
     sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
@@ -240,6 +255,19 @@ void Window_Main::step_simulation() {
 
 void Window_Main::on_extension_changed(QString const& k) {
     sim_cfg.ext = extensions.value(sim_config->cbExtension->currentText(), sb::Extension::None);
+
+    // Reset extra pointer
+    switch(sim_cfg.ext) {
+        case sb::Extension::Plant_Simulation:
+            sim_cfg.extra.plant_sim = &plant_sim_cfg;
+            break;
+        case sb::Extension::Debug_Cloth:
+            sim_cfg.extra.cloth_sim = &cloth_sim_cfg;
+            break;
+        default:
+            sim_cfg.extra.ptr = nullptr;
+            break;
+    }
 }
 
 bool Window_Main::is_simulation_running() {

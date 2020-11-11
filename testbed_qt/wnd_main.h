@@ -75,10 +75,19 @@ private:
 
 Q_DECLARE_METATYPE(sb::Extension);
 
-/*
- * Wraps the sb::Config structure in a Qt object
- */
 class Simulation_Config : public QObject, public sb::Config {
+    Q_OBJECT;
+public:
+    Q_PROPERTY(sb::Extension ext MEMBER ext NOTIFY ext_changed);
+
+signals:
+    void ext_changed(sb::Extension value);
+};
+
+/*
+ * Wraps the sb::Plant_Simulation_Extension_Extra structure in a Qt object
+ */
+class Plant_Simulation_Extension_Extra : public QObject, public sb::Plant_Simulation_Extension_Extra {
     Q_OBJECT;
 public:
     Q_PROPERTY(float density MEMBER density NOTIFY density_changed);
@@ -90,9 +99,8 @@ public:
     Q_PROPERTY(float branching_probability MEMBER branching_probability NOTIFY branching_probability_changed);
     Q_PROPERTY(float branch_angle_variance MEMBER branch_angle_variance NOTIFY branch_angle_variance_changed);
     Q_PROPERTY(unsigned particle_count_limit MEMBER particle_count_limit NOTIFY particle_count_limit_changed);
-    Q_PROPERTY(sb::Extension ext MEMBER ext NOTIFY ext_changed);
 
-    QVec3 seed_position = QVec3(sb::Config::seed_position);
+    QVec3 seed_position = QVec3(sb::Plant_Simulation_Extension_Extra::seed_position);
 
 signals:
     void density_changed(float value);
@@ -104,7 +112,18 @@ signals:
     void branching_probability_changed(float value);
     void branch_angle_variance_changed(float value);
     void particle_count_limit_changed(unsigned value);
-    void ext_changed(sb::Extension value);
+};
+
+/*
+ * Wraps the sb::Debug_Cloth_Extension_Extra structure in a Qt object
+ */
+class Debug_Cloth_Extension_Extra : public QObject, public sb::Debug_Cloth_Extension_Extra {
+    Q_OBJECT;
+public:
+    Q_PROPERTY(int dim MEMBER dim NOTIFY dim_changed);
+
+signals:
+    void dim_changed(int value);
 };
 
 class Window_Main : public QMainWindow {
@@ -151,6 +170,8 @@ private:
 
     sb::Unique_Ptr<sb::ISoftbody_Simulation> simulation;
     Simulation_Config sim_cfg;
+    Plant_Simulation_Extension_Extra plant_sim_cfg;
+    Debug_Cloth_Extension_Extra cloth_sim_cfg;
 
     QMap<QString, sb::Extension> extensions;
 

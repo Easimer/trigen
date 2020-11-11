@@ -83,7 +83,7 @@ static float randf() {
 
 Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration, sb::Debug_Proc dbg_msg_cb, void* dbg_msg_user)
     : assert_parallel(false), assert_init(true), debugproc(dbg_msg_cb), debugproc_user(dbg_msg_user) {
-    auto o = configuration.seed_position;
+    auto o = glm::vec3(0, 0, 0);
 #ifdef DEBUG_TETRAHEDRON
 #if 1
     auto siz = Vec3(1, 1, 2);
@@ -118,14 +118,11 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration, sb::De
 
     params = configuration;
 
-    if (params.particle_count_limit > SIM_SIZE_LIMIT) {
-        params.particle_count_limit = SIM_SIZE_LIMIT;
-    }
-
     s.center_of_mass.resize(particle_count());
 
     compute = Make_Compute_Backend(configuration.compute_preference, this);
     create_extension(params.ext, params);
+    params.extra.ptr = NULL;
     pump_deferred_requests();
 }
 
@@ -480,6 +477,10 @@ void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
 }
 
 void Softbody_Simulation::step(float delta_time) {
+    if(s.position.size() == 0) {
+        return;
+    }
+
     time_accumulator += delta_time;
 
     if (time_accumulator > PHYSICS_STEP) {

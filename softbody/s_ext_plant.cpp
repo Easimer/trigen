@@ -26,9 +26,12 @@ static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
     Plant_Simulation(sb::Config const& params) : params(params) {
+        assert(params.extra.plant_sim != nullptr);
+        extra = *params.extra.plant_sim;
     }
 private:
     sb::Config params;
+    sb::Plant_Simulation_Extension_Extra extra;
     Rand_Float rnd;
     Map<index_t, index_t> parents;
     Map<index_t, index_t> apical_child;
@@ -40,7 +43,7 @@ private:
         // Create root
         pman->defer([&](IParticle_Manager* pman, System_State&) {
             constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
-            auto o = params.seed_position;
+            auto o = extra.seed_position;
             auto root0 = pman->add_init_particle(o - Vec3(0, 0.5, 0), new_size, 1);
             auto root1 = pman->add_init_particle(o, new_size, 1);
             pman->connect_particles(root0, root1);
@@ -63,7 +66,7 @@ private:
                 auto ap = anchor_points[i];
                 auto dist = distance(p, ap);
                 if (dist <= attachment_min_dist) {
-                    s.predicted_position[i] += dt * params.attachment_strength * (ap - s.predicted_position[i]);
+                    s.predicted_position[i] += dt * extra.attachment_strength * (ap - s.predicted_position[i]);
                 } else {
                     anchor_points.erase(i);
                 }
@@ -89,7 +92,7 @@ private:
                     auto normal = sdf::normal(surface_fun, p);
                     auto surface = p - surface_dist * normal;
 
-                    s.predicted_position[i] += dt * params.surface_adaption_strength * (surface - s.predicted_position[i]);
+                    s.predicted_position[i] += dt * extra.surface_adaption_strength * (surface - s.predicted_position[i]);
 
                     if (surface_dist < attachment_min_dist) {
                         anchor_points[i] = surface;
@@ -115,8 +118,8 @@ private:
         auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
         auto branch_len = 2.0f;
 
-        if (lateral_chance < params.branching_probability) {
-            auto angle = rnd.central() * params.branch_angle_variance;
+        if (lateral_chance < extra.branching_probability) {
+            auto angle = rnd.central() * extra.branch_angle_variance;
             auto x = rnd.central();
             auto y = rnd.central();
             auto z = rnd.central();
@@ -149,7 +152,7 @@ private:
         auto const N = s.position.size();
         auto const max_size = 1.5f;
 
-        if (N >= params.particle_count_limit) return;
+        if (N >= extra.particle_count_limit) return;
 
         for (index_t pidx = 1; pidx < N; pidx++) {
             auto r = s.size[pidx].x;
@@ -159,7 +162,7 @@ private:
                 r = s.size[pidx].x;
 
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
-                if (r >= max_size && N < params.particle_count_limit) {
+                if (r >= max_size && N < extra.particle_count_limit) {
                     growing.push_back(pidx);
                 }
             }
@@ -256,5 +259,9 @@ private:
 };
 
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params) {
-    return std::make_unique<Plant_Simulation>(params);
+    if(params.extra.plant_sim != nullptr) {
+        return std::make_unique<Plant_Simulation>(params);
+    } else {
+        return nullptr;
+    }
 }

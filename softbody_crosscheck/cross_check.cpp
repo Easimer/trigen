@@ -25,9 +25,11 @@ void Cross_Check_Listener::fault(
 static Cross_Check::Simulation_Instance create_sim_instance(sb::Compute_Preference pref) {
     Cross_Check::Simulation_Instance ret;
     sb::Config cfg;
+    sb::Debug_Cloth_Extension_Extra ex;
     cfg.ext = sb::Extension::Debug_Cloth;
     cfg.compute_preference = pref;
-    cfg.particle_count_limit = 65536;
+    cfg.extra.cloth_sim = &ex;
+    ex.dim = 64;
 
     ret.sim = sb::create_simulation(cfg);
     ret.step = ret.sim->begin_single_step();

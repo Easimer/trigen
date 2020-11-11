@@ -348,7 +348,8 @@ protected:
             auto w = 1 / mass_of_particle(s, C.pidx);
             auto dir = p - C.intersect;
             auto d = dot(dir, C.normal);
-            if (d < 0) {
+            // if (d < 0) {
+            {
                 auto sf = d / w;
 
                 auto corr = -sf * w * C.normal;

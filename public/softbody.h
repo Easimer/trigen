@@ -31,8 +31,11 @@ namespace sb {
         GPU_Proprietary,
     };
 
-    struct Config {
-        Extension ext;
+    struct Debug_Cloth_Extension_Extra {
+        int dim;
+    };
+
+    struct Plant_Simulation_Extension_Extra {
         glm::vec3 seed_position;
 
         float density;                          // rho
@@ -45,8 +48,16 @@ namespace sb {
         float branch_angle_variance;
 
         unsigned particle_count_limit;
+    };
 
+    struct Config {
+        Extension ext;
         Compute_Preference compute_preference;
+        union {
+            void* ptr;
+            Plant_Simulation_Extension_Extra* plant_sim;
+            Debug_Cloth_Extension_Extra* cloth_sim;
+        } extra;
     };
 
     using index_t = typename std::make_signed<size_t>::type;

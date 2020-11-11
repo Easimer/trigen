@@ -11,13 +11,20 @@
 
 class Cloth_Demo : public ISimulation_Extension {
 public:
-    Cloth_Demo(sb::Config const& params) : params(params) {}
+    Cloth_Demo(sb::Config const& params) : params(params) {
+        extra.dim = 64;
+
+        if(params.extra.cloth_sim != nullptr) {
+            extra = *params.extra.cloth_sim;
+        }
+    }
 private:
     sb::Config params;
+    sb::Debug_Cloth_Extension_Extra extra;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         pman->defer([&](IParticle_Manager* pman, System_State&) {
-            auto const N = 96;
+            auto const N = extra.dim;
             auto const N_half = N / 2;
             for (int y = 0; y < N; y++) {
                 for (int x = 0; x < N; x++) {
