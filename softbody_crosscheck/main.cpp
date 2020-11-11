@@ -130,14 +130,20 @@ static int run_crosscheck(int argc, char** argv) {
 static int run_benchmark(int argc, char** argv) {
     printf("mode: benchmark\n");
     bool _;
+    int dim = 64;
+
+    auto size_flag_idx = find_arg_flag(argc, argv, "-s", &_);
+    if(size_flag_idx != -1 && argc > size_flag_idx + 1) {
+        sscanf(argv[size_flag_idx + 1], "%d", &dim);
+    }
 
     auto backend_flag_idx = find_arg_flag(argc, argv, "-B", &_);
     assert(backend_flag_idx != -1);
     if(argc > backend_flag_idx + 1) {
         int backend_idx = 0;
         sscanf(argv[backend_flag_idx + 1], "%d", &backend_idx);
-        printf("mode: benchmark backend=%d\n", backend_idx);
-        auto B = Benchmark::make_benchmark((sb::Compute_Preference)backend_idx);
+        printf("mode: benchmark backend=%d dim=%d\n", backend_idx, dim);
+        auto B = Benchmark::make_benchmark((sb::Compute_Preference)backend_idx, dim);
 
         B.run(2.5f);
     } else {

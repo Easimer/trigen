@@ -20,10 +20,15 @@ static void debug_message_callback(
     printf("sb: %s\n", message);
 }
 
-Benchmark Benchmark::make_benchmark(sb::Compute_Preference backend) {
+Benchmark Benchmark::make_benchmark(sb::Compute_Preference backend, int dim) {
     sb::Config cfg;
     cfg.ext = sb::Extension::Debug_Cloth;
     cfg.compute_preference = backend;
+
+    sb::Debug_Cloth_Extension_Extra extra;
+    extra.dim = dim;
+
+    cfg.extra.cloth_sim = &extra;
 
     auto sim = sb::create_simulation(cfg, debug_message_callback);
 

@@ -68,7 +68,7 @@ public:
 class Benchmark {
 public:
     void run(float total_time);
-    static Benchmark make_benchmark(sb::Compute_Preference backend);
+    static Benchmark make_benchmark(sb::Compute_Preference backend, int dim);
 
 private:
     Benchmark(sb::Unique_Ptr<sb::ISoftbody_Simulation>&& sim)
