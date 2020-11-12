@@ -21,6 +21,7 @@
 #include "s_compute_cuda.h"
 
 #include <Tracy.hpp>
+#include <TracyC.h>
 
 #include "cuda_memtrack.h"
 
@@ -90,10 +91,13 @@ void Compute_CUDA::end_frame(System_State const& sim) {
     mp_angular_velocity = CUDA_Memory_Pin();
 }
 
+/*
 void Compute_CUDA::predict(System_State& s, float dt) {
     ZoneScoped;
     DECLARE_BENCHMARK_BLOCK();
     BEGIN_BENCHMARK();
+
+    TracyCZoneN(ctx_make_buf, "Making buffers", 1);
     auto const N = particle_count(s);
     CUDA_Array<float4> predicted_positions(N);
     CUDA_Array<float4> predicted_orientations(N);
@@ -101,30 +105,109 @@ void Compute_CUDA::predict(System_State& s, float dt) {
     CUDA_Array<float4> orientations(N);
     CUDA_Array<float4> velocities(N);
     CUDA_Array<float4> angular_velocities(N);
+    TracyCZoneEnd(ctx_make_buf);
 
+    TracyCZoneN(ctx_htod, "Scheduling HtoD memcpys", 1);
     scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
         ASSERT_CUDA_SUCCEEDED(positions.write_async((float4*)s.position.data(), stream));
         ASSERT_CUDA_SUCCEEDED(orientations.write_async((float4*)s.orientation.data(), stream));
         ASSERT_CUDA_SUCCEEDED(velocities.write_async((float4*)s.velocity.data(), stream));
         ASSERT_CUDA_SUCCEEDED(angular_velocities.write_async((float4*)s.angular_velocity.data(), stream));
     });
+    TracyCZoneEnd(ctx_htod);
 
     scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
 
+    TracyCZoneN(ctx_kernel, "Calling kernel", 1);
     predict(N, dt,
             predicted_positions, predicted_orientations,
             positions, orientations,
             velocities, angular_velocities,
             masses);
+    TracyCZoneEnd(ctx_kernel);
 
     scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
 
+    TracyCZoneN(ctx_dtoh, "Scheduling DtoH memcpys", 1);
     scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
         ASSERT_CUDA_SUCCEEDED(predicted_positions.read_async((float4*)s.predicted_position.data(), stream));
         ASSERT_CUDA_SUCCEEDED(predicted_orientations.read_async((float4*)s.predicted_orientation.data(), stream));
     });
+    TracyCZoneEnd(ctx_dtoh);
 
+    TracyCZoneN(ctx_sync, "Synchronizing", 1);
     scheduler.synchronize<Stream::CopyToHost>();
+    TracyCZoneEnd(ctx_sync);
+
+    END_BENCHMARK();
+    PRINT_BENCHMARK_RESULT(_log);
+}
+*/
+
+void Compute_CUDA::predict(System_State& s, float dt) {
+    ZoneScoped;
+    DECLARE_BENCHMARK_BLOCK();
+    BEGIN_BENCHMARK();
+
+    TracyCZoneN(ctx_make_buf, "Making buffers", 1);
+    auto const N = particle_count(s);
+    CUDA_Array<float4> predicted_positions(N);
+    CUDA_Array<float4> predicted_orientations(N);
+    CUDA_Array<float4> positions(N);
+    CUDA_Array<float4> orientations(N);
+    CUDA_Array<float4> velocities(N);
+    CUDA_Array<float4> angular_velocities(N);
+    TracyCZoneEnd(ctx_make_buf);
+
+    int const batch_size = 2048;
+
+    auto process_batch = [&](int offset, int batch_size) {
+        // Upload input subdata
+        TracyCZoneN(ctx_htod, "Scheduling HtoD memcpys", 1);
+        scheduler.on_stream<Stream::PredictCopyToDev>([&](cudaStream_t stream) {
+            ASSERT_CUDA_SUCCEEDED(positions.write_sub((float4*)s.position.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(orientations.write_sub((float4*)s.orientation.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(velocities.write_sub((float4*)s.velocity.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(angular_velocities.write_sub((float4*)s.angular_velocity.data(), offset, batch_size, stream));
+        });
+        TracyCZoneEnd(ctx_htod);
+
+        scheduler.insert_dependency<Stream::PredictCopyToDev, Stream::Predict>(ev_recycler);
+
+        TracyCZoneN(ctx_kernel, "Calling kernel", 1);
+        predict(N, dt, offset, batch_size,
+                predicted_positions, predicted_orientations,
+                positions, orientations,
+                velocities, angular_velocities,
+                masses);
+        TracyCZoneEnd(ctx_kernel);
+
+        scheduler.insert_dependency<Stream::Predict, Stream::CopyToHost>(ev_recycler);
+
+        TracyCZoneN(ctx_dtoh, "Scheduling DtoH memcpys", 1);
+        scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
+            ASSERT_CUDA_SUCCEEDED(predicted_positions.read_sub((float4*)s.predicted_position.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(predicted_orientations.read_sub((float4*)s.predicted_orientation.data(), offset, batch_size, stream));
+        });
+        TracyCZoneEnd(ctx_dtoh);
+    };
+
+    int remains = N;
+    int offset = 0;
+
+    while(remains >= batch_size) {
+        process_batch(offset, batch_size);
+        remains -= batch_size;
+        offset += batch_size;
+    }
+
+    if(remains > 0) {
+        process_batch(offset, remains);
+    }
+
+    TracyCZoneN(ctx_sync, "Synchronizing", 1);
+    scheduler.synchronize<Stream::CopyToHost>();
+    TracyCZoneEnd(ctx_sync);
 
     END_BENCHMARK();
     PRINT_BENCHMARK_RESULT(_log);

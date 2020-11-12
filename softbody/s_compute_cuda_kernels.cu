@@ -321,7 +321,7 @@ __global__ void k_apply_rotations(
 }
 
 __global__ void k_predict(
-        int N, float dt,
+        int N, float dt, int offset,
         float4* d_predicted_positions,
         float4* d_predicted_orientations,
         float4 const* d_positions,
@@ -330,7 +330,7 @@ __global__ void k_predict(
         float4 const* d_angular_velocities,
         float const* d_masses
         ) {
-    int const id = threadIdx.x + blockDim.x * blockIdx.x;
+    int const id = threadIdx.x + blockDim.x * blockIdx.x + offset;
     if(id >= N) {
         return;
     }
@@ -499,7 +499,7 @@ void Compute_CUDA::extract_rotations(
 }
 
 void Compute_CUDA::predict(
-        int N, float dt,
+        int N, float dt, int offset, int batch_size,
         CUDA_Array<float4>& predicted_positions,
         CUDA_Array<float4>& predicted_orientations,
         CUDA_Array<float4> const& positions,
@@ -507,17 +507,17 @@ void Compute_CUDA::predict(
         CUDA_Array<float4> const& velocities,
         CUDA_Array<float4> const& angular_velocities,
         Mass_Buffer const& masses) {
-    scheduler.printf<Stream::Compute>("[Predict] begins\n");
-    scheduler.on_stream<Stream::Compute>([&](cudaStream_t stream) {
+    scheduler.printf<Stream::Predict>("[Predict] begins\n");
+    scheduler.on_stream<Stream::Predict>([&](cudaStream_t stream) {
         auto const block_size = 256;
-        auto blocks = (N - 1) / block_size + 1;
+        auto blocks = (batch_size - 1) / block_size + 1;
         k_predict<<<blocks, block_size, 0, stream>>>(
-            N, dt,
+            N, dt, offset,
             predicted_positions, predicted_orientations,
             positions, orientations,
             velocities, angular_velocities,
             masses
         );
     });
-    scheduler.printf<Stream::Compute>("[Predict] done\n");
+    scheduler.printf<Stream::Predict>("[Predict] done\n");
 }

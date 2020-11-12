@@ -49,6 +49,9 @@ enum class Stream : size_t {
     Compute,
     CorrInfo,
 
+    Predict,
+    PredictCopyToDev,
+
     Max
 };
 
@@ -270,7 +273,7 @@ private:
         Center_Of_Mass_Buffer const& com);
 
     void predict(
-            int N, float dt,
+            int N, float dt, int offset, int batch_size,
             CUDA_Array<float4>& predicted_positions,
             CUDA_Array<float4>& predicted_orientations,
             CUDA_Array<float4> const& positions,
