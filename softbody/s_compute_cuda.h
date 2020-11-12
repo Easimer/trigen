@@ -305,6 +305,10 @@ private:
     std::vector<Collision_Constraints> coll_constraints;
     sb::Unique_Ptr<ICompute_Backend> compute_ref;
 
+    Size_Buffer sizes;
+    Density_Buffer densities;
+    Mass_Buffer masses;
+
     CUDA_Event ev_centers_of_masses_arrived;
     CUDA_Event ev_correction_info_present;
     CUDA_Event ev_rotations_extracted;

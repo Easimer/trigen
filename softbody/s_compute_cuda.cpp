@@ -64,6 +64,14 @@ void Compute_CUDA::begin_new_frame(System_State const& s) {
     mp_velocity = CUDA_Memory_Pin(s.velocity);
     mp_angular_velocity = CUDA_Memory_Pin(s.angular_velocity);
 
+    densities = Density_Buffer(N);
+    sizes = Size_Buffer(N);
+    masses = Mass_Buffer(N);
+
+    upload_densities(N, densities, s);
+    upload_sizes(N, sizes, s);
+    calculate_masses(N, masses, sizes, densities);
+
     make_adjacency_table(N, s, d_adjacency, d_adjacency_stride);
 }
 
@@ -93,13 +101,6 @@ void Compute_CUDA::predict(System_State& s, float dt) {
     CUDA_Array<float4> orientations(N);
     CUDA_Array<float4> velocities(N);
     CUDA_Array<float4> angular_velocities(N);
-    Density_Buffer densities(N);
-    Size_Buffer sizes(N);
-    Mass_Buffer masses(N);
-
-    upload_densities(N, densities, s);
-    upload_sizes(N, sizes, s);
-    calculate_masses(N, masses, sizes, densities);
 
     scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
         ASSERT_CUDA_SUCCEEDED(positions.write_async((float4*)s.position.data(), stream));
@@ -313,13 +314,10 @@ void Compute_CUDA::do_one_iteration_of_shape_matching_constraint_resolution(Syst
     Predicted_Position_Buffer pred_pos;
     Bind_Pose_Position_Buffer bp_pos;
     Center_Of_Mass_Buffer com;
-    Mass_Buffer masses;
-    Size_Buffer sizes;
     Cluster_Matrix_Buffer clstr_mat;
     New_Rotation_Buffer next_rotations;
     New_Position_Buffer next_positions;
     New_Goal_Position_Buffer next_goal_positions;
-    Density_Buffer densities;
     Particle_Correction_Info_Buffer corrinfo;
 
     init_coms(N, com);
@@ -417,9 +415,6 @@ void Compute_CUDA::do_one_iteration_of_collision_constraint_resolution(System_St
 
     Predicted_Position_Buffer pred_pos(N);
     Position_Buffer pos(N);
-    Mass_Buffer masses;
-    Size_Buffer sizes;
-    Density_Buffer densities;
 
     upload_sizes(N, sizes, s);
     upload_densities(N, densities, s);
@@ -463,9 +458,6 @@ void Compute_CUDA::generate_collision_constraints(System_State& s) {
     BEGIN_BENCHMARK();
     auto N = particle_count(s);
 
-    Size_Buffer sizes;
-    Density_Buffer densities;
-    Mass_Buffer masses;
     Position_Buffer pos(N);
     Predicted_Position_Buffer pred_pos(N);
 
