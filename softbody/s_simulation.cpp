@@ -9,6 +9,8 @@
 #include "l_iterators.h"
 #include "s_simulation.h"
 #define SB_BENCHMARK 1
+#define SB_BENCHMARK_UNITS microseconds
+#define SB_BENCHMARK_UNITS_STR "us"
 #include "s_benchmark.h"
 #include <cstdlib>
 #include <cstdarg>
@@ -477,6 +479,10 @@ void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
 }
 
 void Softbody_Simulation::step(float delta_time) {
+    ZoneScoped;
+    DECLARE_BENCHMARK_BLOCK();
+    BEGIN_BENCHMARK();
+
     if(s.position.size() == 0) {
         return;
     }
@@ -501,6 +507,9 @@ void Softbody_Simulation::step(float delta_time) {
 
         time_accumulator -= phdt;
     }
+
+    END_BENCHMARK();
+    PRINT_BENCHMARK_RESULT(this);
 }
 
 class Single_Step_State : public sb::ISingle_Step_State {

@@ -59,6 +59,11 @@ void Compute_CUDA::begin_new_frame(System_State const& s) {
     mp_sizes = CUDA_Memory_Pin(s.size);
     mp_densities = CUDA_Memory_Pin(s.density);
 
+    mp_position = CUDA_Memory_Pin(s.position);
+    mp_orientation = CUDA_Memory_Pin(s.orientation);
+    mp_velocity = CUDA_Memory_Pin(s.velocity);
+    mp_angular_velocity = CUDA_Memory_Pin(s.angular_velocity);
+
     make_adjacency_table(N, s, d_adjacency, d_adjacency_stride);
 }
 
@@ -71,6 +76,10 @@ void Compute_CUDA::end_frame(System_State const& sim) {
     mp_com = CUDA_Memory_Pin();
     mp_sizes = CUDA_Memory_Pin();
     mp_densities = CUDA_Memory_Pin();
+    mp_position = CUDA_Memory_Pin();
+    mp_orientation = CUDA_Memory_Pin();
+    mp_velocity = CUDA_Memory_Pin();
+    mp_angular_velocity = CUDA_Memory_Pin();
 }
 
 void Compute_CUDA::predict(System_State& s, float dt) {

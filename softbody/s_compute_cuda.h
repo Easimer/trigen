@@ -317,6 +317,10 @@ private:
     CUDA_Memory_Pin mp_com;
     CUDA_Memory_Pin mp_sizes;
     CUDA_Memory_Pin mp_densities;
+    CUDA_Memory_Pin mp_position;
+    CUDA_Memory_Pin mp_orientation;
+    CUDA_Memory_Pin mp_velocity;
+    CUDA_Memory_Pin mp_angular_velocity;
 
     Adjacency_Table h_adjacency;
     Adjacency_Table_Buffer d_adjacency;
