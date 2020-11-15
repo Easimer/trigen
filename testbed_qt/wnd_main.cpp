@@ -100,6 +100,7 @@ Window_Main::Window_Main(QWidget* parent) :
     tabs->addTab(collider_builder->view(), "Colliders");
 
     // NOTE(danielm): ownership passed to the QSplitter
+    splitter->setChildrenCollapsible(false);
     splitter->addWidget(tabs);
     splitter->addWidget(gl_viewport);
 
@@ -107,6 +108,9 @@ Window_Main::Window_Main(QWidget* parent) :
 
     viewport = gl_viewport;
     viewport->set_render_queue_filler([this](gfx::Render_Queue* rq) { render_world(rq); });
+
+    // Resize the window so that the GL viewport is visible by default
+    setMinimumWidth(width() * 1.25f);
 
     connect(&render_timer, SIGNAL(timeout()), viewport, SLOT(update()));
     render_timer.start(13);
