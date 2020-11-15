@@ -57,6 +57,7 @@ set(SRC_IMPL
     s_ext.h
     s_ext_plant.cpp
     s_ext_cloth.cpp
+    s_ext_rope.cpp
 
     f_serialization.cpp
     f_serialization.h
