@@ -91,59 +91,6 @@ void Compute_CUDA::end_frame(System_State const& sim) {
     mp_angular_velocity = CUDA_Memory_Pin();
 }
 
-/*
-void Compute_CUDA::predict(System_State& s, float dt) {
-    ZoneScoped;
-    DECLARE_BENCHMARK_BLOCK();
-    BEGIN_BENCHMARK();
-
-    TracyCZoneN(ctx_make_buf, "Making buffers", 1);
-    auto const N = particle_count(s);
-    CUDA_Array<float4> predicted_positions(N);
-    CUDA_Array<float4> predicted_orientations(N);
-    CUDA_Array<float4> positions(N);
-    CUDA_Array<float4> orientations(N);
-    CUDA_Array<float4> velocities(N);
-    CUDA_Array<float4> angular_velocities(N);
-    TracyCZoneEnd(ctx_make_buf);
-
-    TracyCZoneN(ctx_htod, "Scheduling HtoD memcpys", 1);
-    scheduler.on_stream<Stream::CopyToDev>([&](cudaStream_t stream) {
-        ASSERT_CUDA_SUCCEEDED(positions.write_async((float4*)s.position.data(), stream));
-        ASSERT_CUDA_SUCCEEDED(orientations.write_async((float4*)s.orientation.data(), stream));
-        ASSERT_CUDA_SUCCEEDED(velocities.write_async((float4*)s.velocity.data(), stream));
-        ASSERT_CUDA_SUCCEEDED(angular_velocities.write_async((float4*)s.angular_velocity.data(), stream));
-    });
-    TracyCZoneEnd(ctx_htod);
-
-    scheduler.insert_dependency<Stream::CopyToDev, Stream::Compute>(ev_recycler);
-
-    TracyCZoneN(ctx_kernel, "Calling kernel", 1);
-    predict(N, dt,
-            predicted_positions, predicted_orientations,
-            positions, orientations,
-            velocities, angular_velocities,
-            masses);
-    TracyCZoneEnd(ctx_kernel);
-
-    scheduler.insert_dependency<Stream::Compute, Stream::CopyToHost>(ev_recycler);
-
-    TracyCZoneN(ctx_dtoh, "Scheduling DtoH memcpys", 1);
-    scheduler.on_stream<Stream::CopyToHost>([&](cudaStream_t stream) {
-        ASSERT_CUDA_SUCCEEDED(predicted_positions.read_async((float4*)s.predicted_position.data(), stream));
-        ASSERT_CUDA_SUCCEEDED(predicted_orientations.read_async((float4*)s.predicted_orientation.data(), stream));
-    });
-    TracyCZoneEnd(ctx_dtoh);
-
-    TracyCZoneN(ctx_sync, "Synchronizing", 1);
-    scheduler.synchronize<Stream::CopyToHost>();
-    TracyCZoneEnd(ctx_sync);
-
-    END_BENCHMARK();
-    PRINT_BENCHMARK_RESULT(_log);
-}
-*/
-
 void Compute_CUDA::predict(System_State& s, float dt) {
     ZoneScoped;
     DECLARE_BENCHMARK_BLOCK();
