@@ -479,7 +479,6 @@ void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
 }
 
 void Softbody_Simulation::step(float delta_time) {
-    ZoneScoped;
     DECLARE_BENCHMARK_BLOCK();
     BEGIN_BENCHMARK();
 
@@ -490,7 +489,7 @@ void Softbody_Simulation::step(float delta_time) {
     time_accumulator += delta_time;
 
     if (time_accumulator > PHYSICS_STEP) {
-        FrameMark;
+        FrameMarkStart("Softbody");
         auto phdt = PHYSICS_STEP;
 
         compute->begin_new_frame(s);
@@ -506,6 +505,7 @@ void Softbody_Simulation::step(float delta_time) {
         pump_deferred_requests();
 
         time_accumulator -= phdt;
+        FrameMarkEnd("Softbody");
     }
 
     END_BENCHMARK();

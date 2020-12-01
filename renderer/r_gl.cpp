@@ -505,9 +505,8 @@ public:
     }
 
     void new_frame() override {
-        // assert(g_buffer.has_value());
+        FrameMark;
         ZoneScoped;
-        // g_buffer->bind_for_draw();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         line_recycler.flip();
@@ -515,9 +514,6 @@ public:
     }
 
     double present() override {
-        // assert(g_buffer.has_value());
-        ZoneScoped;
-        // g_buffer->render();
         return 0;
     }
 
