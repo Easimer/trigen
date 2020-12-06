@@ -210,9 +210,12 @@ Window_Main::Window_Main(QWidget* parent) :
     });
 
     connect(sim_control->btnMeshgen, &QPushButton::released, [&]() {
-        auto wnd = new Window_Meshgen(simulation);
-        connect(this, &Window_Main::render, wnd, &Window_Meshgen::render);
-        wnd->show();
+        if (simulation != nullptr) {
+            auto wnd = make_meshgen_window(simulation, nullptr);
+            // FUCK
+            connect(this, SIGNAL(render(gfx::Render_Queue*)), wnd, SLOT(render(gfx::Render_Queue*)));
+            wnd->show();
+        }
     });
 
     connect(sim_control->btnLoadObj, &QPushButton::released, [&]() {

@@ -144,7 +144,7 @@ add_subdirectory(embed)
 add_subdirectory(glad)
 add_subdirectory(imgui)
 add_subdirectory(renderer)
-add_subdirectory(tree_meshifier)
+add_subdirectory(marching_cubes)
 add_subdirectory(objscan)
 add_subdirectory(softbody)
 

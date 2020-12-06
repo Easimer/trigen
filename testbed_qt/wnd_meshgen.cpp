@@ -9,9 +9,39 @@
 
 #include <glm/common.hpp>
 #include <glm/vec3.hpp>
-#include <trigen/tree_meshifier.h>
 
-using namespace std::placeholders;
+#include <marching_cubes.h>
+
+#include <trigen/meshbuilder.h>
+
+struct Generated_Mesh {
+    size_t vertex_count, element_count;
+
+    std::unique_ptr<std::array<float, 3>[]> position;
+    std::unique_ptr<glm::vec2[]> uv;
+
+    std::unique_ptr<unsigned[]> element_indices;
+};
+
+class Window_Meshgen : public QDialog {
+    Q_OBJECT;
+public:
+    ~Window_Meshgen() override = default;
+
+    Window_Meshgen(
+        sb::Unique_Ptr<sb::ISoftbody_Simulation>& simulation,
+        QMainWindow* parent = nullptr
+    );
+
+public slots:
+    void render(gfx::Render_Queue* rq);
+    void update_mesh();
+
+private:
+    QHBoxLayout layout;
+    sb::Unique_Ptr<sb::ISoftbody_Simulation>& simulation;
+    Generated_Mesh mesh;
+};
 
 Window_Meshgen::Window_Meshgen(
     sb::Unique_Ptr<sb::ISoftbody_Simulation>& simulation,
@@ -21,26 +51,26 @@ Window_Meshgen::Window_Meshgen(
     update_mesh();
 }
 
-static Generated_Mesh unpack_mesh(Optimized_Mesh<TG_Vertex> const& orig) {
+static Generated_Mesh unpack_mesh(marching_cubes::mesh const& orig) {
     Generated_Mesh ret;
 
-    ret.element_count = orig.ElementsCount();
-    ret.vertex_count = orig.VerticesCount();
+    ret.element_count = orig.indices.size();
+    ret.vertex_count = orig.positions.size();
 
-    ret.position = std::make_unique<std::array<float, 3>[]>(orig.VerticesCount());
-    ret.uv = std::make_unique<glm::vec2[]>(orig.VerticesCount());
-    ret.element_indices = std::make_unique<unsigned[]>(orig.ElementsCount());
+    ret.position = std::make_unique<std::array<float, 3>[]>(orig.positions.size());
+    ret.uv = std::make_unique<glm::vec2[]>(orig.uv.size());
+    ret.element_indices = std::make_unique<unsigned[]>(orig.indices.size());
 
-    for (size_t i = 0; i < orig.VerticesCount(); i++) {
-        auto& pos = orig.vertices[i].position;
-        auto& uv = orig.vertices[i].uv;
+    for (size_t i = 0; i < orig.positions.size(); i++) {
+        auto &pos = orig.positions[i];
+        auto &uv = orig.uv[i];
 
         ret.position[i] = { pos[0], pos[1], pos[2] };
         ret.uv[i] = { uv[0], uv[1] };
     }
 
-    for (size_t i = 0; i < orig.ElementsCount(); i++) {
-        ret.element_indices[i] = orig.elements[i];
+    for (size_t i = 0; i < orig.indices.size(); i++) {
+        ret.element_indices[i] = orig.indices[i];
     }
 
     return ret;
@@ -50,44 +80,17 @@ void Window_Meshgen::update_mesh() {
     auto plant_sim = simulation->get_extension_plant_simulation();
 
     if (plant_sim != nullptr) {
-        Tree_Node_Pool tree;
-        std::unordered_map<sb::index_t, glm::vec3> sizes;
+        std::vector<marching_cubes::metaball> metaballs;
 
         for (auto iter = simulation->get_particles(); !iter->ended(); iter->step()) {
-            /*
-             * TODO(danielm): this algorithm relies on the fact that the iterator
-             * will return particles in order, from idx 0 to idx N.
-             */
-
             auto p = iter->get();
-            uint32_t node_idx;
-            auto& node = tree.Allocate(node_idx);
-
-            sizes[p.id] = p.size;
-
-            assert(p.id == node_idx);
-
-            node.vPosition = lm::Vector4(p.position.x, p.position.y, p.position.z);
-            node.unUser = 0; // TODO(danielm): size
+            metaballs.push_back({ p.position, (float)p.size.length() / 3 });
         }
-
-        for (auto iter = plant_sim->get_parental_relations(); !iter->ended(); iter->step()) {
-            auto rel = iter->get();
-            auto& parent = tree.GetNode(rel.parent);
-            parent.AddChild(rel.child);
-        }
-
-        auto radius_func = [&](
-            size_t idx, lm::Vector4 const& pos,
-            uint64_t user0, float weight0,
-            uint64_t user1, float weight1) -> float {
-                auto size0 = sizes.at(user0);
-                auto size1 = sizes.at(user1);
-
-                return 0.125f * (weight0 * glm::length(size0) + weight1 * glm::length(size1));
-        };
-
-        mesh = unpack_mesh(ProcessTree(tree, radius_func));
+        marching_cubes::params params;
+        params.subdivisions = 64; // TODO: UI
+        auto mesh = marching_cubes::generate(metaballs, params);
+        printf("update_mesh: %u triangles generated\n", mesh.indices.size() / 3);
+        this->mesh = unpack_mesh(mesh);
     }
 }
 
@@ -99,7 +102,7 @@ private:
     Generated_Mesh const& mesh;
 
     void execute(gfx::IRenderer* renderer) override {
-        renderer->draw_triangle_elements(mesh.vertex_count * sizeof(glm::vec3), mesh.position.get(), mesh.element_count * sizeof(unsigned), mesh.element_indices.get(), Vec3());
+        renderer->draw_triangle_elements(mesh.vertex_count, mesh.position.get(), mesh.element_count, mesh.element_indices.get(), Vec3());
     }
 };
 
@@ -108,3 +111,9 @@ void Window_Meshgen::render(gfx::Render_Queue* rq) {
     new(c) Render_Generated_Mesh(mesh);
     rq->push(c);
 }
+
+QDialog *make_meshgen_window(sb::Unique_Ptr<sb::ISoftbody_Simulation> &simulation, QMainWindow *parent) {
+    return new Window_Meshgen(simulation, parent);
+}
+
+#include "wnd_meshgen.moc"

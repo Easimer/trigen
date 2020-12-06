@@ -270,6 +270,10 @@ public:
         assert(retired_queue.size() == 0);
         assert(ready_queue.size() == arrays.size());
     }
+
+    long long count() const {
+        return retired_queue.size();
+    }
 protected:
     size_t make_new(Tuple** out) {
         auto ret = arrays.size();
@@ -511,9 +515,14 @@ public:
 
         line_recycler.flip();
         point_recycler.flip();
+        element_model_recycler.flip();
     }
 
     double present() override {
+        TracyPlot("GL::line_recycler::count", line_recycler.count());
+        TracyPlot("GL::point_recycler::count", point_recycler.count());
+        TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
+
         return 0;
     }
 
@@ -597,10 +606,10 @@ public:
             glBindVertexArray(mdl->arr);
 
             glBindBuffer(GL_ARRAY_BUFFER, mdl->vertices);
-            glBufferData(GL_ARRAY_BUFFER, vertex_count, vertices, GL_STREAM_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(glm::vec3), vertices, GL_STREAM_DRAW);
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl->elements);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, element_count, elements, GL_STREAM_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, element_count * sizeof(unsigned), elements, GL_STREAM_DRAW);
 
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
             glEnableVertexAttribArray(0);
@@ -610,7 +619,7 @@ public:
             auto matMVP = m_proj * m_view * matModel;
             gl::SetUniformLocation(shader.locMVP, matMVP);
 
-            glDrawElements(GL_TRIANGLES, mdl->elements, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
 
             element_model_recycler.put_back(mdl_h);
         } else {
