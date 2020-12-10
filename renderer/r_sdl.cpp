@@ -176,6 +176,11 @@ public:
         backend->draw_triangle_elements(vertex_count, vertices, element_count, elements, vWorldPosition);
     }
 
+    void draw_triangle_elements_with_vertex_color(size_t vertex_count, std::array<float, 3> const* vertices, glm::u8vec3 const* vertex_colors, size_t element_count, unsigned const* elements, glm::vec3 const& vWorldPosition) override {
+        ZoneScoped;
+        backend->draw_triangle_elements_with_vertex_color(vertex_count, vertices, vertex_colors, element_count, elements, vWorldPosition);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

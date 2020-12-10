@@ -56,6 +56,15 @@ namespace gfx {
             glm::vec3 const& vWorldPosition
         ) = 0;
 
+        virtual void draw_triangle_elements_with_vertex_color(
+            size_t vertex_count,
+            std::array<float, 3> const* vertices,
+            glm::u8vec3 const* vertex_colors,
+            size_t element_count,
+            unsigned const* elements,
+            glm::vec3 const& vWorldPosition
+        ) = 0;
+
         virtual void change_resolution(unsigned* inout_width, unsigned* inout_height) = 0;
         virtual void get_resolution(unsigned* out_width, unsigned* out_height) = 0;
     };

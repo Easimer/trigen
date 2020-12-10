@@ -222,7 +222,7 @@ struct Point {
 
 struct Element_Model {
     gl::VAO arr;
-    gl::VBO vertices, elements;
+    gl::VBO vertices, elements, colors;
 };
 
 /**
@@ -318,6 +318,12 @@ public:
         LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             m_element_model_shader = { std::move(program), locMVP };
+        });
+
+        Shader_Define_List vtx_color_defines = { {"GENERIC_SHADER_WITH_VERTEX_COLORS", "1"} };
+        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program& program) {
+            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+            m_element_model_shader_with_vtx_color = { std::move(program), locMVP };
         });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
@@ -615,6 +621,7 @@ public:
             glEnableVertexAttribArray(0);
 
             auto& shader = *m_element_model_shader;
+            glUseProgram(shader.program);
             auto matModel = glm::translate(vWorldPosition);
             auto matMVP = m_proj * m_view * matModel;
             gl::SetUniformLocation(shader.locMVP, matMVP);
@@ -624,6 +631,45 @@ public:
             element_model_recycler.put_back(mdl_h);
         } else {
             printf("renderer: can't draw triangle elements: no shader!\n");
+        }
+    }
+
+    void draw_triangle_elements_with_vertex_color(size_t vertex_count, std::array<float, 3> const* vertices, glm::u8vec3 const* vertex_colors, size_t element_count, unsigned const* elements, glm::vec3 const& vWorldPosition) override {
+        ZoneScoped;
+        if (element_count == 0) return;
+
+        if (m_element_model_shader_with_vtx_color.has_value()) {
+            Element_Model* mdl;
+            auto mdl_h = element_model_recycler.get(&mdl);
+
+            glBindVertexArray(mdl->arr);
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl->vertices);
+            glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(glm::vec3), vertices, GL_STREAM_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl->colors);
+            glBufferData(GL_ARRAY_BUFFER, vertex_count * sizeof(glm::u8vec3), vertex_colors, GL_STREAM_DRAW);
+
+            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, 3, nullptr);
+            glEnableVertexAttribArray(1);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl->elements);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, element_count * sizeof(unsigned), elements, GL_STREAM_DRAW);
+
+            auto& shader = *m_element_model_shader_with_vtx_color;
+            glUseProgram(shader.program);
+            auto matModel = glm::translate(vWorldPosition);
+            auto matMVP = m_proj * m_view * matModel;
+            gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
+
+            element_model_recycler.put_back(mdl_h);
+        } else {
+            printf("renderer: can't draw triangle elements with vtx color: no shader!\n");
         }
     }
 
@@ -656,6 +702,7 @@ private:
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
     std::optional<Element_Model_Shader> m_element_model_shader;
+    std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 };
