@@ -145,6 +145,7 @@ add_subdirectory(glad)
 add_subdirectory(imgui)
 add_subdirectory(renderer)
 add_subdirectory(marching_cubes)
+add_subdirectory(psp)
 add_subdirectory(objscan)
 add_subdirectory(softbody)
 
