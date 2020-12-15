@@ -3,19 +3,24 @@
 // Purpose: 
 //
 
+#include <cassert>
+#include <cfloat>
 #include <deque>
 #include <unordered_set>
-#include <cfloat>
 #include <algorithm>
 
 #include <glm/geometric.hpp>
+#include <glm/gtx/component_wise.hpp>
 
 #include <psp/psp.h>
 #include <numeric>
+#include <optional>
 
 using Triangle_ID = size_t;
 
 static glm::vec3 const dirvec[6] = { {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1} };
+static glm::vec3 const projector_vec[6] = { {0, 1, 1}, {0, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 0}, {1, 1, 0} };
+static glm::ivec2 const selector_vec[6] = { {1, 2}, {1, 2}, {0, 2}, {0, 2}, {0, 1}, {0, 1} };
 
 struct Chart {
     int direction;
@@ -176,7 +181,7 @@ static void assign_debug_vertex_colors(PSP::Mesh &mesh, std::vector<Chart> const
     }
 }
 
-static void chart(PSP::Mesh &mesh) {
+static std::vector<Chart> chart(PSP::Mesh &mesh) {
     auto charts = find_charts(mesh);
     std::sort(charts.begin(), charts.end(), [&](Chart const &lhs, Chart const &rhs) -> bool {
         return lhs.triangles.size() < rhs.triangles.size();
@@ -184,13 +189,81 @@ static void chart(PSP::Mesh &mesh) {
 
     assign_debug_vertex_colors(mesh, charts);
 
-    // PLACEHOLDER: fill UVs with zeros
-    std::transform(mesh.position.begin(), mesh.position.end(), std::back_inserter(mesh.uv), [&](auto) { return glm::vec2(0, 0); });
+    return charts;
+}
+
+static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
+    std::vector<std::optional<glm::vec2>> uv_tmp;
+    uv_tmp.resize(mesh.position.size());
+
+    for (auto &chart : charts) {
+        glm::vec2 min(FLT_MAX, FLT_MAX);
+        glm::vec2 max(FLT_MIN, FLT_MIN);
+
+        assert(chart.direction < projectorvec.size());
+
+        // Project the vertices in the current chart to a plane.
+        // This plane's normal is the vector pointing in the direction of the chart.
+        //
+        // Resulting vectors are still in model space.
+        auto proj = projector_vec[chart.direction];
+        for (auto tri : chart.triangles) {
+            auto baseVtxIdx = tri * 3;
+            // per-component multiplication
+            for (int v = 0; v < 3; v++) {
+                auto vtxIdx = mesh.elements[baseVtxIdx + v];
+
+                if (uv_tmp[vtxIdx].has_value()) {
+                    continue;
+                }
+
+                auto p = mesh.position[vtxIdx] * proj;
+
+                for (int c = 0; c < 3; c++) {
+                }
+
+                glm::vec2 uv;
+                for (int idx2 = 0; idx2 < 2; idx2++) {
+                    auto idx3 = selector_vec[chart.direction][idx2];
+                    min[idx2] = glm::min(min[idx2], p[idx3]);
+                    max[idx2] = glm::max(max[idx2], p[idx3]);
+                    uv[idx2] = p[idx3];
+                }
+                uv_tmp[vtxIdx] = uv;
+            }
+        }
+
+        // After we have all the UV coords in model space, we map them to normalized chart space.
+        // UV' = (UV + min) / (max - min)
+        for (auto tri : chart.triangles) {
+            auto baseVtxIdx = tri * 3;
+            // per-component multiplication
+            for (int v = 0; v < 3; v++) {
+                auto vtxIdx = mesh.elements[baseVtxIdx + v];
+                assert(uv_tmp[vtxIdx].has_value());
+
+                auto &uv = uv_tmp[vtxIdx].value();
+
+                uv = (uv + min) / (max - min);
+
+                assert(0.0f <= uv[0] && uv[0] <= 1.0f);
+                assert(0.0f <= uv[1] && uv[1] <= 1.0f);
+            }
+        }
+    }
+
+    assert(uv_tmp.size() == mesh.position.size());
+    mesh.uv.resize(uv_tmp.size());
+    for (size_t i = 0; i < uv_tmp.size(); i++) {
+        assert(uv_tmp[i].has_value());
+        mesh.uv[i] = uv_tmp[i].value();
+    }
 }
 
 int PSP::paint(/* out */ Material &material, /* inout */ Mesh &mesh) {
     // Assign UV coordinates
-    chart(mesh);
+    auto charts = chart(mesh);
+    project_charts(mesh, charts);
     // Setup particle system
     // Simulate particles:
     //  - calculate next position based on velocity
