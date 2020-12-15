@@ -14,7 +14,6 @@
 #include <unordered_map>
 #include <thread>
 #include <algorithm>
-#include <execution>
 #include <optional>
 #include <queue>
 #include <functional>
