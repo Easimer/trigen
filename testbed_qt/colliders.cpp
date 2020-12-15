@@ -246,7 +246,7 @@ public:
         // emit dataUpdated(0);
     }
 
-    void set_value(glm::vec3 const& v) {
+    void set_value(glm::vec3 const& v) override {
         value = v;
     }
 
@@ -301,7 +301,7 @@ public:
 
     void set_value(float const*) noexcept override {}
 
-    float evaluate() {
+    float evaluate() override {
         return 10000;
     }
 

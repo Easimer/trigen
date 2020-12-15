@@ -109,7 +109,7 @@ namespace sb {
 
     class ISerializer {
     public:
-        virtual ~ISerializer() {}
+        virtual ~ISerializer() = default;
 
         virtual size_t write(void const* ptr, size_t size) = 0;
         virtual void seek_to(size_t file_point) = 0;

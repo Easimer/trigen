@@ -18,7 +18,7 @@ public:
         assert(this->f != NULL);
     }
 
-    virtual ~Stdio_Serializer() {
+    ~Stdio_Serializer() override {
         if(f != NULL) {
             fclose(f);
         }
@@ -28,15 +28,15 @@ public:
         return fwrite(ptr, 1, size, f);
     }
 
-    void seek_to(size_t fp) {
+    void seek_to(size_t fp) override {
         fseek(f, fp, SEEK_SET);
     }
 
-    void seek(int off) {
+    void seek(int off) override {
         fseek(f, off, SEEK_CUR);
     }
 
-    size_t tell() {
+    size_t tell() override {
         return ftell(f);
     }
 

@@ -13,7 +13,7 @@ public:
         return m_v;
     }
 
-    void set_value(glm::vec3 const& v) {
+    void set_value(glm::vec3 const& v) override {
         m_v = v;
     }
 

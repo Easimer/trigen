@@ -3,8 +3,6 @@
 // Purpose: intersection algorithms
 //
 
-#pragma once
-
 #include "intersection.h"
 
 namespace intersect {
