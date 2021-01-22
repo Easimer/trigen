@@ -1,6 +1,6 @@
 set(SRC
     stdafx.h
-    tiny_obj_loader.h
+    ../public/tiny_obj_loader.h
     objscan.cpp
     ../public/objscan.h
 
