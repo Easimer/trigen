@@ -257,6 +257,29 @@ namespace sb {
         virtual Unique_Ptr<Relation_Iterator> get_parental_relations() = 0;
     };
 
+    // Mesh collider descriptor
+    struct Mesh_Collider {
+        // Number of triangles in this mesh.
+        // The number of elements in the index buffer should be three
+        // times this number.
+        size_t triangle_count;
+
+        // Size of an element in the index buffer in bytes.
+        // If the indices are stored as uint32_t's, then this would be 4 and so on.
+        int index_buffer_element_size;
+        // Pointer to the index buffer.
+        void *indices;
+
+        // Number of elements in the vertex buffer.
+        // This should be at least `max(indices)+1`.
+        size_t vertex_count;
+        // Pointer to the vertex buffer.
+        // Assumed to be in the following format: XYZ XYZ XYZ
+        float *vertices;
+
+        glm::mat4 transform;
+    };
+
     class ISoftbody_Simulation {
     public:
         virtual ~ISoftbody_Simulation() {}
@@ -303,6 +326,10 @@ namespace sb {
         // @param callback Pointer to the function that will be called.
         // @param user A user supplied pointer that will be passed to the callback function.
         virtual void debug_message_callback(Debug_Proc callback, void* user) = 0;
+
+        virtual bool add_collider(
+            Collider_Handle &out_handle,
+            Mesh_Collider const *mesh) = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration, Debug_Proc dbg_msg_cb = nullptr, void* dbg_msg_user = nullptr);

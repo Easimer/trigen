@@ -16,6 +16,11 @@
 #include <thread>
 #include <objscan.h>
 
+// NOTE: we don't need this define because the static library 'objscan' already
+// contains an implementation.
+// #define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
 #define BIND_DATA_DBLSPINBOX(data, Data_Type, field, elem)                                                  \
     connect(                                                                                                \
         &data, &Data_Type::field##_changed,                                                                 \
@@ -219,7 +224,11 @@ Window_Main::Window_Main(QWidget* parent) :
     });
 
     connect(sim_control->btnLoadObj, &QPushButton::released, [&]() {
-        try_load_mesh();
+        try_load_mesh_into_simulation();
+    });
+
+    connect(sim_control->btnLoadObjColl, &QPushButton::released, [&]() {
+        try_load_mesh_collider();
     });
 }
 
@@ -317,7 +326,18 @@ void Window_Main::on_debug_output(sb::Debug_Message_Source src, sb::Debug_Messag
     sim_control->simOutput->setPlainText(newOutput);
 }
 
-void Window_Main::try_load_mesh() {
+bool Window_Main::ask_user_for_path_to_mesh(QByteArray &out_path) {
+    auto path = QFileDialog::getOpenFileName(this, tr("Load an *.obj file into the simulator"), QString(), "Wavefront mesh (*.obj);;All files (*.*)");
+
+    if (path.isEmpty()) {
+        return false;
+    }
+
+    out_path = path.toLocal8Bit();
+    return true;
+}
+
+void Window_Main::try_load_mesh_into_simulation() {
     if (simulation == nullptr) {
         QMessageBox(QMessageBox::Icon::Critical, "Error", "No simulation!").exec();
         return;
@@ -328,13 +348,10 @@ void Window_Main::try_load_mesh() {
         return;
     }
 
-    auto path = QFileDialog::getOpenFileName(this, tr("Load an *.obj file into the simulator"), QString(), "Wavefront mesh (*.obj);;All files (*.*)");
-
-    if (path.isEmpty()) {
+    QByteArray path_arr;
+    if (!ask_user_for_path_to_mesh(path_arr)) {
         return;
     }
-
-    auto path_arr = path.toLocal8Bit();
 
     objscan_extra ex;
     // TODO(danielm): users should be able to set this
@@ -353,4 +370,59 @@ void Window_Main::try_load_mesh() {
     }
 
     objscan_free_result(&res);
+}
+
+void Window_Main::try_load_mesh_collider() {
+    if (simulation == nullptr) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error", "No simulation!").exec();
+        return;
+    }
+
+    if (conn_sim_step.has_value()) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error", "Simulation is already in progress!").exec();
+        return;
+    }
+
+    QByteArray path_arr;
+    if (!ask_user_for_path_to_mesh(path_arr)) {
+        return;
+    }
+
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+    
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path_arr)) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error loading mesh", err.c_str()).exec();
+        return;
+    }
+
+    glm::mat4 transform(1.0f);
+
+    for (auto &shape : shapes) {
+        auto &indices = shape.mesh.indices;
+        auto N = indices.size() / 3;
+
+        sb::Mesh_Collider coll;
+
+        coll.triangle_count = N;
+        coll.index_buffer_element_size = sizeof(indices[0].vertex_index);
+
+        // need to copy the vertex indices because they are in a AoS layout
+        // but we need a contiguous integer array
+        std::vector<uint64_t> vertex_indices;
+        for (auto &index : indices) {
+            vertex_indices.push_back((uint64_t)index.vertex_index);
+        }
+        coll.indices = vertex_indices.data();
+
+        coll.vertex_count = attrib.vertices.size();
+        coll.vertices = (float*)attrib.vertices.data();
+
+        sb::ISoftbody_Simulation::Collider_Handle handle;
+        simulation->add_collider(handle, &coll);
+        // TODO(danielm): store this handle and the mesh as well so we can
+        // display it in the viewport
+    }
 }

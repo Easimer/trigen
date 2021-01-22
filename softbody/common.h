@@ -85,7 +85,17 @@ struct System_State {
         sb::sdf::ast::Sample_Point* sp;
     };
 
+    struct Mesh_Collider_Slot {
+        bool used;
+
+        glm::mat4 transform;
+        size_t triangle_count;
+        Vector<uint32_t> indices;
+        Vector<Vec3> vertices;
+    };
+
     Vector<SDF_Slot> colliders_sdf;
+    Vector<Mesh_Collider_Slot> colliders_mesh;
     Vector<Collision_Constraint> collision_constraints;
 
     // For debug visualization only
@@ -102,3 +112,27 @@ public:
 
     virtual void log(sb::Debug_Message_Source s, sb::Debug_Message_Type t, sb::Debug_Message_Severity l, char const* fmt, ...) = 0;
 };
+
+enum class Collider_Handle_Kind {
+    SDF = 0,
+    Mesh,
+    Max
+};
+
+
+static sb::ISoftbody_Simulation::Collider_Handle make_collider_handle(Collider_Handle_Kind kind, size_t index) {
+    sb::ISoftbody_Simulation::Collider_Handle ret = 0;
+    static_assert(sizeof(ret) == 8);
+    assert((index & 0xF000'0000'0000'0000) == 0);
+    assert((int)kind < 256);
+    auto kindNibble = (size_t)kind;
+    // Encode the type of the handle in the most significant nibble
+    return (index & 0x0FFF'FFFF'FFFF'FFFF) | (kindNibble << 60);
+}
+
+static void decode_collider_handle(sb::ISoftbody_Simulation::Collider_Handle handle, Collider_Handle_Kind &kind, size_t &index) {
+    auto kindNibble = (handle >> 60) & 0x0F;
+    assert(kindNibble >= 0 && kindNibble < (int)Collider_Handle_Kind::Max);
+    kind = (Collider_Handle_Kind)kindNibble;
+    index = (handle & 0x0FFF'FFFF'FFFF'FFFF);
+}

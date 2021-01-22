@@ -19,6 +19,44 @@
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
+// TODO(danielm): duplicate of the implementation in objscan!!!
+static bool intersect_ray_triangle(
+    glm::vec3 &xp, float &t,
+    glm::vec3 const &origin, glm::vec3 const &dir,
+    glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2
+) {
+    auto edge1 = v2 - v0;
+    auto edge0 = v1 - v0;
+    auto h = cross(dir, edge1);
+    auto a = dot(edge0, h);
+    if (-glm::epsilon<float>() < a && a < glm::epsilon<float>()) {
+        return false;
+    }
+
+    auto f = 1.0f / a;
+    auto s = origin - v0;
+    auto u = f * dot(s, h);
+
+    if (u < 0 || 1 < u) {
+        return false;
+    }
+
+    auto q = cross(s, edge0);
+    auto v = f * dot(dir, q);
+
+    if (v < 0 || u + v > 1) {
+        return false;
+    }
+
+    t = f * dot(edge1, q);
+    if (t <= glm::epsilon<float>()) {
+        return false;
+    }
+
+    xp = origin + t * dir;
+    return true;
+}
+
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
 public:
     Compute_CPU_Single_Threaded(ILogger* logger) : _log(logger) {
@@ -333,6 +371,39 @@ protected:
                     C.pidx = i;
                     collision_constraints.push_back(C);
                 });
+            }
+        }
+
+        for (auto const &coll : s.colliders_mesh) {
+            if (!coll.used) continue;
+
+            for (auto i = 0ull; i < N; i++) {
+                auto const start = s.position[i];
+                auto thru = s.predicted_position[i];
+                auto const dir = thru - start;
+
+                // for every triangle in coll: check intersection
+                for (auto i = 0ull; i < coll.triangle_count; i++) {
+                    auto base = i * 3;
+                    glm::vec3 xp;
+                    float t;
+                    auto &v0 = coll.transform * Vec4(coll.vertices[base + 0], 1);
+                    auto &v1 = coll.transform * Vec4(coll.vertices[base + 1], 1);
+                    auto &v2 = coll.transform * Vec4(coll.vertices[base + 2], 1);
+                    if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2)) {
+                        continue;
+                    }
+                    Collision_Constraint C;
+                    C.intersect = Vec4(xp, 0);
+                    // TODO: ideally we would get normal information from the
+                    // collider mesh
+                    auto l0 = xyz(v0 - v1);
+                    auto l1 = xyz(v0 - v2);
+                    C.normal = Vec4(normalize(cross(l0, l1)), 0);
+                    C.pidx = i;
+
+                    collision_constraints.push_back(C);
+                }
             }
         }
 

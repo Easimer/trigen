@@ -146,10 +146,13 @@ protected slots:
     void reset_simulation();
     void step_simulation();
     void on_extension_changed(QString const& k);
-    void try_load_mesh();
+
+    void try_load_mesh_into_simulation();
+    void try_load_mesh_collider();
 
 private:
     bool is_simulation_running();
+    bool ask_user_for_path_to_mesh(QByteArray &path);
 
     template<typename T>
     void add_collider() {

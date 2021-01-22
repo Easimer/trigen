@@ -136,6 +136,13 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="btnLoadObjColl">
+       <property name="text">
+        <string>Load 3D mesh (collider)</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>

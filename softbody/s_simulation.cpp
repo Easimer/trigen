@@ -204,13 +204,13 @@ bool Softbody_Simulation::add_collider(
     for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
         if (!s.colliders_sdf[i].used) {
             slot = &s.colliders_sdf[i];
-            out_handle = i;
+            out_handle = make_collider_handle(Collider_Handle_Kind::SDF, i);
             break;
         }
     }
 
     if (slot == NULL) {
-        out_handle = s.colliders_sdf.size();
+        out_handle = make_collider_handle(Collider_Handle_Kind::SDF, s.colliders_sdf.size());
         s.colliders_sdf.push_back({});
         slot = &s.colliders_sdf.back();
     }
@@ -225,21 +225,84 @@ bool Softbody_Simulation::add_collider(
 }
 
 bool Softbody_Simulation::remove_collider(Collider_Handle h) {
-    if (h < s.colliders_sdf.size()) {
-        compute->on_collider_removed(s, h);
-        s.colliders_sdf[h].used = false;
-        s.colliders_sdf[h].expr = NULL;
-        s.colliders_sdf[h].sp = NULL;
-        return true;
-    } else {
-        return false;
+    Collider_Handle_Kind kind;
+    size_t index;
+    decode_collider_handle(h, kind, index);
+
+    compute->on_collider_removed(s, h);
+
+    switch (kind) {
+    case Collider_Handle_Kind::SDF:
+    {
+        if (index < s.colliders_sdf.size()) {
+            s.colliders_sdf[index].used = false;
+            s.colliders_sdf[index].expr = NULL;
+            s.colliders_sdf[index].sp = NULL;
+            return true;
+        } else {
+            return false;
+        }
+        break;
     }
+    case Collider_Handle_Kind::Mesh:
+    {
+        if (index < s.colliders_mesh.size()) {
+            s.colliders_mesh[index].used = false;
+            return true;
+        } else {
+            return false;
+        }
+        break;
+    }
+    default:
+        assert(!"Unhandled collider handle kind!");
+        break;
+    }
+
+    return false;
 }
 
 void Softbody_Simulation::collider_changed(Collider_Handle h) {
-    if(h < s.colliders_sdf.size() || s.colliders_sdf[h].used) {
-        compute->on_collider_changed(s, h);
+    Collider_Handle_Kind kind;
+    size_t index;
+    decode_collider_handle(h, kind, index);
+
+    if (kind == Collider_Handle_Kind::SDF) {
+        if (index < s.colliders_sdf.size() || s.colliders_sdf[index].used) {
+            compute->on_collider_changed(s, h);
+        }
     }
+}
+
+bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Collider const *mesh) {
+    assert(mesh != NULL);
+    if (mesh == NULL || mesh->indices == NULL || mesh->vertices == NULL || mesh->triangle_count == 0) {
+        return false;
+    }
+
+    // Allocate slot
+    System_State::Mesh_Collider_Slot* slot = NULL;
+    // Look for an unused slot
+    for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
+        if (!s.colliders_mesh[i].used) {
+            slot = &s.colliders_mesh[i];
+            out_handle = make_collider_handle(Collider_Handle_Kind::Mesh, i);
+            break;
+        }
+    }
+
+    if (slot == NULL) {
+        // Create new slot
+        out_handle = make_collider_handle(Collider_Handle_Kind::Mesh, s.colliders_mesh.size());
+        s.colliders_mesh.push_back({});
+        slot = &s.colliders_mesh.back();
+    }
+
+    slot->used = true;
+
+    compute->on_collider_added(s, out_handle);
+
+    return true;
 }
 
 index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
