@@ -387,9 +387,9 @@ protected:
                     auto base = i * 3;
                     glm::vec3 xp;
                     float t;
-                    auto &v0 = coll.transform * Vec4(coll.vertices[base + 0], 1);
-                    auto &v1 = coll.transform * Vec4(coll.vertices[base + 1], 1);
-                    auto &v2 = coll.transform * Vec4(coll.vertices[base + 2], 1);
+                    auto v0 = coll.transform * Vec4(coll.vertices[base + 0], 1);
+                    auto v1 = coll.transform * Vec4(coll.vertices[base + 1], 1);
+                    auto v2 = coll.transform * Vec4(coll.vertices[base + 2], 1);
                     if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2)) {
                         continue;
                     }
