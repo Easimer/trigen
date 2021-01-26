@@ -177,7 +177,8 @@ Window_Main::Window_Main(QWidget* parent) :
     sim_cfg.extra.ptr = nullptr;
     
     // Not settable from UI
-    sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
+    // sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
+    sim_cfg.compute_preference = sb::Compute_Preference::Reference;
 
     connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
         stop_simulation();
@@ -406,8 +407,8 @@ void Window_Main::try_load_mesh_collider() {
 
         sb::Mesh_Collider coll;
 
+        coll.transform = Mat4(1.0f);
         coll.triangle_count = N;
-        coll.index_buffer_element_size = sizeof(indices[0].vertex_index);
 
         // need to copy the vertex indices because they are in a AoS layout
         // but we need a contiguous integer array
@@ -417,8 +418,9 @@ void Window_Main::try_load_mesh_collider() {
         }
         coll.indices = vertex_indices.data();
 
-        coll.vertex_count = attrib.vertices.size();
-        coll.vertices = (float*)attrib.vertices.data();
+        coll.position_count = attrib.vertices.size();
+        coll.positions = (float*)attrib.vertices.data();
+        coll.normals = (float*)attrib.normals.data();
 
         sb::ISoftbody_Simulation::Collider_Handle handle;
         simulation->add_collider(handle, &coll);

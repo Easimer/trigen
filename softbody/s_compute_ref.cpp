@@ -387,19 +387,28 @@ protected:
                     auto base = i * 3;
                     glm::vec3 xp;
                     float t;
-                    auto v0 = coll.transform * Vec4(coll.vertices[base + 0], 1);
-                    auto v1 = coll.transform * Vec4(coll.vertices[base + 1], 1);
-                    auto v2 = coll.transform * Vec4(coll.vertices[base + 2], 1);
-                    if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2)) {
+                    // TODO(danielm): these matrix vector products could be cached
+                    auto i0 = coll.indices[base + 0];
+                    auto i1 = coll.indices[base + 1];
+                    auto i2 = coll.indices[base + 2];
+                    auto v0 = coll.transform * Vec4(coll.vertices[i0], 1);
+                    auto v1 = coll.transform * Vec4(coll.vertices[i1], 1);
+                    auto v2 = coll.transform * Vec4(coll.vertices[i2], 1);
+                    if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2) || t > 1) {
                         continue;
                     }
                     Collision_Constraint C;
                     C.intersect = Vec4(xp, 0);
                     // TODO: ideally we would get normal information from the
                     // collider mesh
-                    auto l0 = xyz(v0 - v1);
-                    auto l1 = xyz(v0 - v2);
-                    C.normal = Vec4(normalize(cross(l0, l1)), 0);
+                    // NOTE: we could either calculate both surface normals of
+                    // the triangle and choose between them based on the
+                    // thru -> start vector, or require the client code to
+                    // supply to us all surface normals from the mesh.
+                    auto n0 = coll.normals[i0];
+                    auto n1 = coll.normals[i1];
+                    auto n2 = coll.normals[i2];
+                    C.normal = Vec4(normalize(n0 + n1 + n2), 1);
                     C.pidx = i;
 
                     collision_constraints.push_back(C);

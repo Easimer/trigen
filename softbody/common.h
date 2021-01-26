@@ -88,10 +88,11 @@ struct System_State {
     struct Mesh_Collider_Slot {
         bool used;
 
-        glm::mat4 transform;
+        Mat4 transform;
         size_t triangle_count;
-        Vector<uint32_t> indices;
+        Vector<uint64_t> indices;
         Vector<Vec3> vertices;
+        Vector<Vec3> normals;
     };
 
     Vector<SDF_Slot> colliders_sdf;

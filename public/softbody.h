@@ -264,18 +264,18 @@ namespace sb {
         // times this number.
         size_t triangle_count;
 
-        // Size of an element in the index buffer in bytes.
-        // If the indices are stored as uint32_t's, then this would be 4 and so on.
-        int index_buffer_element_size;
         // Pointer to the index buffer.
-        void *indices;
+        uint64_t *indices;
 
-        // Number of elements in the vertex buffer.
+        // Number of elements in the position buffer.
         // This should be at least `max(indices)+1`.
-        size_t vertex_count;
-        // Pointer to the vertex buffer.
+        size_t position_count;
+        // Pointer to the position vector buffer.
         // Assumed to be in the following format: XYZ XYZ XYZ
-        float *vertices;
+        float *positions;
+        // Pointer to the normal vector buffer.
+        // Assumed to be in the following format: XYZ XYZ XYZ
+        float *normals;
 
         glm::mat4 transform;
     };

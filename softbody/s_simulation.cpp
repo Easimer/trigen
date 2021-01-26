@@ -276,14 +276,14 @@ void Softbody_Simulation::collider_changed(Collider_Handle h) {
 
 bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Collider const *mesh) {
     assert(mesh != NULL);
-    if (mesh == NULL || mesh->indices == NULL || mesh->vertices == NULL || mesh->triangle_count == 0) {
+    if (mesh == NULL || mesh->indices == NULL || mesh->positions == NULL || mesh->triangle_count == 0) {
         return false;
     }
 
     // Allocate slot
     System_State::Mesh_Collider_Slot* slot = NULL;
     // Look for an unused slot
-    for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
+    for (auto i = 0ull; i < s.colliders_mesh.size(); i++) {
         if (!s.colliders_mesh[i].used) {
             slot = &s.colliders_mesh[i];
             out_handle = make_collider_handle(Collider_Handle_Kind::Mesh, i);
@@ -299,6 +299,24 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     }
 
     slot->used = true;
+    slot->transform = mesh->transform;
+    slot->triangle_count = mesh->triangle_count;
+
+    slot->indices.reserve(mesh->triangle_count * 3);
+    for (auto i = 0ull; i < mesh->triangle_count; i++) {
+        slot->indices.push_back(mesh->indices[i * 3 + 0]);
+        slot->indices.push_back(mesh->indices[i * 3 + 1]);
+        slot->indices.push_back(mesh->indices[i * 3 + 2]);
+    }
+
+    slot->vertices.reserve(mesh->position_count);
+    slot->normals.reserve(mesh->position_count);
+
+    for (auto i = 0ull; i < mesh->position_count; i++) {
+        auto b = i * 3; // base index
+        slot->vertices.push_back(Vec3(mesh->positions[b + 0], mesh->positions[b + 1], mesh->positions[b + 2]));
+        slot->normals.push_back(Vec3(mesh->normals[b + 0], mesh->normals[b + 1], mesh->normals[b + 2]));
+    }
 
     compute->on_collider_added(s, out_handle);
 

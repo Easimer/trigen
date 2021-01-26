@@ -200,7 +200,7 @@ static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         glm::vec2 min(FLT_MAX, FLT_MAX);
         glm::vec2 max(FLT_MIN, FLT_MIN);
 
-        assert(chart.direction < projectorvec.size());
+        assert(chart.direction < sizeof(projector_vec) / sizeof(projector_vec[0]));
 
         // Project the vertices in the current chart to a plane.
         // This plane's normal is the vector pointing in the direction of the chart.
