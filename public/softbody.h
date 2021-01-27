@@ -280,6 +280,31 @@ namespace sb {
         glm::mat4 transform;
     };
 
+    class IDebug_Visualizer {
+    public:
+        virtual ~IDebug_Visualizer() = default;
+
+        virtual void new_frame() = 0;
+        virtual void draw_line(glm::vec3 start, glm::vec3 end) = 0;
+
+        /*
+         * Draw a ray-triangle intersection.
+         *
+         * @param start Ray origin
+         * @param thru A point the ray goes through
+         * @param xp Intersection point
+         * @param v0 1st vertex of the triangle hit
+         * @param v1 2nd vertex of the triangle hit
+         * @param v2 3rd vertex of the triangle hit
+         * @param normal Surface normal of the triangle
+         */
+        virtual void draw_intersection(
+            glm::vec3 const &start, glm::vec3 const &thru,
+            glm::vec3 const &xp,
+            glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2,
+            glm::vec3 const &normal) = 0;
+    };
+
     class ISoftbody_Simulation {
     public:
         virtual ~ISoftbody_Simulation() {}
@@ -330,6 +355,8 @@ namespace sb {
         virtual bool add_collider(
             Collider_Handle &out_handle,
             Mesh_Collider const *mesh) = 0;
+
+        virtual void set_debug_visualizer(IDebug_Visualizer *pVisualizer) = 0;
     };
 
     Unique_Ptr<ISoftbody_Simulation> create_simulation(Config const& configuration, Debug_Proc dbg_msg_cb = nullptr, void* dbg_msg_user = nullptr);

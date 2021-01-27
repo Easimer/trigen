@@ -60,18 +60,33 @@ namespace gfx {
             m_commands.push_back(cmd);
         }
 
-        void execute(IRenderer* renderer) {
+        void clear() {
+            m_commands.clear();
+            m_arena.clear();
+        }
+
+        void execute(IRenderer* renderer, bool do_clear = true) {
             for (auto& cmd : m_commands) {
                 cmd->execute(renderer);
             }
             for (auto& cmd : m_commands) {
                 cmd->release();
             }
-            m_commands.clear();
-            m_arena.clear();
+
+            if (do_clear) {
+                clear();
+            }
         }
     private:
         std::vector<IRender_Command*> m_commands;
         Render_Command_Arena m_arena;
     };
+
+    template<typename T, class ... Arg>
+    T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
+        auto cmd = rq->allocate<T>();
+        new(cmd) T(args...);
+        rq->push(cmd);
+        return cmd;
+    }
 }

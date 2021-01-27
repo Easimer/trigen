@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>338</width>
-    <height>109</height>
+    <width>463</width>
+    <height>242</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -160,11 +160,21 @@
      <item>
       <widget class="QPlainTextEdit" name="simOutput">
        <property name="readOnly">
-        <bool>1</bool>
+        <bool>false</bool>
        </property>
       </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="chkDrawDebugVis">
+     <property name="text">
+      <string>Draw debug visualization</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>

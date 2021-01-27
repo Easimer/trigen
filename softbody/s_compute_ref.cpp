@@ -57,6 +57,15 @@ static bool intersect_ray_triangle(
     return true;
 }
 
+// Macro that only executes `expr` if we're doing a debug build and visualizer
+// is not null
+#if NDEBUG
+#define CHECK_VISUALIZER_PRESENT_DEBUG(expr)
+#else
+#define CHECK_VISUALIZER_PRESENT_DEBUG(expr) \
+if(_visualizer != nullptr) expr;
+#endif
+
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
 public:
     Compute_CPU_Single_Threaded(ILogger* logger) : _log(logger) {
@@ -73,7 +82,13 @@ protected:
         return s.position.size();
     }
 
-    void begin_new_frame(System_State const& sim) override {}
+    void begin_new_frame(System_State const& sim) override {
+        CHECK_VISUALIZER_PRESENT_DEBUG(_visualizer->new_frame());
+    }
+
+    void set_debug_visualizer(sb::IDebug_Visualizer *visualizer) override {
+        _visualizer = visualizer;
+    }
 
     void velocity_damping(System_State& s, float dt) {
         auto N = particle_count(s);
@@ -408,12 +423,19 @@ protected:
                     auto n0 = coll.normals[i0];
                     auto n1 = coll.normals[i1];
                     auto n2 = coll.normals[i2];
-                    C.normal = Vec4(normalize(n0 + n1 + n2), 1);
+                    C.normal = Vec4(normalize(n0 + n1 + n2), 0);
                     C.pidx = i;
 
                     collision_constraints.push_back(C);
+
+                    CHECK_VISUALIZER_PRESENT_DEBUG(_visualizer->draw_intersection(start, thru, xp, v0, v1, v2, C.normal));
                 }
             }
+        }
+
+        for (auto &C : collision_constraints) {
+            auto start = C.intersect;
+            auto end = start + C.normal;
         }
 
         END_BENCHMARK();
@@ -428,8 +450,7 @@ protected:
             auto w = 1 / mass_of_particle(s, C.pidx);
             auto dir = p - C.intersect;
             auto d = dot(dir, C.normal);
-            // if (d < 0) {
-            {
+            if (d < 0) {
                 auto sf = d / w;
 
                 auto corr = -sf * w * C.normal;
@@ -444,7 +465,8 @@ protected:
     }
 
 protected:
-    ILogger* _log;
+    ILogger *_log;
+    sb::IDebug_Visualizer *_visualizer;
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend(ILogger* logger) {

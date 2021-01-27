@@ -42,6 +42,12 @@
     deferred.push_back(std::move(lambda));   \
 }
 
+#if NDEBUG
+#define ON_DEBUG(expr)
+#else
+#define ON_DEBUG(expr) expr
+#endif
+
 template<unsigned Order, typename T>
 struct Cache_Table {
     constexpr static unsigned Size = 1 << Order;
@@ -591,6 +597,12 @@ void Softbody_Simulation::step(float delta_time) {
 
     END_BENCHMARK();
     PRINT_BENCHMARK_RESULT(this);
+}
+
+void Softbody_Simulation::set_debug_visualizer(sb::IDebug_Visualizer *pVisualizer) {
+    m_pVisualizer = pVisualizer;
+    
+    compute->set_debug_visualizer(pVisualizer);
 }
 
 class Single_Step_State : public sb::ISingle_Step_State {

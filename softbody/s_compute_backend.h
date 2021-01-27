@@ -14,6 +14,8 @@ class ICompute_Backend {
 public:
     virtual ~ICompute_Backend() = default;
 
+    virtual void set_debug_visualizer(sb::IDebug_Visualizer *pVisualizer) {}
+
     virtual void begin_new_frame(System_State const& sim) = 0;
     virtual void end_frame(System_State const& sim) {}
 

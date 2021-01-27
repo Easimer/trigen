@@ -37,6 +37,9 @@ set(SRC
     model_export.h
     model_export_fbx.cpp
 
+    debug_visualizer.cpp
+    debug_visualizer.h
+
     resources.qrc
 )
 

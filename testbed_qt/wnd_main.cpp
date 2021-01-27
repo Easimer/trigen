@@ -112,6 +112,7 @@ Window_Main::Window_Main(QWidget* parent) :
     setCentralWidget(splitter.get());
 
     viewport = gl_viewport;
+    dbg_visualizer = make_debug_visualizer();
     viewport->set_render_queue_filler([this](gfx::Render_Queue* rq) { render_world(rq); });
 
     // Resize the window so that the GL viewport is visible by default
@@ -245,6 +246,11 @@ void Window_Main::start_simulation() {
 void Window_Main::render_world(gfx::Render_Queue* rq) {
     assert(rq != NULL);
     render_softbody_simulation(rq, simulation.get(), render_params);
+
+    if (sim_control->chkDrawDebugVis->isChecked()) {
+        gfx::allocate_command_and_initialize<Subqueue_Render_Command>(rq, dbg_visualizer.get());
+    }
+
     emit render(rq);
 }
 
@@ -262,6 +268,7 @@ void Window_Main::reset_simulation() {
     collider_builder->get_ast(&expr, &sp);
     sb::ISoftbody_Simulation::Collider_Handle h;
     simulation->add_collider(h, expr, sp);
+    simulation->set_debug_visualizer(dbg_visualizer.get());
 }
 
 void Window_Main::step_simulation() {

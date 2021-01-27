@@ -72,6 +72,8 @@ public:
     bool save_image(sb::ISerializer* serializer) override;
     bool load_image(sb::IDeserializer* deserializer) override;
 
+    void set_debug_visualizer(sb::IDebug_Visualizer *pVisualizer) override;
+
     ISimulation_Extension* create_extension(sb::Extension ext, sb::Config const& config);
 
     // Add a new particle to the simulation
@@ -104,6 +106,7 @@ public:
     bool assert_init;
     Vec3 light_source = Vec3(0, 0, 0);
     sb::Config params;
+    sb::IDebug_Visualizer *m_pVisualizer;
 
     // Stores functions whose execution has been deferred until after the parallelized
     // part

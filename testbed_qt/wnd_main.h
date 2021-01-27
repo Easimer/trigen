@@ -19,6 +19,7 @@
 #include "softbody.h"
 #include "softbody_renderer.h"
 #include "colliders.h"
+#include "debug_visualizer.h"
 
 /*
  * Wraps a glm::vec3 in a Qt object by reference.
@@ -178,6 +179,7 @@ private:
 
     QMap<QString, sb::Extension> extensions;
 
+    Unique_Ptr<ITestbed_Debug_Visualizer> dbg_visualizer;
     Softbody_Render_Parameters render_params;
 
     Unique_Ptr<Collider_Builder_Widget> collider_builder;
