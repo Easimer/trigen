@@ -21,6 +21,8 @@
 #include "colliders.h"
 #include "debug_visualizer.h"
 
+#include "vm_main.h"
+
 /*
  * Wraps a glm::vec3 in a Qt object by reference.
  */
@@ -162,6 +164,7 @@ private:
     }
 
 private:
+    Unique_Ptr<IViewmodel_Main> model;
     QTimer render_timer;
     Unique_Ptr<QSplitter> splitter;
     GLViewport* viewport; // owned by splitter

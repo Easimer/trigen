@@ -17,3 +17,4 @@ struct Softbody_Render_Parameters {
 };
 
 bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params);
+void render_mesh_collider(gfx::Render_Queue *rq, sb::Mesh_Collider const *mesh);

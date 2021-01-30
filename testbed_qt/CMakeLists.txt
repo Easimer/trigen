@@ -40,6 +40,9 @@ set(SRC
     debug_visualizer.cpp
     debug_visualizer.h
 
+    vm_main.cpp
+    vm_main.h
+
     resources.qrc
 )
 

@@ -16,11 +16,6 @@
 #include <thread>
 #include <objscan.h>
 
-// NOTE: we don't need this define because the static library 'objscan' already
-// contains an implementation.
-// #define TINYOBJLOADER_IMPLEMENTATION
-#include <tiny_obj_loader.h>
-
 #define BIND_DATA_DBLSPINBOX(data, Data_Type, field, elem)                                                  \
     connect(                                                                                                \
         &data, &Data_Type::field##_changed,                                                                 \
@@ -263,6 +258,7 @@ void Window_Main::stop_simulation() {
 
 void Window_Main::reset_simulation() {
     simulation = sb::create_simulation(sim_cfg, sb_msg_callback, this);
+    model = make_viewmodel_main(simulation.get());
     sb::sdf::ast::Expression<float>* expr;
     sb::sdf::ast::Sample_Point* sp;
     collider_builder->get_ast(&expr, &sp);
@@ -396,47 +392,8 @@ void Window_Main::try_load_mesh_collider() {
         return;
     }
 
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-    
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path_arr)) {
-        QMessageBox(QMessageBox::Icon::Critical, "Error loading mesh", err.c_str()).exec();
-        return;
-    }
-
-    glm::mat4 transform(1.0f);
-
-    for (auto &shape : shapes) {
-        auto &indices = shape.mesh.indices;
-        auto N = indices.size() / 3;
-
-        sb::Mesh_Collider coll;
-
-        coll.transform = Mat4(1.0f);
-        coll.triangle_count = N;
-
-        // need to copy the vertex indices because they are in a AoS layout
-        // but we need a contiguous integer array
-        std::vector<uint64_t> vertex_indices;
-        std::vector<uint64_t> normal_indices;
-        for (auto &index : indices) {
-            vertex_indices.push_back((uint64_t)index.vertex_index);
-            normal_indices.push_back((uint64_t)index.normal_index);
-        }
-        coll.vertex_indices = vertex_indices.data();
-        coll.normal_indices = normal_indices.data();
-
-        coll.position_count = attrib.vertices.size();
-        coll.positions = (float*)attrib.vertices.data();
-
-        coll.normal_count = attrib.normals.size();
-        coll.normals = (float*)attrib.normals.data();
-
-        sb::ISoftbody_Simulation::Collider_Handle handle;
-        simulation->add_collider(handle, &coll);
-        // TODO(danielm): store this handle and the mesh as well so we can
-        // display it in the viewport
+    std::string err_msg;
+    if (!model->add_mesh_collider(path_arr, err_msg)) {
+        QMessageBox(QMessageBox::Icon::Critical, "Error loading mesh", err_msg.c_str()).exec();
     }
 }
