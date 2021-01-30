@@ -34,6 +34,8 @@ public:
     Viewmodel_Main(sb::ISoftbody_Simulation *sim) : _simulation(sim) {
     }
 
+    ~Viewmodel_Main() override = default;
+
 private:
     bool add_mesh_collider(char const *path, std::string &err_msg) override {
         std::string warn, err;

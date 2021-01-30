@@ -9,6 +9,8 @@
 
 class IViewmodel_Main {
 public:
+    virtual ~IViewmodel_Main() = default;
+
     virtual bool add_mesh_collider(char const *path, std::string &err_msg) = 0;
 
     virtual int num_mesh_colliders() = 0;
