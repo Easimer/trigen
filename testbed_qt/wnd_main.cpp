@@ -242,6 +242,16 @@ void Window_Main::render_world(gfx::Render_Queue* rq) {
     assert(rq != NULL);
     render_softbody_simulation(rq, simulation.get(), render_params);
 
+    if (model != nullptr) {
+        // Iterate over mesh colliders and render them
+        for (int collider_idx = 0; collider_idx < model->num_mesh_colliders(); collider_idx++) {
+            sb::Mesh_Collider coll;
+            if (model->mesh_collider(&coll, collider_idx)) {
+                render_mesh_collider(rq, &coll);
+            }
+        }
+    }
+
     if (sim_control->chkDrawDebugVis->isChecked()) {
         gfx::allocate_command_and_initialize<Subqueue_Render_Command>(rq, dbg_visualizer.get());
     }
