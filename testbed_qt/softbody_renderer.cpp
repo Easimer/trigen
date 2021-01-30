@@ -8,9 +8,9 @@
 #include <vector>
 #include "softbody_renderer.h"
 
-class Command_Render_Points : public gfx::IRender_Command {
+class Render_Points : public gfx::IRender_Command {
 public:
-    Command_Render_Points(sb::ISoftbody_Simulation* sim) : sim(sim) {}
+    Render_Points(sb::ISoftbody_Simulation* sim) : sim(sim) {}
 private:
     sb::ISoftbody_Simulation* sim;
     virtual void execute(gfx::IRenderer* renderer) override {
@@ -28,9 +28,9 @@ private:
     }
 };
 
-class Command_Render_Particles : public gfx::IRender_Command {
+class Render_Particles : public gfx::IRender_Command {
 public:
-    Command_Render_Particles(sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params) : sim(sim), params(params) {}
+    Render_Particles(sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params) : sim(sim), params(params) {}
 private:
     Softbody_Render_Parameters const params;
     sb::ISoftbody_Simulation* sim;
@@ -175,8 +175,8 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
     gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
     if (sim != NULL) {
-        gfx::allocate_command_and_initialize<Command_Render_Points>(rq, sim);
-        gfx::allocate_command_and_initialize<Command_Render_Particles>(rq, sim, params);
+        gfx::allocate_command_and_initialize<Render_Points>(rq, sim);
+        gfx::allocate_command_and_initialize<Render_Particles>(rq, sim, params);
         gfx::allocate_command_and_initialize<Visualize_Connections>(rq, sim);
 
         if (params.draw_bind_pose) {
@@ -187,9 +187,9 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
     return true;
 }
 
-class Command_Render_Mesh_Collider : public gfx::IRender_Command {
+class Render_Mesh_Collider : public gfx::IRender_Command {
 public:
-    Command_Render_Mesh_Collider(sb::Mesh_Collider const *mesh) {
+    Render_Mesh_Collider(sb::Mesh_Collider const *mesh) {
         vertices.resize(mesh->position_count);
         auto positions = (std::array<float, 3> *)mesh->positions;
 
@@ -217,5 +217,5 @@ void render_mesh_collider(gfx::Render_Queue *rq, sb::Mesh_Collider const *mesh) 
     assert(rq != NULL);
     assert(mesh != NULL);
 
-    gfx::allocate_command_and_initialize<Command_Render_Mesh_Collider>(rq, mesh);
+    gfx::allocate_command_and_initialize<Render_Mesh_Collider>(rq, mesh);
 }
