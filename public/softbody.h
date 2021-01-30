@@ -264,15 +264,21 @@ namespace sb {
         // times this number.
         size_t triangle_count;
 
-        // Pointer to the index buffer.
-        uint64_t *indices;
+        // Pointer to the vertex index buffer.
+        uint64_t *vertex_indices;
+        // Pointer to the normal index buffer.
+        uint64_t *normal_indices;
 
         // Number of elements in the position buffer.
-        // This should be at least `max(indices)+1`.
+        // This should be at least `max(vertex_indices)+1`.
         size_t position_count;
         // Pointer to the position vector buffer.
         // Assumed to be in the following format: XYZ XYZ XYZ
         float *positions;
+
+        // Number of elements in the normal buffer.
+        // This should be at least `max(normal_indices)+1`.
+        size_t normal_count;
         // Pointer to the normal vector buffer.
         // Assumed to be in the following format: XYZ XYZ XYZ
         float *normals;

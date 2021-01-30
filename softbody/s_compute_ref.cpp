@@ -57,14 +57,26 @@ static bool intersect_ray_triangle(
     return true;
 }
 
-// Macro that only executes `expr` if we're doing a debug build and visualizer
-// is not null
-#if NDEBUG
-#define CHECK_VISUALIZER_PRESENT_DEBUG(expr)
-#else
+static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+    auto base = triangle_index * 3;
+    return {
+        c.vertex_indices[base + 0],
+        c.vertex_indices[base + 1],
+        c.vertex_indices[base + 2]
+    };
+}
+
+static std::array<uint64_t, 3> get_normal_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+    auto base = triangle_index * 3;
+    return {
+        c.normal_indices[base + 0],
+        c.normal_indices[base + 1],
+        c.normal_indices[base + 2]
+    };
+}
+
 #define CHECK_VISUALIZER_PRESENT_DEBUG(expr) \
-if(_visualizer != nullptr) expr;
-#endif
+    if(_visualizer != nullptr) expr;
 
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
 public:
@@ -222,12 +234,10 @@ protected:
             }
 
             s.orientation[i] = s.predicted_orientation[i];
-            // TODO(danielm): friction?
         }
 
         for (auto& C : s.collision_constraints) {
             s.velocity[C.pidx] = Vec4();
-            // TODO(danielm): friction?
         }
     }
 
@@ -384,6 +394,7 @@ protected:
                     C.intersect = intersect;
                     C.normal = normal;
                     C.pidx = i;
+                    C.depth = length(intersect - thru);
                     collision_constraints.push_back(C);
                 });
             }
@@ -398,44 +409,41 @@ protected:
                 auto const dir = thru - start;
 
                 // for every triangle in coll: check intersection
-                for (auto i = 0ull; i < coll.triangle_count; i++) {
-                    auto base = i * 3;
+
+                // TODO(danielm): check each triangle but do a minimum search by
+                // `t` so that we only consider the nearest intersected surf?
+                // cuz rn this may create multiple collision constraints for a
+                // particle
+                for (auto j = 0ull; j < coll.triangle_count; j++) {
+                    auto base = j * 3;
                     glm::vec3 xp;
                     float t;
                     // TODO(danielm): these matrix vector products could be cached
-                    auto i0 = coll.indices[base + 0];
-                    auto i1 = coll.indices[base + 1];
-                    auto i2 = coll.indices[base + 2];
-                    auto v0 = coll.transform * Vec4(coll.vertices[i0], 1);
-                    auto v1 = coll.transform * Vec4(coll.vertices[i1], 1);
-                    auto v2 = coll.transform * Vec4(coll.vertices[i2], 1);
+                    auto [vi0, vi1, vi2] = get_vertex_indices(coll, j);
+                    auto [ni0, ni1, ni2] = get_normal_indices(coll, j);
+                    auto v0 = coll.transform * Vec4(coll.vertices[vi0], 1);
+                    auto v1 = coll.transform * Vec4(coll.vertices[vi1], 1);
+                    auto v2 = coll.transform * Vec4(coll.vertices[vi2], 1);
                     if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2) || t > 1) {
                         continue;
                     }
                     Collision_Constraint C;
                     C.intersect = Vec4(xp, 0);
-                    // TODO: ideally we would get normal information from the
-                    // collider mesh
-                    // NOTE: we could either calculate both surface normals of
-                    // the triangle and choose between them based on the
-                    // thru -> start vector, or require the client code to
-                    // supply to us all surface normals from the mesh.
-                    auto n0 = coll.normals[i0];
-                    auto n1 = coll.normals[i1];
-                    auto n2 = coll.normals[i2];
+                    C.depth = length(C.intersect - thru);
+                    // C.intersect = v0;
+                    auto n0 = coll.normals[ni0];
+                    auto n1 = coll.normals[ni1];
+                    auto n2 = coll.normals[ni2];
                     C.normal = Vec4(normalize(n0 + n1 + n2), 0);
                     C.pidx = i;
 
                     collision_constraints.push_back(C);
 
-                    CHECK_VISUALIZER_PRESENT_DEBUG(_visualizer->draw_intersection(start, thru, xp, v0, v1, v2, C.normal));
+                    CHECK_VISUALIZER_PRESENT_DEBUG(
+                        _visualizer->draw_intersection(start, thru, xp, v0, v1, v2, C.normal)
+                    );
                 }
             }
-        }
-
-        for (auto &C : collision_constraints) {
-            auto start = C.intersect;
-            auto end = start + C.normal;
         }
 
         END_BENCHMARK();
@@ -446,20 +454,56 @@ protected:
         DECLARE_BENCHMARK_BLOCK();
         BEGIN_BENCHMARK();
         for (auto& C : collision_constraints) {
-            auto p = s.predicted_position[C.pidx];
-            auto w = 1 / mass_of_particle(s, C.pidx);
-            auto dir = p - C.intersect;
-            auto d = dot(dir, C.normal);
-            if (d < 0) {
-                auto sf = d / w;
-
-                auto corr = -sf * w * C.normal;
-
-                auto from = s.predicted_position[C.pidx];
-                auto to = from + corr;
-                s.predicted_position[C.pidx] = to;
-            }
+            auto x = s.predicted_position[C.pidx] - C.intersect;
+            auto n = C.normal;
+            auto d = 0.5f;
+            auto n_len = length(n);
+            auto lambda = (dot(n, x) - d) / (n_len * n_len);
+            auto corr = -lambda * n;
+            s.predicted_position[C.pidx] += corr;
         }
+
+
+        // Apply friction
+        for (auto &C : collision_constraints) {
+            // Relative tangential displacement:
+            // (predicted position - previous position) projected onto the collider plane
+            // To calculate this, first we project the vector onto the normal vector;
+            // this new vector is then subtracted from the displacement vector
+            auto dx = s.predicted_position[C.pidx] - s.position[C.pidx];
+            auto dx_tan = dx - dot(dx, C.normal) * C.normal;
+
+            // The correction vector is:
+            //   if len(dx_tan) is less than the static friction coefficient: dx_tan itself
+            //   otherwise: dx_tan * min((mu_k * d) / len(dx_tan), 1)
+            // multiplied by w_i / (w_i + w_j).
+            // Where:
+            // - d is the penetration depth and
+            // - mu_k, mu_s are the coefficients of kinetic and static friction,
+            //   respectively.
+            // - w_i is the inverse mass of the particle
+            // - w_j is the inverse mass of the other thing
+            //
+            // In case of a collision with a static collider, we pretend as if the
+            // collider body had infinite mass, which means that w_j will be 0,
+            // making that constant have a value of 1.
+
+            // Let's pretend that every object in the universe is made of wood
+            float mu_s = 0.30f;
+            float mu_k = 0.43f;
+
+            auto len_dx_tan = length(dx_tan);
+
+            glm::vec4 corr;
+            if (len_dx_tan < mu_s * C.depth) {
+                corr = dx_tan;
+            } else {
+                corr = dx_tan * glm::min(1.0f, (mu_k * C.depth) / len_dx_tan);
+            }
+
+            s.predicted_position[C.pidx] -= corr;
+        }
+
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }

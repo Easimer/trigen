@@ -6,7 +6,7 @@
 #include "common.h"
 #include "debug_visualizer.h"
 
-static constexpr size_t debug_visualizer_queue_size = 8 * 4096;
+static constexpr size_t debug_visualizer_queue_size = 32 * 4096;
 
 class Command_Draw_Line : public gfx::IRender_Command {
 public:

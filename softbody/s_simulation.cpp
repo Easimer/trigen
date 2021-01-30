@@ -179,9 +179,10 @@ void Softbody_Simulation::constraint_resolution(float dt) {
         if (params.ext != sb::Extension::Plant_Simulation) {
             compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
         }
-        do_one_iteration_of_collision_constraint_resolution(dt);
+        // do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
+        do_one_iteration_of_collision_constraint_resolution(dt);
     }
 
     ext->post_constraint(this, s, dt);
@@ -282,7 +283,11 @@ void Softbody_Simulation::collider_changed(Collider_Handle h) {
 
 bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Collider const *mesh) {
     assert(mesh != NULL);
-    if (mesh == NULL || mesh->indices == NULL || mesh->positions == NULL || mesh->triangle_count == 0) {
+    if (mesh == NULL ||
+        mesh->vertex_indices == NULL ||
+        mesh->normal_indices == NULL ||
+        mesh->positions == NULL ||
+        mesh->triangle_count == 0) {
         return false;
     }
 
@@ -308,11 +313,17 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     slot->transform = mesh->transform;
     slot->triangle_count = mesh->triangle_count;
 
-    slot->indices.reserve(mesh->triangle_count * 3);
+    slot->vertex_indices.reserve(mesh->triangle_count * 3);
+    slot->normal_indices.reserve(mesh->triangle_count * 3);
+
     for (auto i = 0ull; i < mesh->triangle_count; i++) {
-        slot->indices.push_back(mesh->indices[i * 3 + 0]);
-        slot->indices.push_back(mesh->indices[i * 3 + 1]);
-        slot->indices.push_back(mesh->indices[i * 3 + 2]);
+        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 0]);
+        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 1]);
+        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 2]);
+
+        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 0]);
+        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 1]);
+        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 2]);
     }
 
     slot->vertices.reserve(mesh->position_count);
@@ -321,6 +332,10 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     for (auto i = 0ull; i < mesh->position_count; i++) {
         auto b = i * 3; // base index
         slot->vertices.push_back(Vec3(mesh->positions[b + 0], mesh->positions[b + 1], mesh->positions[b + 2]));
+    }
+
+    for (auto i = 0ull; i < mesh->normal_count; i++) {
+        auto b = i * 3; // base index
         slot->normals.push_back(Vec3(mesh->normals[b + 0], mesh->normals[b + 1], mesh->normals[b + 2]));
     }
 

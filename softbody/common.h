@@ -46,6 +46,7 @@ using Set = std::unordered_set<T>;
 struct Collision_Constraint {
     unsigned pidx;
     Vec4 intersect, normal;
+    float depth;
 };
 
 using index_t = typename std::make_signed<size_t>::type;
@@ -90,7 +91,8 @@ struct System_State {
 
         Mat4 transform;
         size_t triangle_count;
-        Vector<uint64_t> indices;
+        Vector<uint64_t> vertex_indices;
+        Vector<uint64_t> normal_indices;
         Vector<Vec3> vertices;
         Vector<Vec3> normals;
     };

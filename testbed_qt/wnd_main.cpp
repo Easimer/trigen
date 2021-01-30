@@ -420,13 +420,18 @@ void Window_Main::try_load_mesh_collider() {
         // need to copy the vertex indices because they are in a AoS layout
         // but we need a contiguous integer array
         std::vector<uint64_t> vertex_indices;
+        std::vector<uint64_t> normal_indices;
         for (auto &index : indices) {
             vertex_indices.push_back((uint64_t)index.vertex_index);
+            normal_indices.push_back((uint64_t)index.normal_index);
         }
-        coll.indices = vertex_indices.data();
+        coll.vertex_indices = vertex_indices.data();
+        coll.normal_indices = normal_indices.data();
 
         coll.position_count = attrib.vertices.size();
         coll.positions = (float*)attrib.vertices.data();
+
+        coll.normal_count = attrib.normals.size();
         coll.normals = (float*)attrib.normals.data();
 
         sb::ISoftbody_Simulation::Collider_Handle handle;
