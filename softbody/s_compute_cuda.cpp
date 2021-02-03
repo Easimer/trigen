@@ -164,6 +164,10 @@ void Compute_CUDA::integrate(System_State& s, float dt) {
     compute_ref->integrate(s, dt);
 }
 
+void Compute_CUDA::dampen(System_State& s, float dt) {
+    compute_ref->dampen(s, dt);
+}
+
 void Compute_CUDA::make_adjacency_table(int N, System_State const& s, Adjacency_Table_Buffer& adjacency, int& adjacency_stride) {
     ZoneScoped;
     DECLARE_BENCHMARK_BLOCK();

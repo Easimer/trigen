@@ -598,6 +598,7 @@ void Softbody_Simulation::step(float delta_time) {
         prediction(phdt);
         constraint_resolution(phdt);
         integration(phdt);
+        compute->dampen(s, phdt);
         compute->end_frame(s);
 
         if (time_accumulator > 8 * PHYSICS_STEP) {
@@ -620,109 +621,8 @@ void Softbody_Simulation::set_debug_visualizer(sb::IDebug_Visualizer *pVisualize
     compute->set_debug_visualizer(pVisualizer);
 }
 
-class Single_Step_State : public sb::ISingle_Step_State {
-public:
-    Single_Step_State(Softbody_Simulation* sim)
-        : sim(sim), constraint_iteration(0), state(PREDICTION) {}
-
-    ~Single_Step_State() {
-        // we must bring the simulation into a valid state first
-        while (state != Single_Step_State::PREDICTION) {
-            step();
-        }
-    }
-
-    void step() override {
-        switch (state) {
-        case Single_Step_State::PREDICTION:
-        {
-            sim->compute->begin_new_frame(sim->s);
-            sim->prediction(PHYSICS_STEP);
-            state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
-            break;
-        }
-        case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
-        {
-            sim->compute->do_one_iteration_of_shape_matching_constraint_resolution(sim->s, PHYSICS_STEP);
-            state = Single_Step_State::CONSTRAINT_FIXED;
-            break;
-        }
-        case Single_Step_State::CONSTRAINT_DISTANCE:
-        {
-            sim->do_one_iteration_of_distance_constraint_resolution(PHYSICS_STEP);
-            if (constraint_iteration < SOLVER_ITERATIONS) {
-                state = Single_Step_State::CONSTRAINT_SHAPE_MATCH;
-                constraint_iteration++;
-            } else {
-                state = Single_Step_State::INTEGRATION;
-                constraint_iteration = 0;
-            }
-            break;
-        }
-        case Single_Step_State::CONSTRAINT_FIXED:
-        {
-            sim->do_one_iteration_of_fixed_constraint_resolution(PHYSICS_STEP);
-            state = Single_Step_State::CONSTRAINT_DISTANCE;
-            break;
-        }
-        case Single_Step_State::INTEGRATION:
-        {
-            sim->integration(PHYSICS_STEP);
-            state = Single_Step_State::PREDICTION;
-            break;
-        }
-        }
-    }
-
-    void get_state_description(unsigned length, char* buffer) override {
-        if (buffer != NULL && length > 0) {
-            length = length - 1;
-            switch (state) {
-            case Single_Step_State::PREDICTION:
-            {
-                snprintf(buffer, length, "Before prediction step");
-                break;
-            }
-            case Single_Step_State::CONSTRAINT_SHAPE_MATCH:
-            {
-                snprintf(buffer, length, "Before shape matching constraint resolution (iter=%d)", constraint_iteration);
-                break;
-            }
-            case Single_Step_State::CONSTRAINT_DISTANCE:
-            {
-                snprintf(buffer, length, "Before distance constraint resolution (iter=%d)", constraint_iteration);
-                break;
-            }
-            case Single_Step_State::CONSTRAINT_FIXED:
-            {
-                snprintf(buffer, length, "Before fixed position constraint resolution (iter=%d)", constraint_iteration);
-                break;
-            }
-            case Single_Step_State::INTEGRATION:
-            {
-                snprintf(buffer, length, "Pre-integration");
-                break;
-            }
-            }
-            buffer[length] = '\0';
-        }
-    }
-
-private:
-    Softbody_Simulation* sim;
-    int constraint_iteration;
-
-    enum State {
-        PREDICTION,
-        CONSTRAINT_FIXED,
-        CONSTRAINT_SHAPE_MATCH,
-        CONSTRAINT_DISTANCE,
-        INTEGRATION,
-    } state;
-};
-
 sb::Unique_Ptr<sb::ISingle_Step_State> Softbody_Simulation::begin_single_step() {
-    return std::make_unique<Single_Step_State>(this);
+    return nullptr;
 }
 
 void Softbody_Simulation::debug_message_callback(sb::Debug_Proc callback, void* user) {

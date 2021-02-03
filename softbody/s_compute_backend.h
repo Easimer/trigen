@@ -21,6 +21,7 @@ public:
 
     virtual void predict(System_State& sim, float dt) = 0;
     virtual void integrate(System_State& sim, float dt) = 0;
+    virtual void dampen(System_State& sim, float dt) = 0;
 
     virtual void generate_collision_constraints(System_State& sim) = 0;
 

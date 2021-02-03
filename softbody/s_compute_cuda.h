@@ -180,6 +180,8 @@ private:
 
     void predict(System_State& sim, float dt) override;
     void integrate(System_State& sim, float dt) override; 
+    void dampen(System_State &sim, float dt) override;
+
 
     void make_adjacency_table(int N, System_State const& s, Adjacency_Table_Buffer& adjacency, int& adjacency_stride);
 

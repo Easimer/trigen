@@ -119,6 +119,10 @@ private:
         compute_ref->integrate(sim, dt);
     }
 
+    void dampen(System_State &sim, float dt) override {
+        compute_ref->dampen(sim, dt);
+    }
+
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
         compute_ref->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
     }

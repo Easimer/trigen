@@ -102,84 +102,7 @@ protected:
         _visualizer = visualizer;
     }
 
-    void velocity_damping(System_State& s, float dt) {
-        auto N = particle_count(s);
-        float d = 1 / glm::pow(2, dt);
-        // TODO(danielm): this should have timestep-dependency
-        for (index_t i = 0; i < N; i++) {
-            s.velocity[i] *= d;
-            s.angular_velocity[i] *= d;
-        }
-
-        return;
-
-        // TODO(danielm): something is wrong with these calculations
-        // Probably the r_i_tilde matrix
-
-        auto k_damping = 0.5f;
-        for (index_t i = 0; i < N; i++) {
-            std::array<index_t, 1> me{ i };
-            auto& neighbors = s.edges[i];
-            auto neighbors_and_me = iterator_union(neighbors.begin(), neighbors.end(), me.begin(), me.end());
-            auto x_cm = s.center_of_mass[i];
-
-            auto M = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                mass_of_particle(s, i),
-                [&](float acc, index_t pidx) {
-                    return acc + mass_of_particle(s, pidx);
-                }
-            );
-
-            auto v_cm = std::accumulate(
-                neighbors.begin(), neighbors.end(),
-                s.velocity[i] * mass_of_particle(s, i),
-                [&](Vec4 const& acc, index_t pidx) {
-                    return acc + s.velocity[pidx] * mass_of_particle(s, pidx);
-                }
-            ) / M;
-
-            auto get_r_i = [&](index_t pidx) {
-                return Vec3(s.position[pidx] - x_cm);
-            };
-
-            if (length(v_cm) > glm::epsilon<float>()) {
-                auto L = std::accumulate(
-                    neighbors.begin(), neighbors.end(),
-                    cross(get_r_i(i), mass_of_particle(s, i) * Vec3(s.velocity[i])),
-                    [&](Vec3 const& acc, index_t pidx) {
-                        return acc + cross(get_r_i(i), mass_of_particle(s, i) * Vec3(s.velocity[i]));
-                    }
-                );
-
-                auto get_r_i_tilde = [&](index_t pidx) -> Mat3 {
-                    Mat3 ret(1.0f);
-                    auto v = Vec3(s.velocity[pidx]);
-                    if (length(v) > glm::epsilon<float>()) {
-                        auto r_cross_v = cross(get_r_i(pidx), v);
-                        ret[0][0] = r_cross_v.x / v.x;
-                        ret[1][1] = r_cross_v.y / v.y;
-                        ret[2][2] = r_cross_v.z / v.z;
-                    }
-                    return ret;
-                };
-
-                auto I = std::accumulate(
-                    neighbors.begin(), neighbors.end(),
-                    mass_of_particle(s, i) * get_r_i_tilde(i) * transpose(get_r_i_tilde(i)),
-                    [&](Mat3 const& acc, index_t pidx) {
-                        return mass_of_particle(s, pidx) * get_r_i_tilde(pidx) * transpose(get_r_i_tilde(pidx));
-                    }
-                );
-
-                auto ang_v = glm::inverse(I) * L;
-
-                for (auto pidx : neighbors_and_me) {
-                    auto dv = v_cm + Vec4(cross(ang_v, get_r_i(pidx)), 0) - s.velocity[pidx];
-                    s.velocity[i] += k_damping * dv;
-                }
-            }
-        }
+    void dampen(System_State& s, float dt) override {
     }
 
     void predict(System_State& s, float dt) override {
@@ -187,7 +110,6 @@ protected:
         BEGIN_BENCHMARK();
 
         auto const N = particle_count(s);
-        velocity_damping(s, dt);
 
         for (unsigned i = 0; i < N; i++) {
             // prediction step
@@ -234,10 +156,6 @@ protected:
             }
 
             s.orientation[i] = s.predicted_orientation[i];
-        }
-
-        for (auto& C : s.collision_constraints) {
-            s.velocity[C.pidx] = Vec4();
         }
     }
 
