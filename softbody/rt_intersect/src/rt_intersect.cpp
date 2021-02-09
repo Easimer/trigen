@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <vector>
 #include <list>
+#include <stdexcept>
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -248,7 +249,7 @@ namespace rt_intersect {
         auto rc = cudaMalloc(&ret, count * sizeof(T));
 
         if (rc != cudaSuccess) {
-            throw std::exception("cudaMalloc failed");
+            throw std::runtime_error("cudaMalloc failed");
         }
 
         return ret;
