@@ -5,6 +5,8 @@ if(${SOFTBODY_ENABLE_CUDA})
     # find_package(CUDA 11.0 REQUIRED)
     find_package(CUDAToolkit 11.0 REQUIRED)
 
+    add_subdirectory(rt_intersect)
+
     embed_file(cuda_templates.cpp ${CMAKE_CURRENT_SOURCE_DIR}/cuda_templates.cu)
 
     enable_language(CUDA)
