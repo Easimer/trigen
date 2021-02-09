@@ -15,6 +15,10 @@ static bool is_printable(char c) {
         return true;
     }
 
+    if (c == '\t') {
+        return true;
+    }
+
     return false;
 }
 
@@ -49,6 +53,7 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
     size_t ret = 0;
     assert(dst != NULL);
     assert(src != NULL);
+    bool flag_emit_opening_quotes = true;
 
     while(!feof(src)) {
         char ch;
@@ -57,6 +62,11 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
 
         if (res < 1) {
             continue;
+        }
+
+        if (flag_emit_opening_quotes) {
+            fwrite("\"", 1, 1, dst);
+            flag_emit_opening_quotes = false;
         }
 
         if(is_printable(ch)) {
@@ -75,7 +85,8 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
                 emit_hex(dst, ch);
                 ret++;
             } else {
-                fwrite("\\n\\\n", 1, 4, dst);
+                fwrite("\\n\"\n", 1, 4, dst);
+                flag_emit_opening_quotes = true;
             }
         }
     }
@@ -126,8 +137,8 @@ static bool convert_file(FILE* dst, char const* path) {
     }
 
     char const type[] = "#include <cstring>\nextern \"C\" {\nchar const* ";
-    char const array[] = " = \"";
-    char const end_of_line[] = "\";\n";
+    char const array[] = " = ";
+    char const end_of_line[] = ";\n";
     fwrite(type, 1, strlen(type), dst);
     generate_variable_name(dst, filename);
     fwrite(array, 1, strlen(array), dst);
