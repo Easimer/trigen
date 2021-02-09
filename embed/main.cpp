@@ -54,6 +54,7 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
     assert(dst != NULL);
     assert(src != NULL);
     bool flag_emit_opening_quotes = true;
+    bool flag_emit_closing_quotes = true;
 
     while(!feof(src)) {
         char ch;
@@ -67,6 +68,7 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
         if (flag_emit_opening_quotes) {
             fwrite("\"", 1, 1, dst);
             flag_emit_opening_quotes = false;
+            flag_emit_closing_quotes = true;
         }
 
         if(is_printable(ch)) {
@@ -85,10 +87,15 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
                 emit_hex(dst, ch);
                 ret++;
             } else {
+                flag_emit_closing_quotes = false;
                 fwrite("\\n\"\n", 1, 4, dst);
                 flag_emit_opening_quotes = true;
             }
         }
+    }
+
+    if (flag_emit_closing_quotes) {
+        fwrite("\"", 1, 1, dst);
     }
 
     return ret;
