@@ -364,6 +364,7 @@ index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_
     s.center_of_mass.push_back(zero);
     //age.push_back(0);
     s.edges[index] = {};
+    s.internal_forces.push_back(zero);
 
     invalidate_particle_cache(index);
 
@@ -411,6 +412,7 @@ index_t Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size,
     s.predicted_orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
     s.center_of_mass.push_back(zero);
     s.edges[index] = {};
+    s.internal_forces.push_back(zero);
 
 // #define INHERIT_MOMENTUM
 #ifdef INHERIT_MOMENTUM

@@ -106,6 +106,9 @@ struct System_State {
     Vector<Vec4> goal_position;
 
     Set<index_t> fixed_particles;
+
+    Vec4 global_center_of_mass;
+    Vector<Vec4> internal_forces;
 };
 
 class ILogger {

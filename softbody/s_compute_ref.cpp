@@ -103,6 +103,63 @@ protected:
     }
 
     void dampen(System_State& s, float dt) override {
+        auto const N = particle_count(s);
+
+        // Reset internal forces
+        s.internal_forces.resize(N);
+        for (index_t i = 0; i < N; i++) {
+            s.internal_forces[i] = {};
+        }
+
+        // https://www.researchgate.net/profile/Matthias_Teschner/publication/228997795_Optimized_damping_for_dynamic_simulations/links/54a95f030cf2eecc56e6c2b8.pdf
+        // Global dampening
+        {
+            // Center of mass for the whole body
+            auto CM = get_predicted_center_of_mass(s);
+            // Predicted velocity of this center of mass
+            auto v_prime_cm = CM - s.global_center_of_mass;
+            // Dampening parameter
+            float gamma = 1.0f;
+
+            // TODO: maybe this should be m_i/M
+            float alpha = 1 / (float)N;
+            Vector<Vec4> dampening_forces(N);
+
+            for (index_t i = 0; i < N; i++) {
+                // Predicted velocity of the particle
+                auto v_prime_i = s.predicted_position[i] - s.position[i];
+                // Predicted velocity relative to the predicted center of mass
+                auto v_prime_i_rel = v_prime_i - v_prime_cm;
+                // Dampening force
+                auto f_d_i = gamma * v_prime_i_rel;
+                dampening_forces[i] = f_d_i;
+            }
+
+            Vec4 force_sum;
+            for (index_t i = 0; i < N; i++) {
+                force_sum += dampening_forces[i];
+            }
+
+            for (index_t i = 0; i < N; i++) {
+                s.internal_forces[i] += dampening_forces[i] - alpha * force_sum;
+            }
+        }
+        // TODO: local dampening
+    }
+
+    Vec4 get_predicted_center_of_mass(System_State &s) {
+        float total_mass = 0;
+        Vec4 cm;
+
+        auto const N = particle_count(s);
+
+        for (index_t i = 0; i < N; i++) {
+            float m = mass_of_particle(s, i);
+            total_mass += m;
+            cm += m * s.predicted_position[i];
+        }
+
+        return cm / total_mass;
     }
 
     void predict(System_State& s, float dt) override {
@@ -111,13 +168,16 @@ protected:
 
         auto const N = particle_count(s);
 
+        float total_mass = 0;
+        s.global_center_of_mass = Vec4();
+
         for (unsigned i = 0; i < N; i++) {
             // prediction step
+            float m = mass_of_particle(s, i);
 
-            // TODO(danielm): sum forces acting on the system here instead of
-            // hardcoding it to the gravitational force
             auto external_forces = Vec4(0, -10, 0, 0);
-            auto v = s.velocity[i] + dt * (1 / mass_of_particle(s, i)) * external_forces;
+            auto forces = external_forces + s.internal_forces[i];
+            auto v = s.velocity[i] + dt * (1 / mass_of_particle(s, i)) * forces;
             auto pos = s.position[i] + dt * v;
 
             auto ang_v = glm::length(s.angular_velocity[i]);
@@ -132,7 +192,12 @@ protected:
 
             s.predicted_position[i] = pos;
             s.predicted_orientation[i] = q;
+
+            total_mass += m;
+            s.global_center_of_mass += m * s.position[i];
         }
+
+        s.global_center_of_mass /= total_mass;
 
         END_BENCHMARK();
         PRINT_BENCHMARK_RESULT(_log);
