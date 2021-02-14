@@ -27,6 +27,9 @@ struct Mesh_Data {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
+
+    std::vector<std::vector<uint64_t>> vertex_indices;
+    std::vector<std::vector<uint64_t>> normal_indices;
 };
 
 class Viewmodel_Main : public IViewmodel_Main {
@@ -49,12 +52,25 @@ private:
 
         Mesh_Index midx = _mesh_data.size();
 
+        mesh.vertex_indices.resize(mesh.shapes.size());
+        mesh.normal_indices.resize(mesh.shapes.size());
+
         for(Shape_Index sidx = 0; sidx < mesh.shapes.size(); sidx++) {
             auto &shape = mesh.shapes[sidx];
 
             sb::Mesh_Collider coll;
 
-            fill_out_collider_struct(&coll, mesh, shape);
+
+            // need to copy the vertex indices because they are in a AoS layout
+            // but we need a contiguous integer array
+            auto& vertex_indices = mesh.vertex_indices[sidx];
+            auto& normal_indices = mesh.normal_indices[sidx];
+            for (auto &index : shape.mesh.indices) {
+                vertex_indices.push_back((uint64_t)index.vertex_index);
+                normal_indices.push_back((uint64_t)index.normal_index);
+            }
+
+            fill_out_collider_struct(&coll, mesh, sidx);
 
             Collider_Handle handle;
             _simulation->add_collider(handle, &coll);
@@ -92,29 +108,20 @@ private:
         auto [handle, msidx] = *it;
 
         auto &mesh_data = _mesh_data[msidx.first];
-        auto &shape = mesh_data.shapes[msidx.second];
 
-        fill_out_collider_struct(mesh, mesh_data, shape);
+        fill_out_collider_struct(mesh, mesh_data, msidx.second);
 
         return true;
     }
 
-    void fill_out_collider_struct(sb::Mesh_Collider *collider, Mesh_Data &mesh, tinyobj::shape_t &shape) {
-        auto &indices = shape.mesh.indices;
+    void fill_out_collider_struct(sb::Mesh_Collider *collider, Mesh_Data &mesh, Shape_Index sidx) {
+        auto &indices = mesh.shapes[sidx].mesh.indices;
         auto N = indices.size() / 3;
         collider->transform = Mat4(1.0f);
         collider->triangle_count = N;
 
-        // need to copy the vertex indices because they are in a AoS layout
-        // but we need a contiguous integer array
-        std::vector<uint64_t> vertex_indices;
-        std::vector<uint64_t> normal_indices;
-        for (auto &index : indices) {
-            vertex_indices.push_back((uint64_t)index.vertex_index);
-            normal_indices.push_back((uint64_t)index.normal_index);
-        }
-        collider->vertex_indices = vertex_indices.data();
-        collider->normal_indices = normal_indices.data();
+        collider->vertex_indices = mesh.vertex_indices[sidx].data();
+        collider->normal_indices = mesh.normal_indices[sidx].data();
 
         collider->position_count = mesh.attrib.vertices.size();
         collider->positions = (float *)mesh.attrib.vertices.data();
