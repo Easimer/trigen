@@ -222,6 +222,10 @@ protected:
 
             s.orientation[i] = s.predicted_orientation[i];
         }
+
+        for (auto &C : s.collision_constraints) {
+            s.velocity[C.pidx] = {};
+        }
     }
 
     void do_one_iteration_of_shape_matching_constraint_resolution(
@@ -439,7 +443,7 @@ protected:
         for (auto& C : collision_constraints) {
             auto x = s.predicted_position[C.pidx] - C.intersect;
             auto n = C.normal;
-            auto d = 0.5f;
+            auto d = 0.1f;
             auto n_len = length(n);
             auto lambda = (dot(n, x) - d) / (n_len * n_len);
             auto corr = -lambda * n;

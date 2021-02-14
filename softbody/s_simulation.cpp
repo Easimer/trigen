@@ -599,8 +599,15 @@ void Softbody_Simulation::step(float delta_time) {
         compute->begin_new_frame(s);
         prediction(phdt);
         constraint_resolution(phdt);
-        integration(phdt);
         compute->dampen(s, phdt);
+
+        compute->generate_collision_constraints(s);
+        for (int i = 0; i < 4; i++) {
+            compute->do_one_iteration_of_collision_constraint_resolution(s, phdt);
+        }
+        compute->do_one_iteration_of_fixed_constraint_resolution(s, phdt);
+
+        integration(phdt);
         compute->end_frame(s);
 
         if (time_accumulator > 8 * PHYSICS_STEP) {
