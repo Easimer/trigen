@@ -421,7 +421,7 @@ protected:
                     auto n0 = coll.normals[ni0];
                     auto n1 = coll.normals[ni1];
                     auto n2 = coll.normals[ni2];
-                    C.normal = Vec4(normalize(n0 + n1 + n2), 0);
+                    C.normal = Vec4(Mat3(coll.transform) * normalize(n0 + n1 + n2), 0);
                     C.pidx = i;
 
                     collision_constraints.push_back(C);
