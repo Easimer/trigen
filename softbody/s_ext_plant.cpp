@@ -11,6 +11,7 @@
 #include "l_random.h"
 #include "s_iterators.h"
 #include "f_serialization.internal.h"
+#include <raymarching.h>
 
 static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
         sb::sdf::ast::Expression<float>* expr,

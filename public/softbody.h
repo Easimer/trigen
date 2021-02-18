@@ -7,7 +7,6 @@
 
 #include <functional>
 #include <memory>
-#include <raymarching.h>
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -249,8 +248,6 @@ namespace sb {
             };
         };
     };
-
-    using Signed_Distance_Function = ::sdf::Function;
 
     class IPlant_Simulation {
     public:

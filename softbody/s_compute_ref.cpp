@@ -7,6 +7,7 @@
 #include <cassert>
 #include <array>
 #include <algorithm>
+#include <raymarching.h>
 #include "softbody.h"
 #include "l_iterators.h"
 #include "s_compute_backend.h"

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <softbody.h>
+#include <raymarching.h>
 
 class Sample_Point : public sb::sdf::ast::Sample_Point {
 public:
