@@ -21,7 +21,7 @@ if(${SOFTBODY_ENABLE_CUDA})
     set(CMAKE_CUDA_STANDARD 14)
     set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
 
-    set(SOFTBODY_CUDA_LIBS CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt)
+    set(SOFTBODY_CUDA_LIBS CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt rt_intersect)
 
     option(SOFTBODY_CUDA_MEMTRACK "CUDA memtrack" OFF)
 endif()

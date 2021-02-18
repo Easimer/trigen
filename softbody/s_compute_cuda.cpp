@@ -379,55 +379,51 @@ void Compute_CUDA::do_one_iteration_of_shape_matching_constraint_resolution(Syst
 
 void Compute_CUDA::on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {
     ZoneScoped;
-    assert(handle < sim.colliders_sdf.size());
-    assert(ast_kernels.count(handle) == 0);
-    auto& coll = sim.colliders_sdf[handle];
-    assert(coll.used);
-    auto& expr = coll.expr;
 
-    sb::CUDA::AST_Kernel_Handle kernel_handle;
-    if(sb::CUDA::compile_ast(&kernel_handle, expr)) {
-        ast_kernels.emplace(std::make_pair(handle, sb::CUDA::AST_Kernel(kernel_handle)));
-    } else {
-        std::abort();
+    Collider_Handle_Kind handle_kind;
+    size_t handle_idx;
+    decode_collider_handle(handle, handle_kind, handle_idx);
+
+    switch (handle_kind) {
+    case Collider_Handle_Kind::SDF:
+        on_sdf_collider_added(sim, handle);
+        break;
+    case Collider_Handle_Kind::Mesh:
+        on_mesh_collider_added(sim, handle);
+        break;
     }
 }
 void Compute_CUDA::on_collider_removed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {
     ZoneScoped;
-    if(handle < sim.colliders_sdf.size()) {
-        auto& coll = sim.colliders_sdf[handle];
-        assert(coll.used);
 
-        ast_kernels.erase(handle);
-    } else {
-        assert(!"Invalid handle");
+    Collider_Handle_Kind handle_kind;
+    size_t handle_idx;
+    decode_collider_handle(handle, handle_kind, handle_idx);
+
+    switch (handle_kind) {
+    case Collider_Handle_Kind::SDF:
+        on_sdf_collider_removed(sim, handle);
+        break;
+    case Collider_Handle_Kind::Mesh:
+        on_mesh_collider_removed(sim, handle);
+        break;
     }
 }
 
 void Compute_CUDA::on_collider_changed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {
     ZoneScoped;
-    if(handle < sim.colliders_sdf.size()) {
-        auto& coll = sim.colliders_sdf[handle];
-        assert(coll.used);
 
-        if(!coll.used) {
-            assert(!"Invalid handle");
-            return;
-        }
+    Collider_Handle_Kind handle_kind;
+    size_t handle_idx;
+    decode_collider_handle(handle, handle_kind, handle_idx);
 
-        // Erase old kernel
-        ast_kernels.erase(handle);
-
-        // Recompile
-        auto& expr = coll.expr;
-        sb::CUDA::AST_Kernel_Handle kernel_handle;
-        if(sb::CUDA::compile_ast(&kernel_handle, expr)) {
-            ast_kernels.emplace(std::make_pair(handle, sb::CUDA::AST_Kernel(kernel_handle)));
-        } else {
-            std::abort();
-        }
-    } else {
-        assert(!"Invalid handle");
+    switch (handle_kind) {
+    case Collider_Handle_Kind::SDF:
+        on_sdf_collider_changed(sim, handle);
+        break;
+    case Collider_Handle_Kind::Mesh:
+        on_mesh_collider_changed(sim, handle);
+        break;
     }
 }
 
@@ -540,6 +536,67 @@ void Compute_CUDA::output_sanity_check(System_State const& s) {
             assert(!"Orientation is degenerate");
         }
     }
+}
+
+void Compute_CUDA::on_sdf_collider_added(System_State const &sim, size_t idx) {
+    assert(idx < sim.colliders_sdf.size());
+    assert(ast_kernels.count(idx) == 0);
+    auto& coll = sim.colliders_sdf[idx];
+    assert(coll.used);
+    auto& expr = coll.expr;
+
+    sb::CUDA::AST_Kernel_Handle kernel_handle;
+    if(sb::CUDA::compile_ast(&kernel_handle, expr)) {
+        ast_kernels.emplace(std::make_pair(idx, sb::CUDA::AST_Kernel(kernel_handle)));
+    } else {
+        std::abort();
+    }
+}
+
+void Compute_CUDA::on_sdf_collider_removed(System_State const &sim, size_t idx) {
+    if(idx < sim.colliders_sdf.size()) {
+        auto& coll = sim.colliders_sdf[idx];
+        assert(coll.used);
+
+        ast_kernels.erase(idx);
+    } else {
+        assert(!"Invalid handle");
+    }
+}
+
+void Compute_CUDA::on_sdf_collider_changed(System_State const &sim, size_t idx) {
+    if(idx < sim.colliders_sdf.size()) {
+        auto& coll = sim.colliders_sdf[idx];
+        assert(coll.used);
+
+        if(!coll.used) {
+            assert(!"Invalid handle");
+            return;
+        }
+
+        // Erase old kernel
+        ast_kernels.erase(idx);
+
+        // Recompile
+        auto& expr = coll.expr;
+        sb::CUDA::AST_Kernel_Handle kernel_idx;
+        if(sb::CUDA::compile_ast(&kernel_idx, expr)) {
+            ast_kernels.emplace(std::make_pair(idx, sb::CUDA::AST_Kernel(kernel_idx)));
+        } else {
+            std::abort();
+        }
+    } else {
+        assert(!"Invalid handle");
+    }
+}
+
+void Compute_CUDA::on_mesh_collider_added(System_State const &sim, size_t idx) {
+}
+
+void Compute_CUDA::on_mesh_collider_removed(System_State const &sim, size_t idx) {
+}
+
+void Compute_CUDA::on_mesh_collider_changed(System_State const &sim, size_t idx) {
 }
 
 #undef LOG

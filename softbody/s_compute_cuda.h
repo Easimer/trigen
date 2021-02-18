@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <rt_intersect.h>
 #include "s_compute_backend.h"
 #include "s_compute_cuda_codegen.h"
 #include "cuda_utils.cuh"
@@ -298,6 +299,15 @@ private:
 
     void output_sanity_check(System_State const& s);
 
+    void on_sdf_collider_added(System_State const &sim, size_t idx);
+    void on_sdf_collider_removed(System_State const &sim, size_t idx);
+    void on_sdf_collider_changed(System_State const &sim, size_t idx);
+
+    void on_mesh_collider_added(System_State const &sim, size_t idx);
+    void on_mesh_collider_removed(System_State const &sim, size_t idx);
+    void on_mesh_collider_changed(System_State const &sim, size_t idx);
+
+
 private:
     struct Collision_Constraints {
         CUDA_Array<unsigned char> enable;
@@ -340,7 +350,8 @@ private:
     size_t current_particle_count;
 
     // TODO(danielm): rename to ast_programs
-    Map<sb::ISoftbody_Simulation::Collider_Handle, sb::CUDA::AST_Kernel> ast_kernels;
+    Map<size_t, sb::CUDA::AST_Kernel> ast_kernels;
+    Map<size_t, rt_intersect::Shared_Ptr<rt_intersect::IMesh>> mesh_colliders;
 
     ILogger* _log;
 };
