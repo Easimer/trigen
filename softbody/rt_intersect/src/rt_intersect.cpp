@@ -9,6 +9,7 @@
 #include <vector>
 #include <list>
 #include <stdexcept>
+#include <iterator>
 
 #include <cuda.h>
 #include <cuda_runtime.h>

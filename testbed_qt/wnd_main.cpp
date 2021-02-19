@@ -173,8 +173,7 @@ Window_Main::Window_Main(QWidget* parent) :
     sim_cfg.extra.ptr = nullptr;
     
     // Not settable from UI
-    // sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
-    sim_cfg.compute_preference = sb::Compute_Preference::Reference;
+    sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
 
     connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
         stop_simulation();

@@ -10,11 +10,14 @@
 #include "s_compute_backend.h"
 #include "s_compute_cuda_codegen.h"
 #include "cuda_utils.cuh"
+#include <rt_intersect.h>
 
 struct Particle_Correction_Info {
     float4 pos_bind; // bind position wrt center of mass
     float inv_num_clusters; // 1 / number of clusters
 };
+
+using Raytracer = rt_intersect::Unique_Ptr<rt_intersect::IInstance>;
 
 struct Adjacency_Table {
 public:
@@ -169,7 +172,7 @@ using New_Goal_Position_Buffer = CUDA_Array<float4, struct New_Goal_Position_Buf
 
 class Compute_CUDA : public ICompute_Backend {
 public:
-    Compute_CUDA(ILogger* logger, std::array<cudaStream_t, (size_t)Stream::Max>&& streams);
+    Compute_CUDA(ILogger* logger, Raytracer &&rt, std::array<cudaStream_t, (size_t)Stream::Max>&& streams);
 private:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
 
@@ -348,6 +351,10 @@ private:
     CUDA_Event_Recycler ev_recycler;
 
     size_t current_particle_count;
+
+    // NOTE(danielm): it's important that _rt comes before mesh_colliders for
+    // correct cleanup order!
+    Raytracer _rt;
 
     // TODO(danielm): rename to ast_programs
     Map<size_t, sb::CUDA::AST_Kernel> ast_kernels;

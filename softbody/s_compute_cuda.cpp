@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <array>
+#include <iterator>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
@@ -19,6 +20,7 @@
 #include "s_compute_backend.h"
 #include "s_compute_cuda_codegen.h"
 #include "s_compute_cuda.h"
+#include <glm/gtc/type_ptr.hpp>
 
 #include <Tracy.hpp>
 #include <TracyC.h>
@@ -30,10 +32,11 @@
 
 #define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
 
-Compute_CUDA::Compute_CUDA(ILogger* logger, std::array<cudaStream_t, (size_t)Stream::Max>&& streams) :
+Compute_CUDA::Compute_CUDA(ILogger* logger, Raytracer &&rt, std::array<cudaStream_t, (size_t)Stream::Max>&& streams) :
     scheduler(Scheduler(std::move(streams))),
     current_particle_count(0),
-   _log(logger) {
+    _log(logger),
+    _rt(std::move(rt)) {
     LOG(Informational, Low, "cuda-backend-created", 0);
 
     compute_ref = Make_Reference_Backend(logger);
@@ -386,10 +389,10 @@ void Compute_CUDA::on_collider_added(System_State const& sim, sb::ISoftbody_Simu
 
     switch (handle_kind) {
     case Collider_Handle_Kind::SDF:
-        on_sdf_collider_added(sim, handle);
+        on_sdf_collider_added(sim, handle_idx);
         break;
     case Collider_Handle_Kind::Mesh:
-        on_mesh_collider_added(sim, handle);
+        on_mesh_collider_added(sim, handle_idx);
         break;
     }
 }
@@ -402,10 +405,10 @@ void Compute_CUDA::on_collider_removed(System_State const& sim, sb::ISoftbody_Si
 
     switch (handle_kind) {
     case Collider_Handle_Kind::SDF:
-        on_sdf_collider_removed(sim, handle);
+        on_sdf_collider_removed(sim, handle_idx);
         break;
     case Collider_Handle_Kind::Mesh:
-        on_mesh_collider_removed(sim, handle);
+        on_mesh_collider_removed(sim, handle_idx);
         break;
     }
 }
@@ -419,10 +422,10 @@ void Compute_CUDA::on_collider_changed(System_State const& sim, sb::ISoftbody_Si
 
     switch (handle_kind) {
     case Collider_Handle_Kind::SDF:
-        on_sdf_collider_changed(sim, handle);
+        on_sdf_collider_changed(sim, handle_idx);
         break;
     case Collider_Handle_Kind::Mesh:
-        on_mesh_collider_changed(sim, handle);
+        on_mesh_collider_changed(sim, handle_idx);
         break;
     }
 }
@@ -591,12 +594,76 @@ void Compute_CUDA::on_sdf_collider_changed(System_State const &sim, size_t idx) 
 }
 
 void Compute_CUDA::on_mesh_collider_added(System_State const &sim, size_t idx) {
+    if (idx < sim.colliders_mesh.size()) {
+        auto &coll = sim.colliders_mesh[idx];
+        if (!coll.used) {
+            assert(!"Invalid handle");
+            return;
+        }
+
+        rt_intersect::Mesh_Descriptor mesh = {};
+
+        // Convert uint64_t indices to uint32_t
+        std::vector<unsigned> normal_indices;
+        std::vector<unsigned> vertex_indices;
+        std::transform(
+            coll.normal_indices.begin(),
+            coll.normal_indices.end(),
+            std::back_inserter(normal_indices),
+            [](uint64_t x) { return (unsigned)(x & 0xFFFF'FFFF); }
+        );
+        std::transform(
+            coll.vertex_indices.begin(),
+            coll.vertex_indices.end(),
+            std::back_inserter(vertex_indices),
+            [](uint64_t x) { return (unsigned)(x & 0xFFFF'FFFF); }
+        );
+
+        mesh.num_triangles = coll.triangle_count;
+
+        mesh.h_vertices = (float3 *)coll.vertices.data();
+        mesh.h_vertex_indices = vertex_indices.data();
+        mesh.num_vertices = vertex_indices.size();
+
+        mesh.h_normals = (float3*)coll.normals.data();
+        mesh.h_normal_indices = normal_indices.data();
+        mesh.num_normals = normal_indices.size();
+
+        mesh.transform = glm::value_ptr(coll.transform);
+
+        auto mesh_handle = _rt->upload_mesh(&mesh);
+        mesh_colliders[idx] = std::move(mesh_handle);
+    } else {
+        assert(!"Invalid handle");
+    }
 }
 
 void Compute_CUDA::on_mesh_collider_removed(System_State const &sim, size_t idx) {
+    if (idx < sim.colliders_mesh.size()) {
+        auto &coll = sim.colliders_mesh[idx];
+        if (!coll.used) {
+            assert(!"Invalid handle");
+            return;
+        }
+
+        mesh_colliders.erase(idx);
+    } else {
+        assert(!"Invalid handle");
+    }
 }
 
 void Compute_CUDA::on_mesh_collider_changed(System_State const &sim, size_t idx) {
+    if (idx < sim.colliders_mesh.size()) {
+        auto &coll = sim.colliders_mesh[idx];
+        if (!coll.used) {
+            assert(!"Invalid handle");
+            return;
+        }
+
+        _rt->notify_meshes_updated();
+    } else {
+        assert(!"Invalid handle");
+    }
 }
 
 #undef LOG
@@ -698,7 +765,8 @@ sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend(ILogger* logger) {
             return nullptr;
         }
 
-        auto ret = std::make_unique<Compute_CUDA>(logger, std::move(streams));
+        auto rt = rt_intersect::make_instance();
+        auto ret = std::make_unique<Compute_CUDA>(logger, std::move(rt), std::move(streams));
         return ret;
     }
 

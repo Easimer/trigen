@@ -44,7 +44,7 @@ namespace rt_intersect {
 
     struct Mesh_Descriptor {
         // Pointer to a 4x4 column-major transform matrix
-        float *transform;
+        float const *transform;
 
         // Number of triangles
         unsigned num_triangles;
