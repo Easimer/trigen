@@ -1,1 +1,2 @@
 add_subdirectory(arcball_camera)
+add_subdirectory(softbody_ext)

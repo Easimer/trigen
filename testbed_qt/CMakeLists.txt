@@ -29,8 +29,6 @@ set(SRC
     colliders.cpp
     colliders.h
 
-    file_serializer.cpp
-
     model_export.h
     model_export_fbx.cpp
 
@@ -44,7 +42,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera)
+target_link_libraries(testbed_qt Qt5::Widgets softbody softbody_ext renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera)
 target_include_directories(testbed_qt PRIVATE ${FBX_SDK_INCLUDE_DIR})
 
 install(TARGETS testbed_qt)

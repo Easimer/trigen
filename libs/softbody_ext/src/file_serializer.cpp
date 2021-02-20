@@ -3,11 +3,10 @@
 // Purpose: FILE* based serializer for `softbody`
 //
 
-#include "common.h"
 #include "softbody.h"
 #include <memory>
-#include <QString>
 #include <cstdio>
+#include <softbody/file_serializer.h>
 
 class Impl : public sb::ISerializer, public sb::IDeserializer {
 public:
@@ -44,24 +43,24 @@ private:
     }
 };
 
-std::unique_ptr<sb::ISerializer> make_serializer(QString const& path) {
-    auto s = path.toUtf8();
-    auto f = fopen(s.constData(), "wb");
+namespace sb {
+    std::unique_ptr<sb::ISerializer> make_serializer(char const *path) {
+        auto f = fopen(path, "wb");
 
-    if (f != NULL) {
-        return std::make_unique<Impl>(f);
-    } else {
-        return nullptr;
+        if (f != NULL) {
+            return std::make_unique<Impl>(f);
+        } else {
+            return nullptr;
+        }
     }
-}
 
-std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path) {
-    auto s = path.toUtf8();
-    auto f = fopen(s.constData(), "rb");
+    std::unique_ptr<sb::IDeserializer> make_deserializer(char const *path) {
+        auto f = fopen(path, "rb");
 
-    if (f != NULL) {
-        return std::make_unique<Impl>(f);
-    } else {
-        return nullptr;
+        if (f != NULL) {
+            return std::make_unique<Impl>(f);
+        } else {
+            return nullptr;
+        }
     }
 }
