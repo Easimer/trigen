@@ -16,3 +16,4 @@
 #include <algorithm>
 #include <iterator>
 #include <string>
+#include <list>
