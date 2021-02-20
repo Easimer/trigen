@@ -4,6 +4,8 @@ set(SRC
 
 	application.cpp
 	application.h
+	session.cpp
+	session.h
 )
 
 add_executable(mesh_paint_proto ${SRC})
@@ -17,6 +19,9 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	psp
 	renderer
 	arcball_camera
+	softbody
+	softbody_ext
+	marching_cubes
 )
 target_precompile_headers(mesh_paint_proto PRIVATE "stdafx.h")
 tri_builddir(mesh_paint_proto)

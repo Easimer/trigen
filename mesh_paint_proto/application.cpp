@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include "application.h"
 #include "events.h"
+#include "session.h"
 
 #include <r_sdl.h>
 #include <r_queue.h>
@@ -44,6 +45,31 @@ private:
     Arcball_Camera *_camera;
 };
 
+class Session_Creation_Dialog {
+public:
+    void draw() {
+        if (ImGui::Begin("Open simulation image")) {
+            ImGui::InputText("Path", _path_buf, 2048);
+            ImGui::SameLine();
+            if (ImGui::Button("OK")) {
+                _ready = true;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                _close = true;
+            }
+        }
+    }
+
+    bool ready() const { return _ready; }
+    bool close() const { return _close; }
+    char const *path() { return _path_buf; }
+private:
+    bool _ready = false;
+    bool _close = false;
+    char _path_buf[2048];
+};
+
 class Application : public IApplication {
 public:
     Application(
@@ -80,9 +106,40 @@ public:
             _window->set_camera(_camera->get_view_matrix());
             _window->new_frame();
 
-            if (ImGui::Begin("Window")) {
+            if (ImGui::BeginMainMenuBar()) {
+                if (ImGui::BeginMenu("File")) {
+                    if (ImGui::MenuItem("Open")) {
+                        _session_creation_dialog = Session_Creation_Dialog();
+                    }
+                    ImGui::EndMenu();
+                }
+
+                if (ImGui::BeginMenu("Windows")) {
+                    for (auto &session : _sessions) {
+                        bool is_current = session.get() == _current_session;
+                        if (ImGui::MenuItem(session->title(), nullptr, is_current)) {
+                            _current_session = session.get();
+                        }
+                    }
+                    ImGui::EndMenu();
+                }
             }
-            ImGui::End();
+            ImGui::EndMainMenuBar();
+
+            if (_session_creation_dialog) {
+                _session_creation_dialog->draw();
+                if (_session_creation_dialog->close()) {
+                    _session_creation_dialog.reset();
+                }
+                if (_session_creation_dialog->ready()) {
+                    create_session(_session_creation_dialog->path());
+                    _session_creation_dialog.reset();
+                }
+            }
+
+            if (_current_session != nullptr) {
+                _current_session->render(&rq);
+            }
 
             rq.execute(_window.get());
             delta = _window->present();
@@ -91,12 +148,34 @@ public:
         return 0;
     }
 
+    void create_session(char const *path) {
+        auto session = make_session(path);
+        _current_session = session.get();
+        _sessions.push_front(std::move(session));
+    }
+
+    void remove_session(ISession *session) {
+        std::remove_if(_sessions.begin(), _sessions.end(), [&](auto const &s) { return s.get() == session; });
+
+        if (_current_session == session) {
+            if (_sessions.size() > 0) {
+                _current_session = _sessions.front().get();
+            } else {
+                _current_session = nullptr;
+            }
+        }
+    }
+
 private:
     bool _quit = false;
 
     std::unique_ptr<gfx::ISDL_Window> _window;
     std::unique_ptr<Arcball_Camera> _camera;
     Arcball_Camera_Event_Handler _camera_ev_handler;
+
+    std::list<std::unique_ptr<ISession>> _sessions;
+    ISession *_current_session = nullptr;
+    std::optional<Session_Creation_Dialog> _session_creation_dialog;
 };
 
 std::unique_ptr<IApplication> make_application(

@@ -13,3 +13,6 @@
 #include <unordered_map>
 #include <array>
 #include <memory>
+#include <algorithm>
+#include <iterator>
+#include <string>
