@@ -10,6 +10,8 @@
 
 class ISession {
 public:
+    virtual ~ISession() = default;
+
     virtual void render(gfx::Render_Queue *rq) = 0;
 
     virtual marching_cubes::params &marching_cubes_params() = 0;
