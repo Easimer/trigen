@@ -15,6 +15,7 @@
 #include "wnd_meshgen.h"
 #include <thread>
 #include <objscan.h>
+#include <softbody/file_serializer.h>
 
 #define BIND_DATA_DBLSPINBOX(data, Data_Type, field, elem)                                                  \
     connect(                                                                                                \
@@ -71,8 +72,15 @@
     BIND_DATA_VEC3_COMPONENT(vec, fieldy, y_changed, set_y);    \
     BIND_DATA_VEC3_COMPONENT(vec, fieldz, z_changed, set_z);    \
 
-std::unique_ptr<sb::ISerializer> make_serializer(QString const& path);
-std::unique_ptr<sb::IDeserializer> make_deserializer(QString const& path);
+std::unique_ptr<sb::ISerializer> make_serializer(QString const &path) {
+    auto s = path.toUtf8();
+    return sb::make_serializer(s.constData());
+}
+
+std::unique_ptr<sb::IDeserializer> make_deserializer(QString const &path) {
+    auto s = path.toUtf8();
+    return sb::make_deserializer(s.constData());
+}
 
 static void sb_msg_callback(sb::Debug_Message_Source src, sb::Debug_Message_Type type, sb::Debug_Message_Severity severity, char const* msg, void* user) {
     printf("sb: %s\n", msg);
@@ -173,7 +181,7 @@ Window_Main::Window_Main(QWidget* parent) :
     sim_cfg.extra.ptr = nullptr;
     
     // Not settable from UI
-    sim_cfg.compute_preference = sb::Compute_Preference::GPU_Proprietary;
+    sim_cfg.compute_preference = sb::Compute_Preference::Reference;
 
     connect(sim_control->btnSaveImage, &QPushButton::released, [&]() {
         stop_simulation();
