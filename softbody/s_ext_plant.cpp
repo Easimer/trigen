@@ -27,8 +27,14 @@ static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
     Plant_Simulation(sb::Config const& params) : params(params) {
-        assert(params.extra.plant_sim != nullptr);
-        extra = *params.extra.plant_sim;
+        if (params.extra.plant_sim != nullptr) {
+            extra = *params.extra.plant_sim;
+        } else {
+            // NOTE(danielm): plant_sim will be null when we're deserializing
+            // a simulation image (we don't save ext params).
+            // TODO(danielm): fix this
+            extra = {};
+        }
     }
 private:
     sb::Config params;
@@ -260,9 +266,5 @@ private:
 };
 
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params) {
-    if(params.extra.plant_sim != nullptr) {
-        return std::make_unique<Plant_Simulation>(params);
-    } else {
-        return nullptr;
-    }
+    return std::make_unique<Plant_Simulation>(params);
 }
