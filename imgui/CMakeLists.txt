@@ -20,5 +20,6 @@ add_library(imgui STATIC ${SRC_IMGUI})
 target_include_directories(imgui PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(imgui PRIVATE glad ${SDL2_LIBRARIES})
 target_compile_definitions(imgui PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
+set_target_properties(imgui PROPERTIES FOLDER "Libs")
 
 target_disable_clang_tidy(imgui)

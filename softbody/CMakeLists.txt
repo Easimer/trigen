@@ -85,6 +85,7 @@ add_compile_definitions(CL_HPP_MINIMUM_OPENCL_VERSION=120)
 if(${SOFTBODY_ENABLE_TRACY})
     target_compile_definitions(softbody PRIVATE TRACY_ENABLE=1)
 endif()
+set_target_properties(softbody PROPERTIES FOLDER "Libs")
 
 if(${BUILD_TESTING})
 add_executable(softbody_tests ${SRC_PUBLIC} ${SRC_IMPL} ${SRC_TESTS})

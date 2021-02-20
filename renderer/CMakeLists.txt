@@ -36,3 +36,4 @@ target_include_directories(renderer PRIVATE ${SDL2_INCLUDE_DIRS} ${TRACY_INCLUDE
 if(${RENDERER_ENABLE_TRACY})
     target_compile_definitions(renderer PRIVATE TRACY_ENABLE=1)
 endif()
+set_target_properties(renderer PROPERTIES FOLDER "Libs")

@@ -11,6 +11,7 @@ endif()
 add_library(tracy_client STATIC ${TRACY_SRC_DIR}/TracyClient.cpp)
 target_include_directories(tracy_client PUBLIC ${TRACY_SRC_DIR})
 target_compile_definitions(tracy_client PRIVATE TRACY_ENABLE=1)
+set_target_properties(tracy_client PROPERTIES FOLDER "Libs")
 
 set(TRACY_LIBRARIES tracy_client)
 set(TRACY_INCLUDE_DIR ${TRACY_SRC_DIR})

@@ -4,3 +4,4 @@ set(SRC_PSP
 
 add_library(psp STATIC ${SRC_PSP})
 target_include_directories(psp PUBLIC include/)
+set_target_properties(psp PROPERTIES FOLDER "Libs")

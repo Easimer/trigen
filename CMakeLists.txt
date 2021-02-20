@@ -167,6 +167,7 @@ add_subdirectory(nodeeditor)
 # NOTE(danielm): nodeeditor doesn't seem to work with unity builds
 set_target_properties(nodes PROPERTIES UNITY_BUILD OFF)
 target_disable_clang_tidy(nodes)
+set_target_properties(nodes PROPERTIES FOLDER "Libs")
 # Precompile some headers for nodeeditor.
 target_precompile_headers(
 	nodes PRIVATE

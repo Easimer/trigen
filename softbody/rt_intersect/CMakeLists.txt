@@ -22,3 +22,4 @@ set(CUDA_LIBS CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt
 add_library(rt_intersect STATIC ${SRC})
 target_include_directories(rt_intersect PRIVATE ${OPTIX_INCLUDE_DIR} PUBLIC include/)
 target_link_libraries(rt_intersect PRIVATE ${CUDA_LIBS})
+set_target_properties(rt_intersect PROPERTIES FOLDER "Libs")
