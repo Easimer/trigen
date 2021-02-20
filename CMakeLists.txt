@@ -159,6 +159,8 @@ if(${BUILD_LEGACY_STUFF})
 endif()
 add_subdirectory(softbody_crosscheck)
 
+add_subdirectory(mesh_paint_proto)
+
 option(SOFTBODY_TESTBED_QT "Build the Qt5-based testbed")
 
 if(${SOFTBODY_TESTBED_QT})
