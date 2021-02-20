@@ -17,13 +17,25 @@
 // all copies or substantial portions of the Software.
 //
 
-#include "common.h"
 #include "arcball_camera.h"
 #include <optional>
 
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/mat3x3.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/gtx/quaternion.hpp>
+
+using Quat = glm::quat;
+using Vec2 = glm::vec2;
+using Vec3 = glm::vec3;
+using Mat3 = glm::mat3;
+using Mat4 = glm::mat4;
+
 template<typename T> using Optional = std::optional<T>;
 
-static Quat ScreenToArcball(Vec2 const& p);
+static glm::quat ScreenToArcball(Vec2 const& p);
 
 #define ARCBALL_PARANOID(q) glm::normalize(q)
 
@@ -126,7 +138,7 @@ private:
     Optional<Vec2> mouse_position;
 };
 
-Unique_Ptr<Arcball_Camera> create_arcball_camera() {
+std::unique_ptr<Arcball_Camera> create_arcball_camera() {
     return std::make_unique<Arcball_Camera_Impl>();
 }
 

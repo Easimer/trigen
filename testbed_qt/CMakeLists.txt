@@ -23,9 +23,6 @@ set(SRC
     glviewport.cpp
     glviewport.h
 
-    arcball_camera.cpp
-    arcball_camera.h
-
     softbody_renderer.cpp
     softbody_renderer.h
 
@@ -47,7 +44,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp)
+target_link_libraries(testbed_qt Qt5::Widgets softbody renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera)
 target_include_directories(testbed_qt PRIVATE ${FBX_SDK_INCLUDE_DIR})
 
 install(TARGETS testbed_qt)

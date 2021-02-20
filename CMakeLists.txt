@@ -142,6 +142,7 @@ find_package(Threads REQUIRED)
 add_subdirectory(embed)
 
 add_subdirectory(glad)
+add_subdirectory(libs)
 add_subdirectory(imgui)
 add_subdirectory(renderer)
 add_subdirectory(marching_cubes)

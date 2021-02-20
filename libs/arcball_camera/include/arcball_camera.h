@@ -5,12 +5,13 @@
 
 #pragma once
 
-#include "common.h"
+#include <memory>
+#include <glm/mat4x4.hpp>
 
 class Arcball_Camera {
 public:
     virtual ~Arcball_Camera() {}
-    virtual Mat4 get_view_matrix() = 0;
+    virtual glm::mat4 get_view_matrix() = 0;
     virtual void set_screen_size(int x, int y) = 0;
 
     virtual void mouse_down(int x, int y) = 0;
@@ -21,4 +22,4 @@ public:
     virtual void reset() = 0;
 };
 
-Unique_Ptr<Arcball_Camera> create_arcball_camera();
+std::unique_ptr<Arcball_Camera> create_arcball_camera();
