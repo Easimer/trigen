@@ -8,6 +8,8 @@
 #include <deque>
 #include <unordered_set>
 #include <algorithm>
+#include <unordered_map>
+#include <deque>
 
 #include <glm/geometric.hpp>
 #include <glm/gtx/component_wise.hpp>
@@ -48,6 +50,26 @@ static int get_triangle_direction(PSP::Mesh const &mesh, Triangle_ID tid) {
     }
 
     return min_i;
+}
+
+static bool check_duplicate_vertices(PSP::Mesh const &mesh, std::vector<Chart> const &charts) {
+    std::unordered_map<size_t, Chart*> vertex_indices;
+
+    for (auto &chart : charts) {
+        for (auto &triangle_id : chart.triangles) {
+            auto base_vertex_index = triangle_id * 3;
+            for (int v = 0; v < 3; v++) {
+                auto element = mesh.elements[base_vertex_index + v];
+                if (vertex_indices.count(element)) {
+                    auto other_chart_ptr = vertex_indices[element];
+                    fprintf(stderr, "Chart %p contains vertex %zu already contained by chart %p\n", &chart, element, other_chart_ptr);
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 static std::vector<Chart> find_charts(PSP::Mesh const &mesh) {
@@ -126,6 +148,8 @@ static std::vector<Chart> find_charts(PSP::Mesh const &mesh) {
         charts.push_back(std::move(chart));
     }
 
+    assert(check_duplicate_vertices(mesh, charts));
+
     return charts;
 }
 
@@ -181,11 +205,36 @@ static void assign_debug_vertex_colors(PSP::Mesh &mesh, std::vector<Chart> const
     }
 }
 
+static float area_of_triangle(glm::vec3 const &A, glm::vec3 const &B, glm::vec3 const &C) {
+    auto AB = B - A;
+    auto AC = C - A;
+    return length(cross(AB, AC)) / 2;
+}
+
+static float area_of_chart(PSP::Mesh const &mesh, Chart const &chart) {
+    float total = 0;
+    for (auto triangle_id : chart.triangles) {
+        auto base_idx = triangle_id * 3;
+        auto area = area_of_triangle(
+            mesh.position[mesh.elements[base_idx + 0]],
+            mesh.position[mesh.elements[base_idx + 1]],
+            mesh.position[mesh.elements[base_idx + 2]]
+        );
+        total += area;
+    }
+    return total;
+}
+
+static void sort_charts_by_area_descending(PSP::Mesh const &mesh, std::vector<Chart> &charts) {
+    auto pred = [mesh](Chart const &lhs, Chart const &rhs) {
+        return area_of_chart(mesh, lhs) > area_of_chart(mesh, rhs);
+    };
+    sort(charts.begin(), charts.end(), pred);
+}
+
 static std::vector<Chart> chart(PSP::Mesh &mesh) {
     auto charts = find_charts(mesh);
-    std::sort(charts.begin(), charts.end(), [&](Chart const &lhs, Chart const &rhs) -> bool {
-        return lhs.triangles.size() < rhs.triangles.size();
-    });
+    sort_charts_by_area_descending(mesh, charts);
 
     assign_debug_vertex_colors(mesh, charts);
 
@@ -194,7 +243,9 @@ static std::vector<Chart> chart(PSP::Mesh &mesh) {
 
 static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
     std::vector<std::optional<glm::vec2>> uv_tmp;
+    std::vector<std::optional<glm::vec2>> uv_normalized;
     uv_tmp.resize(mesh.position.size());
+    uv_normalized.resize(mesh.position.size());
 
     for (auto &chart : charts) {
         glm::vec2 min(FLT_MAX, FLT_MAX);
@@ -209,7 +260,6 @@ static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         auto proj = projector_vec[chart.direction];
         for (auto tri : chart.triangles) {
             auto baseVtxIdx = tri * 3;
-            // per-component multiplication
             for (int v = 0; v < 3; v++) {
                 auto vtxIdx = mesh.elements[baseVtxIdx + v];
 
@@ -217,11 +267,10 @@ static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
                     continue;
                 }
 
+                // NOTE(danielm): component-wise vector product
                 auto p = mesh.position[vtxIdx] * proj;
 
-                for (int c = 0; c < 3; c++) {
-                }
-
+                // Calculate temporary UV coordinate
                 glm::vec2 uv;
                 for (int idx2 = 0; idx2 < 2; idx2++) {
                     auto idx3 = selector_vec[chart.direction][idx2];
@@ -234,29 +283,118 @@ static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         }
 
         // After we have all the UV coords in model space, we map them to normalized chart space.
-        // UV' = (UV + min) / (max - min)
+        // UV' = (UV - min) / (max - min)
         for (auto tri : chart.triangles) {
             auto baseVtxIdx = tri * 3;
             // per-component multiplication
             for (int v = 0; v < 3; v++) {
                 auto vtxIdx = mesh.elements[baseVtxIdx + v];
+
+                // Prevent UV coords from being normalized multiple times
+                if (uv_normalized[vtxIdx].has_value()) {
+                    continue;
+                }
+
                 assert(uv_tmp[vtxIdx].has_value());
 
-                auto &uv = uv_tmp[vtxIdx].value();
+                auto uv = uv_tmp[vtxIdx].value();
+                assert(min.x <= uv.x && uv.x <= max.x);
+                assert(min.y <= uv.y && uv.y <= max.y);
 
-                uv = (uv + min) / (max - min);
+                uv_normalized[vtxIdx] = (uv - min) / (max - min);
 
-                assert(0.0f <= uv[0] && uv[0] <= 1.0f);
-                assert(0.0f <= uv[1] && uv[1] <= 1.0f);
+                auto uv_n = uv_normalized[vtxIdx].value();
+
+                assert(0.0f <= uv_n[0] && uv_n[0] <= 1.0f);
+                assert(0.0f <= uv_n[1] && uv_n[1] <= 1.0f);
             }
         }
     }
 
-    assert(uv_tmp.size() == mesh.position.size());
-    mesh.uv.resize(uv_tmp.size());
-    for (size_t i = 0; i < uv_tmp.size(); i++) {
-        assert(uv_tmp[i].has_value());
-        mesh.uv[i] = uv_tmp[i].value();
+    assert(uv_normalized.size() == mesh.position.size());
+    mesh.uv.resize(uv_normalized.size());
+    for (size_t i = 0; i < uv_normalized.size(); i++) {
+        assert(uv_normalized[i].has_value());
+        mesh.uv[i] = uv_normalized[i].value();
+    }
+}
+
+struct Quad {
+    glm::vec2 min, max;
+};
+
+/*
+iterator divide_quad(m, M, i_limit):
+  Q := queue()
+  Q.enqueue(([0, 0], [1, 1]))
+  i := 0
+  while Q is not empty do
+    quad := Q.dequeue()
+    yield Q0(quad)
+    yield Q1(quad)
+    i := i + 2
+    if i < i_limit:
+      Q.enqueue(Q2(quad))
+      Q.enqueue(Q3(quad))
+*/
+/*
+ * Divides the UV space up among the charts in the manner of a breadth-first
+ * search.
+ * TODO(danielm): better explanation
+ */
+static std::vector<Quad> divide_quad(size_t size_limit) {
+    std::vector<Quad> ret;
+    std::deque<Quad> queue;
+
+    queue.push_back({ {0, 0}, {1, 1} });
+
+    while (!queue.empty()) {
+        auto quad = queue.front();
+        queue.pop_front();
+        glm::vec2 half_width = { (quad.max - quad.min).x / 2, 0 };
+        glm::vec2 half_height = { 0, (quad.max - quad.min).y / 2 };
+        auto center = quad.min + half_width + half_height;
+
+        // Q0: (top-left, center)
+        ret.push_back({ quad.min, center });
+        // Q1: (top-center, center-right)
+        ret.push_back({ quad.min + half_width, center + half_width + half_height });
+
+        if (ret.size() < size_limit) {
+            // Q2: (center-left, bottom-center)
+            queue.push_back({ quad.min + half_height, center + half_height });
+            // Q3: (center, bottom-right)
+            queue.push_back({ center, quad.max });
+        } else {
+            break;
+        }
+    }
+
+    return ret;
+}
+
+static void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &charts) {
+    // Generate enough quads for every chart
+    auto quads = divide_quad(charts.size());
+    // `charts` is assumed to be sorted by total surface area (desc.)
+    // so the biggest chart gets the biggest quad in the UV space
+    for (int chart_idx = 0; chart_idx < charts.size(); chart_idx++) {
+        auto &quad = quads[chart_idx];
+        auto &chart = charts[chart_idx];
+        // UV coordinates are currently in chart space, so we need to transform them
+        // into UV space
+        auto const quad_extent = quad.max - quad.min;
+        for (auto &triangle_id : chart.triangles) {
+            auto base_vertex_idx = triangle_id * 3;
+            for (int v = 0; v < 3; v++) {
+                auto uv = mesh.uv[mesh.elements[base_vertex_idx + v]];
+                // Scale UV coordinate according to the quad extent then move
+                // it into quad space
+                uv = quad.min + uv / quad_extent;
+
+                mesh.uv[mesh.elements[base_vertex_idx + v]] = uv;
+            }
+        }
     }
 }
 
@@ -264,6 +402,8 @@ int PSP::paint(/* out */ Material &material, /* inout */ Mesh &mesh) {
     // Assign UV coordinates
     auto charts = chart(mesh);
     project_charts(mesh, charts);
+    sort_charts_by_area_descending(mesh, charts);
+    divide_quad_among_charts(mesh, charts);
     // Setup particle system
     // Simulate particles:
     //  - calculate next position based on velocity
