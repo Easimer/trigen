@@ -48,7 +48,7 @@ private:
 class Session_Creation_Dialog {
 public:
     void draw() {
-        if (ImGui::Begin("Open simulation image")) {
+        if (ImGui::Begin("Open simulation image", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Path", _path_buf, 2048);
             ImGui::SameLine();
             if (ImGui::Button("OK")) {
@@ -59,6 +59,7 @@ public:
                 _close = true;
             }
         }
+        ImGui::End();
     }
 
     bool ready() const { return _ready; }
@@ -138,6 +139,21 @@ public:
             }
 
             if (_current_session != nullptr) {
+                ImGui::Begin("Session", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize);
+                ImGui::Text("%s", _current_session->title());
+                ImGui::Separator();
+                ImGui::Text("Marching cubes parameters");
+                auto &mc_params = _current_session->marching_cubes_params();
+                ImGui::DragInt("Subdivisions", &mc_params.subdivisions);
+
+                ImGui::Separator();
+                if (ImGui::Button("Generate mesh")) {
+                    _current_session->do_generate_mesh();
+                }
+                if (ImGui::Button("Paint mesh")) {
+                    _current_session->do_paint_mesh();
+                }
+                ImGui::End();
                 _current_session->render(&rq);
             }
 

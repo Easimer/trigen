@@ -23,16 +23,16 @@ struct Charter_Debug_Mesh : public Debug_Mesh {
 template<typename T>
 class Render_Debug_Mesh : public gfx::IRender_Command {
 public:
-    Render_Debug_Mesh(T const &mesh) : _mesh(mesh) {
+    Render_Debug_Mesh(T const *mesh) : _mesh(mesh) {
     }
 
     void execute(gfx::IRenderer *renderer) override {
-        draw_mesh(renderer, _mesh);
+        draw_mesh(renderer, *_mesh);
     }
 
     void draw_mesh(gfx::IRenderer *renderer, Charter_Debug_Mesh const &mesh) {
-        auto vertex_count = _mesh.positions.size();
-        auto element_count = _mesh.elements.size();
+        auto vertex_count = mesh.positions.size();
+        auto element_count = mesh.elements.size();
 
         renderer->draw_triangle_elements_with_vertex_color(
             vertex_count,
@@ -45,19 +45,19 @@ public:
     }
 
     void draw_mesh(gfx::IRenderer *renderer, Debug_Mesh const &mesh) {
-        auto vertex_count = _mesh.positions.size();
-        auto element_count = _mesh.elements.size();
+        auto vertex_count = mesh.positions.size();
+        auto element_count = mesh.elements.size();
 
         renderer->draw_triangle_elements(
             vertex_count, 
-            _mesh.positions.data(),
+            mesh.positions.data(),
             element_count,
-            _mesh.elements.data(),
+            mesh.elements.data(),
             glm::vec3()
         );
     }
 private:
-    T const &_mesh;
+    T const *_mesh;
 };
 
 class Session : public ISession {
@@ -72,10 +72,10 @@ public:
 
     void render(gfx::Render_Queue *rq) override {
         if (_debug_mesh.has_value()) {
-            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Debug_Mesh>>(rq, _debug_mesh.value());
+            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Debug_Mesh>>(rq, &_debug_mesh.value());
         }
         if (_charter_debug_mesh.has_value()) {
-            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Charter_Debug_Mesh>>(rq, _charter_debug_mesh.value());
+            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Charter_Debug_Mesh>>(rq, &_charter_debug_mesh.value());
         }
     }
 
