@@ -11,6 +11,55 @@
 #include <marching_cubes.h>
 #include <psp/psp.h>
 
+struct Debug_Mesh {
+    std::vector<std::array<float, 3>> positions;
+    std::vector<unsigned> elements;
+};
+
+struct Charter_Debug_Mesh : public Debug_Mesh {
+    std::vector<glm::u8vec3> charter_debug_colors;
+};
+
+template<typename T>
+class Render_Debug_Mesh : public gfx::IRender_Command {
+public:
+    Render_Debug_Mesh(T const &mesh) : _mesh(mesh) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        draw_mesh(renderer, _mesh);
+    }
+
+    void draw_mesh(gfx::IRenderer *renderer, Charter_Debug_Mesh const &mesh) {
+        auto vertex_count = _mesh.positions.size();
+        auto element_count = _mesh.elements.size();
+
+        renderer->draw_triangle_elements_with_vertex_color(
+            vertex_count,
+            mesh.positions.data(),
+            mesh.charter_debug_colors.data(),
+            element_count,
+            mesh.elements.data(),
+            glm::vec3()
+        );
+    }
+
+    void draw_mesh(gfx::IRenderer *renderer, Debug_Mesh const &mesh) {
+        auto vertex_count = _mesh.positions.size();
+        auto element_count = _mesh.elements.size();
+
+        renderer->draw_triangle_elements(
+            vertex_count, 
+            _mesh.positions.data(),
+            element_count,
+            _mesh.elements.data(),
+            glm::vec3()
+        );
+    }
+private:
+    T const &_mesh;
+};
+
 class Session : public ISession {
 public:
     Session(
@@ -22,6 +71,12 @@ public:
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }
 
     void render(gfx::Render_Queue *rq) override {
+        if (_debug_mesh.has_value()) {
+            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Debug_Mesh>>(rq, _debug_mesh.value());
+        }
+        if (_charter_debug_mesh.has_value()) {
+            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Charter_Debug_Mesh>>(rq, _charter_debug_mesh.value());
+        }
     }
 
     void do_generate_mesh() override {
@@ -32,13 +87,63 @@ public:
 
         _psp_mesh.elements.clear();
         std::transform(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(_psp_mesh.elements), [&](unsigned idx) { return (size_t)idx; });
+
+        _charter_debug_mesh.reset();
+        _debug_mesh = convert_mesh(mesh);
     }
 
     void do_paint_mesh() override {
+        int rc;
+        // TODO(danielm): store this somewhere
+        PSP::Material mat;
+        rc = PSP::paint(mat, _psp_mesh);
+        if (rc != 0) {
+            return;
+        }
+
+        _debug_mesh.reset();
+        _charter_debug_mesh = convert_mesh(_psp_mesh);
+
     }
 
     char const *title() const override {
         return _title.c_str();
+    }
+
+private:
+    Debug_Mesh convert_mesh(marching_cubes::mesh const &mesh) {
+        Debug_Mesh ret;
+
+        std::transform(
+            mesh.positions.begin(), mesh.positions.end(),
+            std::back_inserter(ret.positions),
+            [&](auto p) -> std::array<float, 3> {
+                return { p.x, p.y, p.z };
+            }
+        );
+        ret.elements = mesh.indices;
+        return ret;
+    }
+
+    Charter_Debug_Mesh convert_mesh(PSP::Mesh const &mesh) {
+        Charter_Debug_Mesh ret;
+
+        std::transform(
+            mesh.position.begin(), mesh.position.end(),
+            std::back_inserter(ret.positions),
+            [&](auto p) -> std::array<float, 3> {
+                return { p.x, p.y, p.z };
+            }
+        );
+        std::transform(
+            mesh.elements.begin(), mesh.elements.end(),
+            std::back_inserter(ret.elements),
+            [&](auto p) { return (unsigned)p; }
+        );
+
+        ret.charter_debug_colors = mesh.chart_debug_color;
+
+        return ret;
     }
 
 private:
@@ -47,6 +152,8 @@ private:
 
     marching_cubes::params _mc_params;
     PSP::Mesh _psp_mesh;
+    std::optional<Debug_Mesh> _debug_mesh;
+    std::optional<Charter_Debug_Mesh> _charter_debug_mesh;
 };
 
 std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
