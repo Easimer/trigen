@@ -53,6 +53,13 @@ struct Texture {
     gl::Texture texture;
 };
 
+struct Model {
+    gl::VAO vao;
+    gl::VBO elements;
+    gl::VBO vertices;
+    gl::VBO uvs;
+};
+
 struct G_Buffer {
 public:
     static std::optional<G_Buffer> make_gbuffer(int width, int height) {
@@ -725,6 +732,45 @@ public:
         std::remove_if(_textures.begin(), _textures.end(), [&](Texture const &t) { return &t == id; });
     }
 
+    bool create_model(gfx::Model_ID *out_id, gfx::Model_Descriptor const *model) override {
+        if (out_id == nullptr || model == nullptr) {
+            return false;
+        }
+
+        if (model->elements == nullptr || model->vertices == nullptr) {
+            return false;
+        }
+
+        Model mdl;
+        glBindVertexArray(mdl.vao);
+
+        glBindBuffer(GL_ARRAY_BUFFER, mdl.vertices);
+        glBufferData(GL_ARRAY_BUFFER, model->vertex_count * sizeof(glm::vec3), model->vertices, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, mdl.uvs);
+        glBufferData(GL_ARRAY_BUFFER, model->vertex_count * sizeof(glm::vec2), model->uv, GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(1);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl.elements);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, model->element_count * sizeof(unsigned), model->elements, GL_STATIC_DRAW);
+
+        _models.push_back(std::move(mdl));
+        *out_id = &_models.back();
+
+        return true;
+    }
+
+    void destroy_model(gfx::Model_ID id) override {
+        if (id == nullptr) {
+            return;
+        }
+
+        std::remove_if(_models.begin(), _models.end(), [&](Model const &m) { return &m == id; });
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
@@ -755,10 +801,12 @@ private:
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
     std::optional<Element_Model_Shader> m_element_model_shader;
     std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
+    std::optional<Element_Model_Shader> m_element_model_shader_textured;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 
     std::list<Texture> _textures;
+    std::list<Model> _models;
 };
 
 std::unique_ptr<gfx::IRenderer> gfx::make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*)) {

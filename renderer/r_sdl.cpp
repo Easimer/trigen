@@ -191,6 +191,16 @@ public:
         return backend->destroy_texture(id);
     }
 
+    bool create_model(gfx::Model_ID *out_id, gfx::Model_Descriptor const *model) override {
+        ZoneScoped;
+        return backend->create_model(out_id, model);
+    }
+
+    void destroy_model(gfx::Model_ID id) override {
+        ZoneScoped;
+        return backend->destroy_model(id);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

@@ -20,7 +20,16 @@ namespace gfx {
         std::optional<glm::vec3> sun;
     };
 
+    using Model_ID = void*;
     using Texture_ID = void*;
+
+    struct Model_Descriptor {
+        size_t vertex_count;
+        std::array<float, 3> const *vertices;
+        std::array<float, 2> const *uv;
+        size_t element_count;
+        unsigned const *elements;
+    };
 
     enum class Texture_Format {
         RGB888,
@@ -76,6 +85,9 @@ namespace gfx {
 
         virtual bool upload_texture(Texture_ID *out_id, unsigned width, unsigned height, Texture_Format format, void const *image) = 0;
         virtual void destroy_texture(Texture_ID id) = 0;
+
+        virtual bool create_model(Model_ID *out_id, Model_Descriptor const *model) = 0;
+        virtual void destroy_model(Model_ID id) = 0;
     };
 
     enum class Renderer_Backend {
