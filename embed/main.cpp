@@ -33,12 +33,12 @@ static bool need_to_escape(char c) {
     }
 }
 
-static void emit_hex(FILE* dst, char ch) {
+static void emit_hex(FILE* dst, unsigned char ch) {
     char esc[2] = { '\\', 'x' };
     fwrite(esc, 1, 2, dst);
 
     for(int i = 0; i < 2; i++) {
-        auto digit = (ch & 0x0F);
+        auto digit = (ch >> ((1 - i) * 4)) & 0x0F;
         char c;
         if(digit < 10) {
             c = '0' + digit;
@@ -46,16 +46,16 @@ static void emit_hex(FILE* dst, char ch) {
             c = 'A' + (digit - 10);
         }
         fwrite(&c, 1, 1, dst);
-        ch >>= 4;
     }
 }
 
-static size_t transcribe_file(FILE* dst, FILE* src) {
+static size_t transcribe_file(FILE* dst, FILE* src, bool always_emit_hex) {
     size_t ret = 0;
     assert(dst != NULL);
     assert(src != NULL);
     bool flag_emit_opening_quotes = true;
     bool flag_emit_closing_quotes = true;
+    int col = 0;
 
     while(!feof(src)) {
         char ch;
@@ -72,7 +72,7 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
             flag_emit_closing_quotes = true;
         }
 
-        if(is_printable(ch)) {
+        if(!always_emit_hex && is_printable(ch)) {
             if(need_to_escape(ch)) {
                 fwrite(&esc, 1, 1, dst);
                 ret++;
@@ -80,17 +80,27 @@ static size_t transcribe_file(FILE* dst, FILE* src) {
             fwrite(&ch, 1, 1, dst);
             ret++;
         } else {
-            if (ch == '\r') {
+            if (ch == '\r' && !always_emit_hex) {
                 continue;
             }
 
-            if(ch != '\n') {
+            if(ch != '\n' || always_emit_hex) {
                 emit_hex(dst, ch);
                 ret++;
             } else {
                 flag_emit_closing_quotes = false;
                 fwrite("\\n\"\n", 1, 4, dst);
                 flag_emit_opening_quotes = true;
+            }
+
+            if (always_emit_hex) {
+                col++;
+                if (col == 64) {
+                    flag_emit_closing_quotes = false;
+                    fwrite("\"\n", 1, 2, dst);
+                    flag_emit_opening_quotes = true;
+                    col = 0;
+                }
             }
         }
     }
@@ -149,7 +159,7 @@ static bool convert_text_file(FILE *dst, FILE *src, char const *filename) {
     fwrite(type, 1, strlen(type), dst);
     generate_variable_name(dst, filename);
     fwrite(array, 1, strlen(array), dst);
-    transcribe_file(dst, src);
+    transcribe_file(dst, src, false);
     fwrite(end_of_line, 1, strlen(end_of_line), dst);
 
     char const siz_type[] = "unsigned long long ";
@@ -169,33 +179,20 @@ static bool convert_text_file(FILE *dst, FILE *src, char const *filename) {
 static bool convert_binary_file(FILE *dst, FILE *src, char const *filename) {
     fseek(src, 0, SEEK_END);
     auto src_len = ftell(src);
+    fseek(src, 0, SEEK_SET);
 
-    char const type[] = "extern \"C\" {\nunsigned char const ";
+    char const type[] = "extern \"C\" {\nchar const *";
+    char const end_of_line[] = ";\n";
 
     fwrite(type, 1, strlen(type), dst);
     generate_variable_name(dst, filename);
-    fprintf(dst, "[] = { ");
-
-    fseek(src, 0, SEEK_SET);
-    int col = 0;
-    while (!feof(src)) {
-        unsigned char b;
-        if (fread(&b, 1, 1, src)) {
-            fprintf(dst, "0x%x,", b);
-            col++;
-            if (col == 16) {
-                col = 0;
-                fprintf(dst, "\n");
-            }
-        }
-    }
-    fprintf(dst, "};\n");
+    fprintf(dst, " = ");
+    transcribe_file(dst, src, true);
+    fwrite(end_of_line, 1, strlen(end_of_line), dst);
 
     fprintf(dst, "unsigned long long ");
     generate_variable_name(dst, filename);
-    fprintf(dst, "_len = sizeof(");
-    generate_variable_name(dst, filename);
-    fprintf(dst, ");\n");
+    fprintf(dst, "_len = %ld;\n", src_len);
     fprintf(dst, "}\n");
 
     return true;
