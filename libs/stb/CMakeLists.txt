@@ -1,0 +1,8 @@
+set(SRC
+    src/impl.c
+    include/stb_image.h
+)
+
+add_library(stb STATIC ${SRC})
+target_include_directories(stb PUBLIC include/)
+set_target_properties(stb PROPERTIES FOLDER "Libs")
