@@ -1,6 +1,6 @@
 set(SRC
     stdafx.h
-    main.cpp
+    main.c
 )
 
 add_executable(embed ${SRC})

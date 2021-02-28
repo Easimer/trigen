@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <cassert>
-#include <cstdio>
-#include <cstring>
-#include <cerrno>
-#include <cstdlib>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
