@@ -55,6 +55,7 @@ struct Texture {
 
 struct Model {
     gl::VAO vao;
+    unsigned element_count;
     gl::VBO elements;
     gl::VBO vertices;
     gl::VBO uvs;
@@ -336,6 +337,13 @@ public:
         LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program& program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             m_element_model_shader_with_vtx_color = { std::move(program), locMVP };
+        });
+
+        Shader_Define_List textured_defines = { {"TEXTURED", "1"} };
+        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, textured_defines, discard, [&](gl::Shader_Program& program) {
+            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+            auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
+            m_element_model_shader_textured = { std::move(program), locMVP, locTexDiffuse };
         });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
@@ -756,6 +764,7 @@ public:
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl.elements);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, model->element_count * sizeof(unsigned), model->elements, GL_STATIC_DRAW);
+        mdl.element_count = model->element_count;
 
         _models.push_back(std::move(mdl));
         *out_id = &_models.back();
@@ -769,6 +778,70 @@ public:
         }
 
         std::remove_if(_models.begin(), _models.end(), [&](Model const &m) { return &m == id; });
+    }
+
+    void draw_textured_triangle_elements(
+        gfx::Model_ID model_handle,
+        gfx::Material_Unlit const &material,
+        gfx::Transform const &transform
+    ) override {
+        if (model_handle == nullptr) {
+            return;
+        }
+
+        if (m_element_model_shader_textured.has_value()) {
+            auto model = (Model *)model_handle;
+            glBindVertexArray(model->vao);
+
+            auto& shader = *m_element_model_shader_textured;
+            glUseProgram(shader.program);
+
+            auto matTransform =
+                glm::translate(transform.position) *
+                glm::mat4_cast(transform.rotation) *
+                glm::scale(transform.scale);
+
+            auto matMVP = m_proj * m_view * matTransform;
+            gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            auto texDiffuse = (Texture *)material.diffuse;
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
+            gl::SetUniformLocation(shader.locTexDiffuse, 0);
+
+            glDrawElements(GL_TRIANGLES, model->element_count, GL_UNSIGNED_INT, 0);
+        } else {
+            printf("renderer: can't draw textured triangle elements: no shader!\n");
+        }
+    }
+
+    void draw_triangle_elements(
+        gfx::Model_ID model_handle,
+        gfx::Transform const &transform
+    ) override {
+        if (model_handle == nullptr) {
+            return;
+        }
+
+        if (m_element_model_shader.has_value()) {
+            auto model = (Model *)model_handle;
+            glBindVertexArray(model->vao);
+
+            auto& shader = *m_element_model_shader;
+            glUseProgram(shader.program);
+
+            auto matTransform =
+                glm::translate(transform.position) *
+                glm::mat4_cast(transform.rotation) *
+                glm::scale(transform.scale);
+
+            auto matMVP = m_proj * m_view * matTransform;
+            gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            glDrawElements(GL_TRIANGLES, model->element_count, GL_UNSIGNED_INT, 0);
+        } else {
+            printf("renderer: can't draw triangle elements: no shader!\n");
+        }
     }
 
 private:
@@ -797,11 +870,17 @@ private:
         gl::Uniform_Location<Mat4> locMVP;
     };
 
+    struct Textured_Element_Model_Shader {
+        gl::Shader_Program program;
+        gl::Uniform_Location<Mat4> locMVP;
+        gl::Uniform_Location<GLint> locTexDiffuse;
+    };
+
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
     std::optional<Element_Model_Shader> m_element_model_shader;
     std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
-    std::optional<Element_Model_Shader> m_element_model_shader_textured;
+    std::optional<Textured_Element_Model_Shader> m_element_model_shader_textured;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 

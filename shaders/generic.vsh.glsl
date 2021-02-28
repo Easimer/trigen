@@ -8,6 +8,11 @@ VAO_LAYOUT(0) in vec3 aPosition;
 VAO_LAYOUT(1) in vec3 aColor;
 #endif
 
+#if TEXTURED
+VAO_LAYOUT(1) in vec2 aUV;
+out vec2 vUV;
+#endif
+
 uniform mat4 matMVP;
 
 #ifdef GENERIC_SHADER_WITH_VERTEX_COLORS
@@ -20,4 +25,7 @@ void main() {
 #endif
 
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
+#if TEXTURED
+    vUV = aUV;
+#endif
 }

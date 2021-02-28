@@ -201,6 +201,23 @@ public:
         return backend->destroy_model(id);
     }
 
+    void draw_textured_triangle_elements(
+        gfx::Model_ID model,
+        gfx::Material_Unlit const &material,
+        gfx::Transform const &transform
+    ) override {
+        ZoneScoped;
+        return backend->draw_textured_triangle_elements(model, material, transform);
+    }
+
+    void draw_triangle_elements(
+        gfx::Model_ID model_handle,
+        gfx::Transform const &transform
+    ) override {
+        ZoneScoped;
+        return backend->draw_triangle_elements(model_handle, transform);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

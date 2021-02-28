@@ -35,6 +35,16 @@ namespace gfx {
         RGB888,
     };
 
+    struct Material_Unlit {
+        Texture_ID diffuse;
+    };
+
+    struct Transform {
+        glm::vec3 position;
+        glm::quat rotation;
+        glm::vec3 scale;
+    };
+
     class IRenderer {
     public:
         virtual ~IRenderer() {}
@@ -88,6 +98,17 @@ namespace gfx {
 
         virtual bool create_model(Model_ID *out_id, Model_Descriptor const *model) = 0;
         virtual void destroy_model(Model_ID id) = 0;
+
+        virtual void draw_textured_triangle_elements(
+            Model_ID model,
+            Material_Unlit const &material,
+            Transform const &transform
+        ) = 0;
+
+        virtual void draw_triangle_elements(
+            gfx::Model_ID model_handle,
+            gfx::Transform const &transform
+        ) = 0;
     };
 
     enum class Renderer_Backend {
