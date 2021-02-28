@@ -15,6 +15,9 @@ macro(embed_file storage_file)
             OUTPUT ${storage_file}
             COMMAND embed ${storage_file} ${source_files}
             DEPENDS ${source_files})
+		set_source_files_properties(${storage_file}
+			PROPERTIES COMPILE_FLAGS "/bigobj"
+		)
     else()
         warning("embed_file: no input files")
     endif()

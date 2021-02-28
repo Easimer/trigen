@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cerrno>
 #include <cstdlib>
+#include "main.h"
 
 static bool is_printable(char c) {
     if(c >= ' ' && c <= '~') {
@@ -120,7 +121,88 @@ static void generate_variable_name(FILE* dst, char const* filename) {
     }
 }
 
+static bool is_text_file(FILE *file) {
+    // Nothing fancy but only detects PNG files.
+    bool ret = true;
+    auto orig_pos = ftell(file);
+
+    fseek(file, 0, SEEK_SET);
+    unsigned char header[8];
+    fread(header, 1, 8, file);
+    if (header[0] == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
+        fprintf(stderr, "[+] png-file-detected\n");
+        fseek(file, orig_pos, SEEK_SET);
+        ret = false;
+        goto end;
+    }
+
+    fprintf(stderr, "[+] text-file-detected\n");
+end:
+    fseek(file, orig_pos, SEEK_SET);
+    return ret;
+}
+
+static bool convert_text_file(FILE *dst, FILE *src, char const *filename) {
+    char const type[] = "#include <cstring>\nextern \"C\" {\nchar const* ";
+    char const array[] = " = ";
+    char const end_of_line[] = ";\n";
+    fwrite(type, 1, strlen(type), dst);
+    generate_variable_name(dst, filename);
+    fwrite(array, 1, strlen(array), dst);
+    transcribe_file(dst, src);
+    fwrite(end_of_line, 1, strlen(end_of_line), dst);
+
+    char const siz_type[] = "unsigned long long ";
+    char const siz_value[] = " = strlen(";
+    fwrite(siz_type, 1, strlen(siz_type), dst);
+    generate_variable_name(dst, filename);
+    fwrite("_len", 1, 4, dst);
+    fwrite(siz_value, 1, strlen(siz_value), dst);
+    generate_variable_name(dst, filename);
+    fwrite(");\n}\n", 1, 5, dst);
+
+    fclose(src);
+
+    return true;
+}
+
+static bool convert_binary_file(FILE *dst, FILE *src, char const *filename) {
+    fseek(src, 0, SEEK_END);
+    auto src_len = ftell(src);
+
+    char const type[] = "extern \"C\" {\nunsigned char const ";
+
+    fwrite(type, 1, strlen(type), dst);
+    generate_variable_name(dst, filename);
+    fprintf(dst, "[] = { ");
+
+    fseek(src, 0, SEEK_SET);
+    int col = 0;
+    while (!feof(src)) {
+        unsigned char b;
+        if (fread(&b, 1, 1, src)) {
+            fprintf(dst, "0x%x,", b);
+            col++;
+            if (col == 16) {
+                col = 0;
+                fprintf(dst, "\n");
+            }
+        }
+    }
+    fprintf(dst, "};\n");
+
+    fprintf(dst, "unsigned long long ");
+    generate_variable_name(dst, filename);
+    fprintf(dst, "_len = sizeof(");
+    generate_variable_name(dst, filename);
+    fprintf(dst, ");\n");
+    fprintf(dst, "}\n");
+
+    return true;
+}
+
 static bool convert_file(FILE* dst, char const* path) {
+    bool ret = false;
     auto path_len = strlen(path);
     char const* filename = NULL;
 
@@ -143,27 +225,18 @@ static bool convert_file(FILE* dst, char const* path) {
         return false;
     }
 
-    char const type[] = "#include <cstring>\nextern \"C\" {\nchar const* ";
-    char const array[] = " = ";
-    char const end_of_line[] = ";\n";
-    fwrite(type, 1, strlen(type), dst);
-    generate_variable_name(dst, filename);
-    fwrite(array, 1, strlen(array), dst);
-    transcribe_file(dst, src);
-    fwrite(end_of_line, 1, strlen(end_of_line), dst);
+    if (is_text_file(src)) {
+        ret = convert_text_file(dst, src, filename);
+        goto end;
+    } else {
+        ret = convert_binary_file(dst, src, filename);
+        goto end;
+    }
 
-    char const siz_type[] = "unsigned long long ";
-    char const siz_value[] = " = strlen(";
-    fwrite(siz_type, 1, strlen(siz_type), dst);
-    generate_variable_name(dst, filename);
-    fwrite("_len", 1, 4, dst);
-    fwrite(siz_value, 1, strlen(siz_value), dst);
-    generate_variable_name(dst, filename);
-    fwrite(");\n}\n", 1, 5, dst);
-
+end:
     fclose(src);
+    return ret;
 
-    return true;
 }
 
 int main(int argc, char** argv) {
