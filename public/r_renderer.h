@@ -20,6 +20,12 @@ namespace gfx {
         std::optional<glm::vec3> sun;
     };
 
+    using Texture_ID = void*;
+
+    enum class Texture_Format {
+        RGB888,
+    };
+
     class IRenderer {
     public:
         virtual ~IRenderer() {}
@@ -67,6 +73,9 @@ namespace gfx {
 
         virtual void change_resolution(unsigned* inout_width, unsigned* inout_height) = 0;
         virtual void get_resolution(unsigned* out_width, unsigned* out_height) = 0;
+
+        virtual bool upload_texture(Texture_ID *out_id, unsigned width, unsigned height, Texture_Format format, void const *image) = 0;
+        virtual void destroy_texture(Texture_ID id) = 0;
     };
 
     enum class Renderer_Backend {

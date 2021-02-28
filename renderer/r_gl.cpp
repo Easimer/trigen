@@ -21,6 +21,7 @@
 #include <queue>
 #include <functional>
 #include <array>
+#include <list>
 
 #include "r_gl_shadercompiler.h"
 
@@ -47,6 +48,10 @@ extern "C" {
     extern char const* deferred_vsh_glsl;
     extern char const* deferred_fsh_glsl;
 }
+
+struct Texture {
+    gl::Texture texture;
+};
 
 struct G_Buffer {
 public:
@@ -673,6 +678,53 @@ public:
         }
     }
 
+    bool upload_texture(gfx::Texture_ID *out_id, unsigned width, unsigned height, gfx::Texture_Format format, void const *image) override {
+        // Ptr to image data may be NULL only if the image is empty.
+        if (image == nullptr && (width != 0 || height != 0)) {
+            return false;
+        }
+
+        if (out_id == nullptr) {
+            return false;
+        }
+
+        gl::Texture texture;
+        glBindTexture(GL_TEXTURE_2D, texture);
+
+        // Set up wrapping behavior
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        // Set up filtering
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Set up mipmap generation
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        switch (format) {
+        case gfx::Texture_Format::RGB888:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+            break;
+        }
+
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        _textures.push_back({ std::move(texture) });
+        *out_id = &_textures.back();
+
+        return true;
+    }
+
+    void destroy_texture(gfx::Texture_ID id) override {
+        if (id == nullptr) {
+            return;
+        }
+
+        std::remove_if(_textures.begin(), _textures.end(), [&](Texture const &t) { return &t == id; });
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
@@ -705,6 +757,8 @@ private:
     std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
+
+    std::list<Texture> _textures;
 };
 
 std::unique_ptr<gfx::IRenderer> gfx::make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*)) {

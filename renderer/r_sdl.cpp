@@ -181,6 +181,16 @@ public:
         backend->draw_triangle_elements_with_vertex_color(vertex_count, vertices, vertex_colors, element_count, elements, vWorldPosition);
     }
 
+    bool upload_texture(gfx::Texture_ID *out_id, unsigned width, unsigned height, gfx::Texture_Format format, void const *image) override {
+        ZoneScoped;
+        return backend->upload_texture(out_id, width, height, format, image);
+    }
+
+    void destroy_texture(gfx::Texture_ID id) override {
+        ZoneScoped;
+        return backend->destroy_texture(id);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;
