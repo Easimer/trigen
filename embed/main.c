@@ -45,7 +45,6 @@ static void emit_hex(FILE* dst, unsigned char ch) {
 
     for(int i = 0; i < 2; i++) {
         digit = (ch >> ((1 - i) * 4)) & 0x0F;
-        c;
 
         if(digit < 10) {
             c = '0' + digit;
