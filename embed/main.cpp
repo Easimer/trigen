@@ -171,8 +171,6 @@ static bool convert_text_file(FILE *dst, FILE *src, char const *filename) {
     generate_variable_name(dst, filename);
     fwrite(");\n}\n", 1, 5, dst);
 
-    fclose(src);
-
     return true;
 }
 
