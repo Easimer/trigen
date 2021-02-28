@@ -8,7 +8,13 @@ set(SRC
 	session.h
 )
 
-add_executable(mesh_paint_proto ${SRC})
+embed_file(test_grid.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_grid.png)
+
+set(SRC_RESOURCES
+	test_grid.cpp
+)
+
+add_executable(mesh_paint_proto ${SRC} ${SRC_RESOURCES})
 target_include_directories(mesh_paint_proto PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR})
 target_link_directories(mesh_paint_proto PRIVATE ${SDL2TTF_LIBRARY})
 target_link_libraries(mesh_paint_proto PRIVATE
@@ -22,6 +28,7 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	softbody
 	softbody_ext
 	marching_cubes
+	stb
 )
 target_precompile_headers(mesh_paint_proto PRIVATE "stdafx.h")
 tri_builddir(mesh_paint_proto)

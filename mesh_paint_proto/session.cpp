@@ -10,8 +10,16 @@
 #include <softbody/file_serializer.h>
 #include <marching_cubes.h>
 #include <psp/psp.h>
+#include <stb_image.h>
+
+extern "C" {
+    extern uint8_t const *test_grid_png;
+    extern unsigned long long test_grid_png_len;
+}
 
 struct Debug_Mesh {
+    gfx::Model_ID renderer_handle = nullptr;
+
     std::vector<std::array<float, 3>> positions;
     std::vector<unsigned> elements;
 };
@@ -60,6 +68,87 @@ private:
     T const *_mesh;
 };
 
+class Render_Model : public gfx::IRender_Command {
+public:
+    Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform)
+        : _model(model), _diffuse(diffuse), _transform(transform) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        gfx::Material_Unlit material;
+        material.diffuse = _diffuse;
+
+        renderer->draw_textured_triangle_elements(_model, material, _transform);
+    }
+private:
+    gfx::Model_ID _model;
+    gfx::Texture_ID _diffuse;
+    gfx::Transform _transform;
+};
+
+class Load_Texture_Command : public gfx::IRender_Command {
+public:
+    Load_Texture_Command(std::optional<gfx::Texture_ID> *handle, void const *image, size_t image_len)
+    : _handle(handle), _image(image), _image_len(image_len) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        if (!_handle->has_value()) {
+            gfx::Texture_ID id;
+            int width, height;
+            int channels;
+            auto data = stbi_load_from_memory((stbi_uc*)_image, _image_len, &width, &height, &channels, 3);
+            if (renderer->upload_texture(&id, width, height, gfx::Texture_Format::RGB888, data)) {
+                _handle->emplace(id);
+            }
+            stbi_image_free(data);
+        }
+    }
+
+private:
+    std::optional<gfx::Texture_ID> *_handle;
+    void const *_image;
+    size_t _image_len;
+};
+
+class Upload_Model_Command : public gfx::IRender_Command {
+public:
+    Upload_Model_Command(gfx::Model_ID *out_id, Charter_Debug_Mesh const *mesh) : _out_id(out_id), _mesh(mesh) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        gfx::Model_Descriptor model;
+
+        model.vertex_count = _mesh->positions.size();
+        model.vertices = _mesh->positions.data();
+        model.element_count = _mesh->elements.size();
+        model.elements = _mesh->elements.data();
+
+        std::vector<glm::vec2> fake_uv;
+        for (size_t i = 0; i < model.vertex_count; i++) {
+            fake_uv.push_back({});
+        }
+        model.uv = (std::array<float, 2>*)fake_uv.data();
+
+        renderer->create_model(_out_id, &model);
+    }
+private:
+    gfx::Model_ID *_out_id;
+    Charter_Debug_Mesh const *_mesh;
+};
+
+class Destroy_Model_Command : public gfx::IRender_Command {
+public:
+    Destroy_Model_Command(gfx::Model_ID id) : _id(id) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        renderer->destroy_model(_id);
+    }
+private:
+    gfx::Model_ID _id;
+};
+
 class Session : public ISession {
 public:
     Session(
@@ -71,12 +160,32 @@ public:
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }
 
     void render(gfx::Render_Queue *rq) override {
+        if (_charter_debug_mesh) {
+            if (_charter_debug_mesh->renderer_handle == nullptr) {
+                gfx::allocate_command_and_initialize<Upload_Model_Command>(rq, &_charter_debug_mesh->renderer_handle, &_charter_debug_mesh.value());
+            }
+        }
+
+        if (_tex_test_grid.has_value()) {
+            if (_charter_debug_mesh.has_value()) {
+                gfx::allocate_command_and_initialize<Render_Model>(rq, _charter_debug_mesh->renderer_handle, *_tex_test_grid, _transform);
+            }
+        } else {
+            gfx::allocate_command_and_initialize<Load_Texture_Command>(rq, &_tex_test_grid, test_grid_png, test_grid_png_len);
+            if (_charter_debug_mesh.has_value()) {
+                gfx::allocate_command_and_initialize<Render_Debug_Mesh<Charter_Debug_Mesh>>(rq, &_charter_debug_mesh.value());
+            }
+        }
         if (_debug_mesh.has_value()) {
             gfx::allocate_command_and_initialize<Render_Debug_Mesh<Debug_Mesh>>(rq, &_debug_mesh.value());
         }
-        if (_charter_debug_mesh.has_value()) {
-            gfx::allocate_command_and_initialize<Render_Debug_Mesh<Charter_Debug_Mesh>>(rq, &_charter_debug_mesh.value());
+
+        for (auto &id : _models_destroying) {
+            if (id != nullptr) {
+                gfx::allocate_command_and_initialize<Destroy_Model_Command>(rq, id);
+            }
         }
+        _models_destroying.clear();
     }
 
     void do_generate_mesh() override {
@@ -87,6 +196,13 @@ public:
 
         _psp_mesh.elements.clear();
         std::transform(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(_psp_mesh.elements), [&](unsigned idx) { return (size_t)idx; });
+
+        if (_charter_debug_mesh) {
+            _models_destroying.push_back(_charter_debug_mesh->renderer_handle);
+        }
+        if (_debug_mesh) {
+            _models_destroying.push_back(_debug_mesh->renderer_handle);
+        }
 
         _charter_debug_mesh.reset();
         _debug_mesh = convert_mesh(mesh);
@@ -101,9 +217,14 @@ public:
             return;
         }
 
+        if (_charter_debug_mesh) {
+            _models_destroying.push_back(_charter_debug_mesh->renderer_handle);
+        }
+        if (_debug_mesh) {
+            _models_destroying.push_back(_debug_mesh->renderer_handle);
+        }
         _debug_mesh.reset();
         _charter_debug_mesh = convert_mesh(_psp_mesh);
-
     }
 
     char const *title() const override {
@@ -154,6 +275,12 @@ private:
     PSP::Mesh _psp_mesh;
     std::optional<Debug_Mesh> _debug_mesh;
     std::optional<Charter_Debug_Mesh> _charter_debug_mesh;
+
+    std::optional<gfx::Texture_ID> _tex_test_grid;
+    gfx::Transform _transform{ glm::vec3(), glm::quat(), glm::vec3(1, 1, 1) };
+
+    // List of models to be destroyed
+    std::vector<gfx::Model_ID> _models_destroying;
 };
 
 std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
