@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
-#define BINARY_FILE_ROW_WIDTH (16)
+#define BINARY_FILE_ROW_WIDTH (20)
 
 typedef void (*transcriber_fun_t)(FILE *dst, FILE *src);
 
@@ -62,40 +62,27 @@ static void transcribe_binary_file(FILE *dst, FILE *src) {
     assert(dst != NULL);
     assert(src != NULL);
 
-    int flag_emit_opening_quotes = 1;
-    int flag_emit_closing_quotes = 1;
     int column = 0;
     char byte;
+    char buffer[BINARY_FILE_ROW_WIDTH];
     int res;
 
     // put newline after the assignment operator, so the rows are aligned
     fprintf(dst, "\n");
 
     while (!feof(src)) {
-        res = fread(&byte, 1, 1, src);
+        res = fread(buffer, 1, BINARY_FILE_ROW_WIDTH, src);
         if (res < 1) {
             continue;
         }
 
-        if (flag_emit_opening_quotes) {
-            fprintf(dst, "\"");
-            flag_emit_opening_quotes = 0;
-            flag_emit_closing_quotes = 1;
-        }
-
-        emit_hex(dst, byte);
-        column++;
-
-        if (column == BINARY_FILE_ROW_WIDTH) {
-            flag_emit_closing_quotes = 0;
-            fprintf(dst, "\"\n");
-            flag_emit_opening_quotes = 1;
-            column = 0;
-        }
-    }
-
-    if (flag_emit_closing_quotes) {
         fprintf(dst, "\"");
+
+        for (int i = 0; i < res; i++) {
+            emit_hex(dst, buffer[i]);
+        }
+
+        fprintf(dst, "\"\n");
     }
 }
 
@@ -272,7 +259,7 @@ end:
 static int embed_input_files(FILE *dst, int inputFileCount, char const **inputFilePaths) {
     int rc;
 
-    fprintf(dst, "#include <cstring>\n");
+    fprintf(dst, "// auto-generated\n");
     fprintf(dst, "extern \"C\" {\n");
 
     for (int i = 0; i < inputFileCount; i++) {
