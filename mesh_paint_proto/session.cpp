@@ -25,6 +25,7 @@ struct Debug_Mesh {
 };
 
 struct Charter_Debug_Mesh : public Debug_Mesh {
+    std::vector<glm::vec2> uv;
     std::vector<glm::u8vec3> charter_debug_colors;
 };
 
@@ -123,12 +124,7 @@ public:
         model.vertices = _mesh->positions.data();
         model.element_count = _mesh->elements.size();
         model.elements = _mesh->elements.data();
-
-        std::vector<glm::vec2> fake_uv;
-        for (size_t i = 0; i < model.vertex_count; i++) {
-            fake_uv.push_back({});
-        }
-        model.uv = (std::array<float, 2>*)fake_uv.data();
+        model.uv = (std::array<float, 2>*)_mesh->uv.data();
 
         renderer->create_model(_out_id, &model);
     }
@@ -262,6 +258,7 @@ private:
             [&](auto p) { return (unsigned)p; }
         );
 
+        ret.uv = mesh.uv;
         ret.charter_debug_colors = mesh.chart_debug_color;
 
         return ret;

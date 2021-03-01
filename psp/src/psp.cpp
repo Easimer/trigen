@@ -282,6 +282,12 @@ static void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
             }
         }
 
+        auto size = max - min;
+        if (fabs(size.x) < FLT_EPSILON || fabs(size.y) < FLT_EPSILON) {
+            // Degenerate chart with zero area, add a little bit of size to it
+            max += glm::vec2 { 0.1f, 0.1f };
+        }
+
         // After we have all the UV coords in model space, we map them to normalized chart space.
         // UV' = (UV - min) / (max - min)
         for (auto tri : chart.triangles) {
@@ -390,9 +396,9 @@ static void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &
                 auto uv = mesh.uv[mesh.elements[base_vertex_idx + v]];
                 // Scale UV coordinate according to the quad extent then move
                 // it into quad space
-                uv = quad.min + uv / quad_extent;
+                auto uv_in_quad = quad.min + uv * quad_extent;
 
-                mesh.uv[mesh.elements[base_vertex_idx + v]] = uv;
+                mesh.uv[mesh.elements[base_vertex_idx + v]] = uv_in_quad;
             }
         }
     }
