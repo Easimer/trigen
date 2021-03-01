@@ -1,5 +1,7 @@
 set(SRC_PSP
     src/psp.cpp
+    src/uv_unwrap.cpp
+    src/uv_unwrap.h
 )
 
 add_library(psp STATIC ${SRC_PSP})
