@@ -68,6 +68,9 @@ static void transcribe_binary_file(FILE *dst, FILE *src) {
     char byte;
     int res;
 
+    // put newline after the assignment operator, so the rows are aligned
+    fprintf(dst, "\n");
+
     while (!feof(src)) {
         res = fread(&byte, 1, 1, src);
         if (res < 1) {
@@ -197,18 +200,24 @@ static int generate_variables_for_input_file(FILE *dst, FILE *src, char const *f
     // Print filename in a comment
     fprintf(dst, "// %s\n", filename);
     // Copy file contents into a char array
-    fprintf(dst, "char const *");
+    fprintf(dst, "static char const ");
     generate_variable_name(dst, filename);
-    fprintf(dst, " = ");
+    fprintf(dst, "_data[] = ");
     transcribe(dst, src);
     fprintf(dst, ";\n");
 
     // Store the length of the array in a variable
     fprintf(dst, "unsigned long long ");
     generate_variable_name(dst, filename);
-    fprintf(dst, "_len = strlen(");
+    fprintf(dst, "_len = sizeof(");
     generate_variable_name(dst, filename);
-    fprintf(dst, ");\n\n");
+    fprintf(dst, "_data);\n");
+
+    fprintf(dst, "char const *");
+    generate_variable_name(dst, filename);
+    fprintf(dst, " = ");
+    generate_variable_name(dst, filename);
+    fprintf(dst, "_data;\n\n");
 
     return 0;
 }
@@ -220,8 +229,7 @@ static int embed_input_file(FILE *dst, char const *path) {
     char const *filename = NULL;
     char const *cur = path + path_len;
     FILE *src;
-
-    transcriber_fun_t transcriber = NULL;
+    transcriber_fun_t transcribe = NULL;
 
     // Get the pointer to the file name in the path string by finding the first
     // slash character from the end of the string
@@ -248,12 +256,12 @@ static int embed_input_file(FILE *dst, char const *path) {
     }
 
     if (is_text_file(src)) {
-        transcriber = &transcribe_text_file;
+        transcribe = transcribe_text_file;
     } else {
-        transcriber = &transcribe_binary_file;
+        transcribe = transcribe_binary_file;
     }
 
-    generate_variables_for_input_file(dst, src, filename, transcriber);
+    generate_variables_for_input_file(dst, src, filename, transcribe);
 
     fclose(src);
 end:
