@@ -1,15 +1,18 @@
 // === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
 //
-// Purpose: intersection algorithms
+// Purpose:
 //
 
-#include "intersection.h"
+#include <intersect.h>
+
+#include <glm/geometric.hpp>
+#include <glm/gtc/constants.hpp>
 
 namespace intersect {
-    bool intersect_ray_triangle(
-        glm::vec3& xp, float& t,
-        glm::vec3 const& origin, glm::vec3 const& dir,
-        glm::vec3 const& v0, glm::vec3 const& v1, glm::vec3 const& v2
+    bool ray_triangle(
+        glm::vec3 &xp, float &t,
+        glm::vec3 const &origin, glm::vec3 const &dir,
+        glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2
     ) {
         auto edge1 = v2 - v0;
         auto edge0 = v1 - v0;
@@ -41,22 +44,5 @@ namespace intersect {
 
         xp = origin + t * dir;
         return true;
-    }
-
-    bool intersect_ray_aabb(
-        glm::vec3 const& origin, glm::vec3 const& dir_inv,
-        glm::vec3 const& min, glm::vec3 const& max
-    ) {
-        float tmin = -INFINITY, tmax = INFINITY;
-        
-        for (int i = 0; i < 3; i++) {
-            auto t1 = (min[i] - origin[i]) * dir_inv[i];
-            auto t2 = (max[i] - origin[i]) * dir_inv[i];
-
-            tmin = glm::max(tmin, glm::min(t1, t2));
-            tmax = glm::min(tmax, glm::max(t1, t2));
-        }
-
-        return tmax > glm::max(tmin, 0.0f);
     }
 }

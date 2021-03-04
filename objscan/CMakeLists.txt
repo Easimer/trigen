@@ -7,13 +7,11 @@ set(SRC
     objscan_math.cpp
     objscan_math.h
 
-    intersection.cpp
-    intersection.h
     mesh.h
 )
 
 add_library(objscan STATIC ${SRC})
-target_link_libraries(objscan PUBLIC Threads::Threads)
+target_link_libraries(objscan PUBLIC Threads::Threads intersect)
 target_precompile_headers(objscan PRIVATE stdafx.h)
 set_target_properties(objscan PROPERTIES FOLDER "Libs")
 

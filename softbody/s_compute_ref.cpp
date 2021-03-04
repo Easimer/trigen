@@ -17,47 +17,11 @@
 #include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm/gtx/matrix_operation.hpp>
+#include <intersect.h>
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
 // TODO(danielm): duplicate of the implementation in objscan!!!
-static bool intersect_ray_triangle(
-    glm::vec3 &xp, float &t,
-    glm::vec3 const &origin, glm::vec3 const &dir,
-    glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2
-) {
-    auto edge1 = v2 - v0;
-    auto edge0 = v1 - v0;
-    auto h = cross(dir, edge1);
-    auto a = dot(edge0, h);
-    if (-glm::epsilon<float>() < a && a < glm::epsilon<float>()) {
-        return false;
-    }
-
-    auto f = 1.0f / a;
-    auto s = origin - v0;
-    auto u = f * dot(s, h);
-
-    if (u < 0 || 1 < u) {
-        return false;
-    }
-
-    auto q = cross(s, edge0);
-    auto v = f * dot(dir, q);
-
-    if (v < 0 || u + v > 1) {
-        return false;
-    }
-
-    t = f * dot(edge1, q);
-    if (t <= glm::epsilon<float>()) {
-        return false;
-    }
-
-    xp = origin + t * dir;
-    return true;
-}
-
 static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
     auto base = triangle_index * 3;
     return {
@@ -412,7 +376,7 @@ protected:
                     auto v0 = coll.transform * Vec4(coll.vertices[vi0], 1);
                     auto v1 = coll.transform * Vec4(coll.vertices[vi1], 1);
                     auto v2 = coll.transform * Vec4(coll.vertices[vi2], 1);
-                    if (!intersect_ray_triangle(xp, t, start, dir, v0, v1, v2) || t > 1) {
+                    if (!intersect::ray_triangle(xp, t, start, dir, v0, v1, v2) || t > 1) {
                         continue;
                     }
                     Collision_Constraint C;

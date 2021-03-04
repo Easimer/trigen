@@ -78,7 +78,7 @@ set(SRC_TESTS
 
 add_library(softbody STATIC ${SRC_PUBLIC} ${SRC_IMPL} ${SRC_CUDA})
 target_precompile_headers(softbody PRIVATE stdafx.h)
-target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} ${SOFTBODY_CUDA_LIBS} ${TRACY_LIBRARIES})
+target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} ${SOFTBODY_CUDA_LIBS} ${TRACY_LIBRARIES} intersect)
 target_include_directories(softbody PRIVATE ${OpenCL_INCLUDE_DIRS})
 add_compile_definitions(CL_HPP_TARGET_OPENCL_VERSION=120)
 add_compile_definitions(CL_HPP_MINIMUM_OPENCL_VERSION=120)

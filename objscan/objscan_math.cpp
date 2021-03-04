@@ -7,7 +7,7 @@
 #include "objscan_math.h"
 #include <numeric>
 #include "mesh.h"
-#include "intersection.h"
+#include <intersect.h>
 
 bool intersects_any(
                     glm::vec3 origin, glm::vec3 dir,
@@ -22,9 +22,9 @@ bool intersects_any(
 
     for (int i = 0; i < triangle_count; i++) {
         auto& bb = mesh->bounding_boxes[i];
-        if (intersect::intersect_ray_aabb(origin, dir_inv, bb.min, bb.max)) {
+        if (intersect::ray_aabb(origin, dir_inv, bb.min, bb.max)) {
             auto& tri = mesh->triangles[i];
-            if (intersect::intersect_ray_triangle(xp, t, origin, dir, tri.v0, tri.v1, tri.v2)) {
+            if (intersect::ray_triangle(xp, t, origin, dir, tri.v0, tri.v1, tri.v2)) {
                 if (0 <= t && t <= 1) {
                     return true;
                 }
@@ -64,14 +64,14 @@ std::vector<glm::vec4> sample_points(
 
                 for (int i = 0; i < triangle_count; i++) {
                     auto& bb = mesh->bounding_boxes[i];
-                    if (intersect::intersect_ray_aabb(origin, dir_inv, bb.min, bb.max)) {
+                    if (intersect::ray_aabb(origin, dir_inv, bb.min, bb.max)) {
                         filtered_triangle_indices.push_back(i);
                     }
                 }
 
                 for (auto idx : filtered_triangle_indices) {
                     auto& tri = mesh->triangles[idx];
-                    if (intersect::intersect_ray_triangle(xp, t, origin, dir, tri.v0, tri.v1, tri.v2)) {
+                    if (intersect::ray_triangle(xp, t, origin, dir, tri.v0, tri.v1, tri.v2)) {
                         x_count++;
                     }
                 }
