@@ -133,6 +133,7 @@ endmacro()
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(OpenCL REQUIRED)
+find_package(Boost REQUIRED)
 
 find_package(Tracy)
 
