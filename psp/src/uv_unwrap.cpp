@@ -7,6 +7,7 @@
 
 #include <psp/psp.h>
 
+#include <cstdio>
 #include <cassert>
 #include <cfloat>
 #include <deque>

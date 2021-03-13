@@ -86,7 +86,7 @@ std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource, Sha
         return std::nullopt;
     }
 
-    return shader;
+    return std::optional(std::move(shader));
 }
 
 template<GLenum kType>
