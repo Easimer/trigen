@@ -28,12 +28,12 @@ struct objscan_result {
     objscan_extra* extra = nullptr;
     
     // Number of elements in `positions`
-    long long particle_count = 0;
+    unsigned long long particle_count = 0;
     // Particle positions
     objscan_position* positions = nullptr;
     
     // Number of elements in `connections`
-    long long connection_count = 0;
+    unsigned long long connection_count = 0;
     // Particle connections
     // Note that this list may contain duplicate pairs.
     objscan_connection* connections = nullptr;

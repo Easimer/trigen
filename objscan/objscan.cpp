@@ -70,7 +70,7 @@ struct Connection_Forming_Job {
 using Connection_Forming_Jobs = Job_Source<Connection_Forming_Job, std::vector<std::pair<int, int>>>;
 
 static void threadproc_connform(int threadIdx,
-                                objscan_position const* positions, int N,
+                                objscan_position const* positions, unsigned long long N,
                                 Mesh* mesh,
                                 Connection_Forming_Jobs* jobs) {
     for(;;) {
@@ -172,7 +172,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
         worker.join();
     }
     
-    long long total_particle_count = 0;
+    unsigned long long total_particle_count = 0;
     for(auto& result : jobs.results) {
         total_particle_count += result.size();
     }
@@ -234,7 +234,7 @@ bool objscan_from_obj_file(objscan_result* res, char const* path) {
         worker.join();
     }
     
-    long long total_connections = 0;
+    unsigned long long total_connections = 0;
     for(auto& result : connform.results) {
         total_connections += result.size();
     }

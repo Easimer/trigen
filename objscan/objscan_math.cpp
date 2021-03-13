@@ -77,7 +77,7 @@ std::vector<glm::vec4> sample_points(
                 }
 
                 if(x_count % 2 == 1) {
-                    points.push_back({sx, sy, sz, 0});
+                    points.emplace_back(glm::vec4 {sx, sy, sz, 0});
                 }
             }
         }
@@ -97,7 +97,9 @@ std::vector<std::pair<int, int>> form_connections(
     for(int i = offset; i < offset + count; i++) {
         auto p = positions[i];
         for(int other = 0; other < N; other++) {
-            if(i == other) continue;
+            if(i == other) {
+                continue;
+            }
             
             auto op = positions[other];
             
@@ -123,7 +125,7 @@ std::vector<std::pair<int, int>> form_connections(
             auto dir = opv - pv;
             
             if (!intersects_any(origin, dir, mesh)) {
-                ret.push_back({ i, other });
+                ret.emplace_back(std::make_pair(i, other));
             }
         }
     }
@@ -145,11 +147,11 @@ void calculate_bounding_box(
         auto y = attrib.vertices[i * 3 + 1];
         auto z = attrib.vertices[i * 3 + 2];
         
-        if (x < x_min) x_min = x;
-        if (x > x_max) x_max = x;
-        if (y < y_min) y_min = y;
-        if (y > y_max) y_max = y;
-        if (z < z_min) z_min = z;
-        if (z > z_max) z_max = z;
+        x_min = fminf(x_min, x);
+        x_max = fmaxf(x_max, x);
+        y_min = fminf(y_min, y);
+        y_max = fmaxf(y_max, y);
+        z_min = fminf(z_min, z);
+        z_max = fmaxf(z_max, z);
     }
 }
