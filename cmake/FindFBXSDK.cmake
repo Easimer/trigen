@@ -64,8 +64,6 @@ else()
 			IMPORTED_LOCATION             ${FBX_SDK_LIBRARY_FILE}
 			INTERFACE_INCLUDE_DIRECTORIES "${FBX_SDK_INCLUDE_DIR}"
 		)
-		target_include_directories(FbxSdk::FbxSdk INTERFACE ${FBX_SDK_INCLUDE_DIR})
-		target_link_libraries(FbxSdk::FbxSdk INTERFACE ${FBX_SDK_LIBRARY_DEPS})
 	endif()
 
 	if(WIN32)
