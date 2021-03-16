@@ -11,12 +11,34 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
 
     meshNode->InitControlPoints(num_control_points);
 
+    // Fill control point array with vertex positions
     auto controlPoints = meshNode->GetControlPoints();
     for (int i = 0; i < num_control_points; i++) {
         auto &pos = mesh->position[i];
         controlPoints[i] = FbxVector4(pos.x, pos.y, pos.z);
     }
 
+    // Create normal array
+    auto normal_element = meshNode->CreateElementNormal();
+    normal_element->SetMappingMode(FbxGeometryElement::eByControlPoint);
+    normal_element->SetReferenceMode(FbxGeometryElement::eDirect);
+
+    // Create UV array
+    auto uv_element = meshNode->CreateElementUV("uv_set");
+    uv_element->SetMappingMode(FbxGeometryElement::eByControlPoint);
+    uv_element->SetReferenceMode(FbxGeometryElement::eDirect);
+
+    auto &normal_array = normal_element->GetDirectArray();
+    auto &uv_array = uv_element->GetDirectArray();
+
+    for (int i = 0; i < num_control_points; i++) {
+        auto &normal = mesh->normal[i];
+        auto &uv = mesh->uv[i];
+        normal_array.Add(FbxVector4(normal.x, normal.y, normal.z));
+        uv_array.Add(FbxVector2(uv.x, uv.y));
+    }
+
+    // Add triangles
     auto num_triangles = mesh->elements.size() / 3;
     for (size_t t = 0; t < num_triangles; t++) {
         auto i0 = mesh->elements[t * 3 + 0];
