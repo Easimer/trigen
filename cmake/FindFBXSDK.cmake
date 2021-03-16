@@ -16,9 +16,20 @@ else()
 	endif()
 
 	if(WIN32)
-		set(FBX_SDK_PLAT "vs2017")
+		set(FBX_SDK_PLAT "vs2019")
 		set(FBX_SDK_LIBRARY_EXT ".lib")
 		set(FBX_SDK_DLL_EXT ".dll")
+
+		# TODO(danielm): Windows platform - non-MSVC compiler support
+		if(MSVC)
+			if(MSVC_TOOLSET_VERSION EQUAL 140)
+				set(FBX_SDK_PLAT "vs2015")
+			elseif(MSVC_TOOLSET_VERSION EQUAL 141)
+				set(FBX_SDK_PLAT "vs2017")
+			elseif(MSVC_TOOLSET_VERSION EQUAL 142)
+				set(FBX_SDK_PLAT "vs2019")
+			endif()
+		endif()
 
 		if(MSVC_RUNTIME_LIBRARY EQUAL "MultiThreaded")
 			set(FBX_SDK_LIBRARY_SUFFIX "-mt")
