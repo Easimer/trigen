@@ -2,11 +2,15 @@
 | Identifier             |   Type   | Description                                                                     |
 |------------------------|----------|---------------------------------------------------------------------------------|
 | `BUILD_LEGACY_STUFF`   |  `BOOL`  | Should old projects like `bark_test`, `ifs_test` be built                       |
-| `FBX_SDK_DIR`          |  `BOOL`  | Path to the Autodesk FBX SDK                                                    |
+| `FBX_SDK_DIR`          |  `PATH`  | Path to the Autodesk FBX SDK                                                    |
 | `FBX_SDK_BUILD_TYPE`   | `STRING` | What kind of FBX SDK lib to link against (debug, release)                       |
 | `SOFTBODY_CLANG_TIDY`  |  `BOOL`  | Execute clang-tidy on the code base                                             |
 | `SOFTBODY_ENABLE_CUDA` |  `BOOL`  | Enable CUDA backend in the softbody library                                     |
 | `SOFTBODY_TESTBED_QT`  |  `BOOL`  | Build the Qt testbed                                                            |
+| `BOOST_ROOT` | `PATH` | Path to Boost |
+| `RENDERER_ENABLE_TRACY` | `BOOL` | Activates instrumentation in the library `renderer` |
+| `SOFTBODY_ENABLE_TRACY` | `BOOL` | Activates instrumentation in the library `softbody` |
+| `SOFTBODY_CUDA_MEMTRACK` | `BOOL` | Enables CUDA memory tracking code (debug) |
 
 # Building
 
@@ -17,10 +21,12 @@ Acquire these:
 - SDL2_ttf development libraries
 - OpenCL development libraries
 - Qt5 development libraries
-- [Autodesk FBX SDK](https://www.autodesk.com/developer-network/platform-technologies/fbx-sdk-2020-0)
+- Boost (system, thread and GIL)
+- [Autodesk FBX SDK](https://www.autodesk.com/developer-network/platform-technologies/fbx-sdk-2020-2)
 - NVIDIA CUDA Toolkit (if you want to build the CUDA compute backend of the softbody library)
+- NVIDIA Optix SDK (if you've enabled CUDA)
 
-*NOTE: you won't need Qt5 or the FBX SDK unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
+*NOTE: you won't need Qt5 unless you turn the CMake option `SOFTBODY_TESTBED_QT` on*
 
 ## Windows
 
@@ -33,8 +39,10 @@ To install OpenCL you'll need the development package appropriate for your platf
 - Intel OpenCL SDK: https://software.seek.intel.com/intel-opencl?os=windows
 
 ## Linux
-On Linux, download and install CMake, SDL2, SDL2_ttf, OpenCL and Qt5 from your package manager.
+On Linux, download and install CMake, SDL2, SDL2_ttf, OpenCL, Boost and Qt5 from your package manager.
 If you're building the Qt testbed as well, then you'll need to install the libxml2 and zlib development libraries too.
+
+*TODO: update this package list*
 
 On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev ocl-icd-opencl-dev qtbase5-dev libxml2-dev zlib-dev libz-dev`.
 
@@ -58,6 +66,7 @@ On Windows these are:
 - `SDL2TTF_LIBRARY` should point to the SDL2_ttf library directory (`X:\SDL2_ttf-2.0.15\lib\x64`)
 - `Qt5_DIR` should point to the directory that contains the `Qt5Config.cmake` file (`X:\Qt\Qt5.12.9\5.12.9\msvc2017_64\lib\cmake\Qt5`)
 - `FBX_SDK_DIR` should point to the directory where you've installed the FBX SDK; it contains directories like `include` and `lib` (`X:\Autodesk\FBX\FBX SDK\2020.1.1`)
+- `BOOST_ROOT` should point to the directory called that contains a file called something like `BoostDetectToolset-x.xx.x.cmake` (`X:/boost_1_75_0/lib64-msvc-14.2/cmake`)
 On Windows CMake will probably only ask for `SDL2_DIR`, `SDL2TTF_LIBRARY`, `SDL2TTF_INCLUDE_DIR`, `FBX_SDK_DIR` and `Qt5_DIR`, as the rest of them will be inferred from these three arguments.
 
 ## CUDA
@@ -72,9 +81,11 @@ If nvcc says that your GCC is unsupported, then you'll need an older version (fo
 
 ## Example CMake invocation on Fedora 32
 
+* TODO: update this example *
 `cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc -DCMAKE_CUDA_FLAGS="-ccbin cuda-g++" -DSOFTBODY_TESTBED_QT=ON -DSOFTBODY_ENABLE_CUDA=ON -DSOFTBODY_CLANG_TIDY=ON -DFBX_SDK_DIR=/fbxsdk/ -GNinja /trigen/`
 
 # Running
 Right now the build system doesn't copy all the files to the build directory that are needed to run the programs and you must do this manually.
 - Copy all files from /fonts/ to the working directory
+- Copy libfbxsdk.dll to the working directory
 - (Windows only) Copy your SDL2 and SDL2_ttf DLLs to the working directory
