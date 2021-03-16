@@ -397,6 +397,8 @@ void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &charts)
                 // Scale UV coordinate according to the quad extent then move
                 // it into quad space
                 auto uv_in_quad = quad.min + uv * quad_extent;
+                assert(0 <= uv_in_quad.x && uv_in_quad.x <= 1);
+                assert(0 <= uv_in_quad.y && uv_in_quad.y <= 1);
 
                 mesh.uv[mesh.elements[base_vertex_idx + v]] = uv_in_quad;
             }

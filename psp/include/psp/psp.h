@@ -26,13 +26,42 @@ namespace PSP {
 
     struct Texture {
         int width, height;
-        std::unique_ptr<glm::vec<3, float>[]> data;
+        void const *buffer;
     };
 
     struct Material {
-        Texture albedo;
+        Texture base;
         Texture normal;
+        Texture height;
+        Texture roughness;
+        Texture ao;
     };
 
-    int paint(/* out */ Material &material, /* inout */ Mesh &mesh);
+    class IPainter {
+    public:
+        virtual ~IPainter() = default;
+
+        virtual void step_painting(float dt) = 0;
+        virtual bool is_painting_done() = 0;
+
+        virtual size_t num_particles() = 0;
+        virtual bool get_particle(size_t id, glm::vec3 *out_position, glm::vec3 *out_next_position, glm::vec3 *out_velocity) = 0;
+
+        virtual void result(Material *out_material) = 0;
+    };
+
+    int unwrap(/* inout */ Mesh &mesh);
+
+    struct Parameters {
+        PSP::Mesh const *mesh;
+        PSP::Material const *material;
+
+        int out_width;
+        int out_height;
+
+        int subdiv_theta;
+        int subdiv_phi;
+    };
+
+    std::unique_ptr<PSP::IPainter> make_painter(Parameters const &params);
 }

@@ -1,3 +1,5 @@
+find_package(FBXSDK REQUIRED)
+
 set(SRC
 	stdafx.h
 	entry.cpp
@@ -6,6 +8,8 @@ set(SRC
 	application.h
 	session.cpp
 	session.h
+	fbx_export.cpp
+	fbx_export.h
 )
 
 embed_file(test_grid.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_grid.png)
@@ -29,6 +33,8 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	softbody_ext
 	marching_cubes
 	stb
+	Boost::thread
+	FbxSdk::FbxSdk
 )
 target_precompile_headers(mesh_paint_proto PRIVATE "stdafx.h")
 tri_builddir(mesh_paint_proto)

@@ -1,6 +1,7 @@
 set(SRC
     src/impl.c
     include/stb_image.h
+    include/stb_image_write.h
 )
 
 add_library(stb STATIC ${SRC})

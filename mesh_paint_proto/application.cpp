@@ -13,6 +13,9 @@
 #include <imgui.h>
 
 #include <arcball_camera.h>
+#include "fbx_export.h"
+
+#define EXPORT_PATH_SIZ (256)
 
 /*
  * 
@@ -150,8 +153,29 @@ public:
                 if (ImGui::Button("Generate mesh")) {
                     _current_session->do_generate_mesh();
                 }
-                if (ImGui::Button("Paint mesh")) {
-                    _current_session->do_paint_mesh();
+                if (ImGui::Button("Unwrap mesh")) {
+                    _current_session->do_unwrap_mesh();
+                }
+                if (ImGui::Button("Begin painting")) {
+                    _current_session->begin_painting();
+                }
+                if (ImGui::Button("Step painting")) {
+                    _current_session->step_painting();
+                }
+                ImGui::Checkbox("Auto paint", &_auto_paint);
+                if (_auto_paint) {
+                    _current_session->step_painting();
+                }
+                if (ImGui::Button("Stop painting")) {
+                    _current_session->stop_painting();
+                }
+                if (_current_session->mesh() != nullptr) {
+                    ImGui::SameLine();
+                    ImGui::InputText("Export path", _export_path, EXPORT_PATH_SIZ);
+                    if (ImGui::Button("Export")) {
+                        // TODO: material
+                        fbx_try_save(_export_path, _current_session->mesh(), nullptr);
+                    }
                 }
                 ImGui::End();
                 _current_session->render(&rq);
@@ -184,6 +208,7 @@ public:
 
 private:
     bool _quit = false;
+    bool _auto_paint = false;
 
     std::unique_ptr<gfx::ISDL_Window> _window;
     std::unique_ptr<Arcball_Camera> _camera;
@@ -192,6 +217,8 @@ private:
     std::list<std::unique_ptr<ISession>> _sessions;
     ISession *_current_session = nullptr;
     std::optional<Session_Creation_Dialog> _session_creation_dialog;
+
+    char _export_path[EXPORT_PATH_SIZ] = { '\0' };
 };
 
 std::unique_ptr<IApplication> make_application(

@@ -100,7 +100,7 @@ void Window_Meshgen::update_mesh() {
         pspMesh.position = mesh.positions;
         pspMesh.normal = mesh.normal;
         std::transform(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(pspMesh.elements), [&](unsigned idx) { return (size_t)idx; });
-        PSP::paint(mat, pspMesh);
+        PSP::unwrap(pspMesh);
         this->mesh = unpack_mesh(pspMesh);
     }
 }

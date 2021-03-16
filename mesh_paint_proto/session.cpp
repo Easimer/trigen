@@ -11,6 +11,9 @@
 #include <marching_cubes.h>
 #include <psp/psp.h>
 #include <stb_image.h>
+#include <stb_image_write.h>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
 
 extern "C" {
     extern uint8_t const *test_grid_png;
@@ -145,12 +148,46 @@ private:
     gfx::Model_ID _id;
 };
 
+class Painter_Debug_Command : public gfx::IRender_Command {
+public:
+    Painter_Debug_Command(PSP::IPainter *painter) : _painter(painter) {
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        glm::vec3 black(1, 0, 0), red(1, 0, 0);
+        std::vector<glm::vec3> points;
+        auto N = _painter->num_particles();
+
+        for (size_t i = 0; i < N; i++) {
+            glm::vec3 pos0, pos1, vel;
+            if (_painter->get_particle(i, &pos0, &pos1, &vel)) {
+                points.push_back(pos0);
+            }
+        }
+
+        renderer->draw_points(points.size(), points.data(), { 0, 0, 0 });
+    }
+private:
+    PSP::IPainter *_painter;
+};
+
+struct Input_Texture {
+    std::unique_ptr<uint8_t[]> data;
+    PSP::Texture info;
+};
+
 class Session : public ISession {
 public:
     Session(
         std::string title,
         std::vector<marching_cubes::metaball> &&metaballs
-    ) : _title(std::move(title)), _metaballs(metaballs), _mc_params{}, _psp_mesh{} {
+    ) : _title(std::move(title)), _metaballs(metaballs), _mc_params{}, _psp_mesh{}, _asio(16) {
+        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_base, "bark_texture/Bark_02_4K_Base_Color.png"); });
+        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_normal, "bark_texture/Bark_02_4K_Normal.png"); });
+        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_height, "bark_texture/Bark_02_4K_Height.png"); });
+        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_roughness, "bark_texture/Bark_02_4K_Roughness.png"); });
+        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_ao, "bark_texture/Bark_02_4K_AO.png"); });
+        _asio.wait();
     }
 
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }
@@ -174,6 +211,10 @@ public:
         }
         if (_debug_mesh.has_value()) {
             gfx::allocate_command_and_initialize<Render_Debug_Mesh<Debug_Mesh>>(rq, &_debug_mesh.value());
+        }
+
+        if (_painter != nullptr) {
+            gfx::allocate_command_and_initialize<Painter_Debug_Command>(rq, _painter.get());
         }
 
         for (auto &id : _models_destroying) {
@@ -204,11 +245,9 @@ public:
         _debug_mesh = convert_mesh(mesh);
     }
 
-    void do_paint_mesh() override {
+    void do_unwrap_mesh() override {
         int rc;
-        // TODO(danielm): store this somewhere
-        PSP::Material mat;
-        rc = PSP::paint(mat, _psp_mesh);
+        rc = PSP::unwrap(_psp_mesh);
         if (rc != 0) {
             return;
         }
@@ -225,6 +264,68 @@ public:
 
     char const *title() const override {
         return _title.c_str();
+    }
+
+    void begin_painting() override {
+        if (_painter == nullptr) {
+            _material.base = _tex_base.info;
+            _material.normal = _tex_normal.info;
+            _material.height = _tex_height.info;
+            _material.roughness = _tex_roughness.info;
+            _material.ao = _tex_ao.info;
+
+            _paint_params.material = &_material;
+            _paint_params.mesh = &_psp_mesh;
+            _paint_params.out_width = 1024;
+            _paint_params.out_height = 1024;
+            _paint_params.subdiv_phi = 128;
+            _paint_params.subdiv_theta = 64;
+
+            _painter = PSP::make_painter(_paint_params);
+        }
+    }
+
+    void step_painting() override {
+        if (_painter != nullptr && !_painter->is_painting_done()) {
+            _painter->step_painting(0.1f);
+
+            if (_painter->is_painting_done()) {
+                PSP::Material result;
+                _painter->result(&result);
+
+                fprintf(stderr, "painting done, writing results\n");
+                int rc = stbi_write_png("result_base.png", result.base.width, result.base.height, 3, result.base.buffer, result.base.width * 3);
+                fprintf(stderr, "image writer returned with rc=%d\n", rc);
+            }
+        }
+    }
+
+    void stop_painting() override {
+    }
+
+    void load_input_texture(Input_Texture *tex, char const *path) {
+        int channels;
+        stbi_uc *buffer;
+        if ((buffer = stbi_load(path, &tex->info.width, &tex->info.height, &channels, 3)) != nullptr) {
+            auto size = size_t(tex->info.width) * size_t(tex->info.height) * 3;
+            tex->data = std::make_unique<uint8_t[]>(size);
+            memcpy(tex->data.get(), buffer, size);
+            tex->info.buffer = tex->data.get();
+            stbi_image_free(buffer);
+        } else {
+            printf("Session::load_input_texture: failed to load %s\n", path);
+            tex->data.reset();
+            tex->info.buffer = NULL;
+            tex->info.width = tex->info.height = 0;
+        }
+    }
+
+    PSP::Mesh *mesh() override {
+        if (_charter_debug_mesh.has_value()) {
+            return &_psp_mesh;
+        } else {
+            return nullptr;
+        }
     }
 
 private:
@@ -267,8 +368,10 @@ private:
 private:
     std::string _title;
     std::vector<marching_cubes::metaball> _metaballs;
+    boost::asio::thread_pool _asio;
 
     marching_cubes::params _mc_params;
+    PSP::Parameters _paint_params;
     PSP::Mesh _psp_mesh;
     std::optional<Debug_Mesh> _debug_mesh;
     std::optional<Charter_Debug_Mesh> _charter_debug_mesh;
@@ -278,6 +381,14 @@ private:
 
     // List of models to be destroyed
     std::vector<gfx::Model_ID> _models_destroying;
+
+    Input_Texture _tex_base;
+    Input_Texture _tex_normal;
+    Input_Texture _tex_height;
+    Input_Texture _tex_roughness;
+    Input_Texture _tex_ao;
+    PSP::Material _material;
+    std::unique_ptr<PSP::IPainter> _painter;
 };
 
 std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
