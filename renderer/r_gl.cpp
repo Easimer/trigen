@@ -55,8 +55,7 @@ struct Texture {
 
 struct Model {
     gl::VAO vao;
-    unsigned element_count;
-    gl::VBO elements;
+    unsigned num_vertices;
     gl::VBO vertices;
     gl::VBO uvs;
 };
@@ -752,19 +751,30 @@ public:
         Model mdl;
         glBindVertexArray(mdl.vao);
 
+        // We need to turn the indexed mesh into a basic one
+
+        auto num_vertices = model->element_count;
+
+        // Copy vertices
+        std::vector<std::array<float, 3>> vertices_buf;
+        vertices_buf.resize(num_vertices);
+        for (size_t i = 0; i < num_vertices; i++) {
+            auto idx = model->elements[i];
+            vertices_buf[i] = model->vertices[idx];
+        }
         glBindBuffer(GL_ARRAY_BUFFER, mdl.vertices);
-        glBufferData(GL_ARRAY_BUFFER, model->vertex_count * sizeof(glm::vec3), model->vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), vertices_buf.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
         glEnableVertexAttribArray(0);
+        vertices_buf.clear();
 
+        // UVs are not indexed
         glBindBuffer(GL_ARRAY_BUFFER, mdl.uvs);
-        glBufferData(GL_ARRAY_BUFFER, model->vertex_count * sizeof(glm::vec2), model->uv, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec2), model->uv, GL_STATIC_DRAW);
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
         glEnableVertexAttribArray(1);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mdl.elements);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, model->element_count * sizeof(unsigned), model->elements, GL_STATIC_DRAW);
-        mdl.element_count = model->element_count;
+        mdl.num_vertices = num_vertices;
 
         _models.push_back(std::move(mdl));
         *out_id = &_models.back();
@@ -809,7 +819,7 @@ public:
             glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
             gl::SetUniformLocation(shader.locTexDiffuse, 0);
 
-            glDrawElements(GL_TRIANGLES, model->element_count, GL_UNSIGNED_INT, 0);
+            glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
         } else {
             printf("renderer: can't draw textured triangle elements: no shader!\n");
         }
@@ -838,7 +848,7 @@ public:
             auto matMVP = m_proj * m_view * matTransform;
             gl::SetUniformLocation(shader.locMVP, matMVP);
 
-            glDrawElements(GL_TRIANGLES, model->element_count, GL_UNSIGNED_INT, 0);
+            glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
         } else {
             printf("renderer: can't draw triangle elements: no shader!\n");
         }

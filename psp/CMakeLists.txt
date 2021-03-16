@@ -4,7 +4,6 @@ set(SRC_PSP
     src/uv_unwrap.h
     src/painting.cpp
     src/painting.h
-    src/quadtree.h
 )
 
 add_library(psp STATIC ${SRC_PSP})

@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cassert>
 #include <cfloat>
+#include <cstdio>
 #include <deque>
 #include <unordered_set>
 #include <algorithm>
@@ -244,8 +245,8 @@ std::vector<Chart> chart(PSP::Mesh &mesh) {
 void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
     std::vector<std::optional<glm::vec2>> uv_tmp;
     std::vector<std::optional<glm::vec2>> uv_normalized;
-    uv_tmp.resize(mesh.position.size());
-    uv_normalized.resize(mesh.position.size());
+    uv_tmp.resize(mesh.elements.size());
+    uv_normalized.resize(mesh.elements.size());
 
     for (auto &chart : charts) {
         glm::vec2 min(FLT_MAX, FLT_MAX);
@@ -261,11 +262,10 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         for (auto tri : chart.triangles) {
             auto baseVtxIdx = tri * 3;
             for (int v = 0; v < 3; v++) {
-                auto vtxIdx = mesh.elements[baseVtxIdx + v];
+                auto elementIdx = baseVtxIdx + v;
+                auto vtxIdx = mesh.elements[elementIdx];
 
-                if (uv_tmp[vtxIdx].has_value()) {
-                    continue;
-                }
+                assert(!uv_tmp[elementIdx].has_value());
 
                 // NOTE(danielm): component-wise vector product
                 auto p = mesh.position[vtxIdx] * proj;
@@ -278,7 +278,7 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
                     max[idx2] = glm::max(max[idx2], p[idx3]);
                     uv[idx2] = p[idx3];
                 }
-                uv_tmp[vtxIdx] = uv;
+                uv_tmp[elementIdx] = uv;
             }
         }
 
@@ -294,22 +294,21 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
             auto baseVtxIdx = tri * 3;
             // per-component multiplication
             for (int v = 0; v < 3; v++) {
+                auto elementIdx = baseVtxIdx + v;
                 auto vtxIdx = mesh.elements[baseVtxIdx + v];
 
                 // Prevent UV coords from being normalized multiple times
-                if (uv_normalized[vtxIdx].has_value()) {
-                    continue;
-                }
+                assert(!uv_normalized[elementIdx].has_value());
 
-                assert(uv_tmp[vtxIdx].has_value());
+                assert(uv_tmp[elementIdx].has_value());
 
-                auto uv = uv_tmp[vtxIdx].value();
+                auto uv = uv_tmp[elementIdx].value();
                 assert(min.x <= uv.x && uv.x <= max.x);
                 assert(min.y <= uv.y && uv.y <= max.y);
 
-                uv_normalized[vtxIdx] = (uv - min) / (max - min);
+                uv_normalized[elementIdx] = (uv - min) / (max - min);
 
-                auto uv_n = uv_normalized[vtxIdx].value();
+                auto uv_n = uv_normalized[elementIdx].value();
 
                 assert(0.0f <= uv_n[0] && uv_n[0] <= 1.0f);
                 assert(0.0f <= uv_n[1] && uv_n[1] <= 1.0f);
@@ -317,7 +316,7 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         }
     }
 
-    assert(uv_normalized.size() == mesh.position.size());
+    assert(uv_normalized.size() == mesh.elements.size());
     mesh.uv.resize(uv_normalized.size());
     for (size_t i = 0; i < uv_normalized.size(); i++) {
         assert(uv_normalized[i].has_value());
@@ -364,7 +363,7 @@ static std::vector<Quad> divide_quad(size_t size_limit) {
         // Q0: (top-left, center)
         ret.push_back({ quad.min, center });
         // Q1: (top-center, center-right)
-        ret.push_back({ quad.min + half_width, center + half_width + half_height });
+        ret.push_back({ quad.min + half_width, center + half_width });
 
         if (ret.size() < size_limit) {
             // Q2: (center-left, bottom-center)
@@ -379,11 +378,18 @@ static std::vector<Quad> divide_quad(size_t size_limit) {
     return ret;
 }
 
+static bool is_inside(glm::vec2 x, glm::vec2 m, glm::vec2 M) {
+    return (m.x <= x.x && x.x <= M.x && m.y <= x.y && x.y <= M.y);
+}
+
 void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &charts) {
     // Generate enough quads for every chart
     auto quads = divide_quad(charts.size());
     // `charts` is assumed to be sorted by total surface area (desc.)
     // so the biggest chart gets the biggest quad in the UV space
+    std::vector<std::optional<glm::vec2>> new_uvs;
+    new_uvs.resize(mesh.elements.size());
+
     for (int chart_idx = 0; chart_idx < charts.size(); chart_idx++) {
         auto &quad = quads[chart_idx];
         auto &chart = charts[chart_idx];
@@ -393,16 +399,23 @@ void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &charts)
         for (auto &triangle_id : chart.triangles) {
             auto base_vertex_idx = triangle_id * 3;
             for (int v = 0; v < 3; v++) {
-                auto uv = mesh.uv[mesh.elements[base_vertex_idx + v]];
+                auto elementIdx = base_vertex_idx + v;
+                assert(!new_uvs[elementIdx].has_value());
+
+                auto &uv = mesh.uv[elementIdx];
                 // Scale UV coordinate according to the quad extent then move
                 // it into quad space
                 auto uv_in_quad = quad.min + uv * quad_extent;
-                assert(0 <= uv_in_quad.x && uv_in_quad.x <= 1);
-                assert(0 <= uv_in_quad.y && uv_in_quad.y <= 1);
 
-                mesh.uv[mesh.elements[base_vertex_idx + v]] = uv_in_quad;
+                assert(is_inside(uv_in_quad, quad.min, quad.max));
+
+                new_uvs[elementIdx] = uv_in_quad;
             }
         }
+    }
+
+    for (size_t i = 0; i < new_uvs.size(); i++) {
+        mesh.uv[i] = new_uvs[i].value();
     }
 }
 
