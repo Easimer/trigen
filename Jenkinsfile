@@ -50,7 +50,7 @@ pipeline {
         }
         stage('Record clang warnings') {
             steps {
-                recordIssues(tools: [clang())])
+                recordIssues(tools: [clang()])
             }
         }
         stage('Record clang-tidy issues') {
