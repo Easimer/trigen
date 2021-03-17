@@ -25,7 +25,7 @@ pipeline {
         booleanParam(name: 'SOFTBODY_CLANG_TIDY', defaultValue: true, description: 'Should we run clang-tidy')
         booleanParam(name: 'CMAKE_EXPORT_COMPILE_COMMANDS', defaultValue: true, description: 'Should compile commands be exported')
 
-        string(name: 'CMAKE_CC_COMPILER', defaultValue: 'clang', description: 'Path to the C compiler')
+        string(name: 'CMAKE_C_COMPILER', defaultValue: 'clang', description: 'Path to the C compiler')
         string(name: 'CMAKE_CXX_COMPILER', defaultValue: 'clang++', description: 'Path to the C++ compiler')
         string(name: 'CMAKE_CUDA_COMPILER', defaultValue: '/usr/local/cuda/bin/nvcc', description: 'Path to the CUDA compiler (nvcc)')
         string(name: 'CLANG_TIDY', defaultValue: 'clang-tidy', description: 'Path to clang-tidy')
@@ -40,7 +40,7 @@ pipeline {
 
         stage('Configure') {
             steps {
-                cmake arguments: '-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_CC_COMPILER=${params.CMAKE_CC_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY}', installation: 'InSearchPath'
+                cmake arguments: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY}", installation: 'InSearchPath'
             }
         }
         stage('Build') {
