@@ -40,6 +40,8 @@ else()
 		elseif(MSVC_RUNTIME_LIBRARY EQUAL "MultiThreadedDebugDLL")
 			set(FBX_SDK_LIBRARY_SUFFIX "-md")
 		endif()
+
+		set(FBX_SDK_LIBRARY_DEPS "")
 	endif(WIN32)
 
 	if(UNIX AND NOT APPLE)
@@ -72,8 +74,9 @@ else()
 	if(NOT TARGET FbxSdk::FbxSdk)
 		add_library(FbxSdk::FbxSdk UNKNOWN IMPORTED)
 		set_target_properties(FbxSdk::FbxSdk PROPERTIES
-			IMPORTED_LOCATION             ${FBX_SDK_LIBRARY_FILE}
+			IMPORTED_LOCATION ${FBX_SDK_LIBRARY_FILE}
 			INTERFACE_INCLUDE_DIRECTORIES "${FBX_SDK_INCLUDE_DIR}"
+			INTERFACE_LINK_LIBRARIES "${FBX_SDK_LIBRARY_DEPS}"
 		)
 	endif()
 
@@ -85,5 +88,5 @@ endif()
 include(FindPackageHandleStandardArgs)
 
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(FBXSDK
-                                  REQUIRED_VARS FBX_SDK_LIBRARY FBX_SDK_INCLUDE_DIR
-                                  VERSION_VAR FBX_SDK_VERSION_STRING)
+								  REQUIRED_VARS FBX_SDK_LIBRARY FBX_SDK_INCLUDE_DIR
+								  VERSION_VAR FBX_SDK_VERSION_STRING)
