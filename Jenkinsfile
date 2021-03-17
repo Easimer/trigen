@@ -40,12 +40,12 @@ pipeline {
 
         stage('Configure') {
             steps {
-                cmake arguments: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY} build", installation: 'InSearchPath'
+                cmake arguments: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY} ..", installation: 'InSearchPath', workingDir: 'build'
             }
         }
         stage('Build') {
             steps {
-                cmakeBuild buildType: 'Release', cleanBuild: true, installation: 'InSearchPath', steps: [[withCmake: true]]
+                cmakeBuild buildType: 'Release', cleanBuild: true, installation: 'InSearchPath', buildDir: 'build', steps: [[withCmake: true]]
             }
         }
         stage('Record clang warnings') {
