@@ -187,7 +187,7 @@ public:
         boost::asio::post(_asio, [&]() { load_input_texture(&_tex_height, "bark_texture/Bark_02_4K_Height.png"); });
         boost::asio::post(_asio, [&]() { load_input_texture(&_tex_roughness, "bark_texture/Bark_02_4K_Roughness.png"); });
         boost::asio::post(_asio, [&]() { load_input_texture(&_tex_ao, "bark_texture/Bark_02_4K_AO.png"); });
-        _asio.wait();
+        _asio.join();
     }
 
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }

@@ -4,7 +4,8 @@
 //
 
 #include "painting.h"
-#include <cstdint>
+#include <cfloat>
+#include <cmath>
 #include <memory>
 #include <vector>
 #include <thread>
@@ -96,7 +97,7 @@ static bool parametric_form_of_point_on_triangle(glm::vec3 const &v0, glm::vec3 
 
     auto denominator = 1.0f / (b0.x * b1.y - b0.y * b1.x);
     // Should only happen when v0, v1 and v2 are the same point.
-    assert(!isnan(denominator));
+    assert(!std::isnan(denominator));
 
     s = (p.x * b1.y - p.y * b1.x - v0.x * b1.y + v0.y * b1.x) * denominator;
     t = (-p.x * b0.y + p.y * b0.x + v0.x * b0.y - v0.y * b0.x) * denominator;
