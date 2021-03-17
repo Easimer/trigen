@@ -70,10 +70,16 @@ pipeline {
     }
     post {
         success {
-            setBuildStatus("Build has started", "SUCCESS");
+            setBuildStatus("Build was successful", "SUCCESS");
+
+            sshagent (credentials: ['git']) {
+                sh('git checkout master')
+                sh('git merge --ff-only develop')
+                sh('git push origin master')
+            }
         }
         failure {
-            setBuildStatus("Build has started", "FAILURE");
+            setBuildStatus("Build failed", "FAILURE");
         }
     }
 }
