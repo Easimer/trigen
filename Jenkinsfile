@@ -48,19 +48,23 @@ pipeline {
                 cmakeBuild buildDir: 'build', installation: 'InSearchPath', steps: [ [args: 'all'] ]
             }
         }
-        stage('Record clang warnings') {
-            steps {
-                recordIssues(tools: [clang()])
-            }
-        }
-        stage('Record clang-tidy issues') {
-            when {
-                expression { 
-                    return params.SOFTBODY_CLANG_TIDY == "ON"
+        stage('Record warnings') {
+            parallel {
+                stage('Record clang warnings') {
+                    steps {
+                        recordIssues(tools: [clang()])
+                    }
                 }
-            }
-            steps {
-                recordIssues(tools: [clangTidy()])
+                stage('Record clang-tidy issues') {
+                    when {
+                        expression { 
+                            return params.SOFTBODY_CLANG_TIDY == "ON"
+                        }
+                    }
+                    steps {
+                        recordIssues(tools: [clangTidy()])
+                    }
+                }
             }
         }
     }
