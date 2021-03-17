@@ -68,10 +68,12 @@ pipeline {
             }
         }
         stage('Merge into master') {
-            sh('git checkout master')
-            sh('git merge --ff-only develop')
-            sshagent(['ci.easimer.net']) {
-                sh('git push origin master')
+            steps {
+                sh('git checkout master')
+                sh('git merge --ff-only develop')
+                sshagent(['ci.easimer.net']) {
+                    sh('git push origin master')
+                }
             }
         }
     }
