@@ -70,7 +70,7 @@ pipeline {
         stage('Merge into master') {
             steps {
                 sh('git checkout master')
-                sh('git merge --ff-only develop')
+                sh('git merge --ff-only origin/develop')
                 sshagent(['ci.easimer.net']) {
                     sh('git push origin master')
                 }
