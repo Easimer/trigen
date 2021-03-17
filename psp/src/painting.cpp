@@ -23,6 +23,7 @@
 #include <glm/trigonometric.hpp>
 #include <glm/gtc/constants.hpp>
 #include <random>
+#include "worker_group.h"
 
 using Pixel1 = boost::gil::gray8c_pixel_t;
 using Pixel3 = boost::gil::rgb8_pixel_t;
@@ -459,9 +460,9 @@ static bool find_triangle_containing_uv(PSP::Mesh const *mesh, glm::vec2 uv, siz
         auto i1 = mesh->elements[t * 3 + 1];
         auto i2 = mesh->elements[t * 3 + 2];
 
-        auto uv0 = mesh->uv[i0];
-        auto uv1 = mesh->uv[i1];
-        auto uv2 = mesh->uv[i2];
+        auto uv0 = mesh->uv[t * 3 + 0];
+        auto uv1 = mesh->uv[t * 3 + 1];
+        auto uv2 = mesh->uv[t * 3 + 2];
 
         auto p0 = mesh->position[i0];
         auto p1 = mesh->position[i1];
@@ -470,12 +471,12 @@ static bool find_triangle_containing_uv(PSP::Mesh const *mesh, glm::vec2 uv, siz
         auto area = 0.5f * glm::abs(glm::determinant(glm::mat3(glm::vec3(uv0, 1), glm::vec3(uv1, 1), glm::vec3(uv2, 1))));
 
         if (area > 0 && is_point_in_triangle(uv, uv0, uv1, uv2)) {
-            assert(ret == false);
+            // assert(ret == false);
             ret = true;
             *triangle_id = t;
-#ifdef NDEBUG
+//#ifdef NDEBUG
             break;
-#endif
+//#endif
         }
     }
 
@@ -515,7 +516,9 @@ public:
     ~Painter() override = default;
 
     void step_painting(float dt) override {
-        for (int y = 0; y < _out_material.dim.y; y++) {
+        Worker_Group workers;
+
+        auto task = [&](int y) {
             auto v = float(y) / float(_out_material.dim.y);
             for (int x = 0; x < _out_material.dim.x; x++) {
                 auto u = float(x) / float(_out_material.dim.x);
@@ -526,9 +529,10 @@ public:
                     auto i0 = _mesh->elements[triangle_id * 3 + 0];
                     auto i1 = _mesh->elements[triangle_id * 3 + 1];
                     auto i2 = _mesh->elements[triangle_id * 3 + 2];
-                    auto uv0 = _mesh->uv[i0];
-                    auto uv1 = _mesh->uv[i1];
-                    auto uv2 = _mesh->uv[i2];
+                    auto uv0 = _mesh->uv[triangle_id * 3 + 0];
+                    auto uv1 = _mesh->uv[triangle_id * 3 + 1];
+                    auto uv2 = _mesh->uv[triangle_id * 3 + 2];
+                    /*
                     printf("uv [%f %f] is contained in triangle %zu ([%f %f] [%f %f] [%f %f])\n",
                         uv.x, uv.y,
                         triangle_id,
@@ -536,9 +540,15 @@ public:
                         uv1.x, uv1.y,
                         uv2.x, uv2.y
                     );
+                    */
                 }
             }
+        };
+
+        for (int y = 0; y < _out_material.dim.y; y++) {
+            workers.emplace_task(Worker_Group::Task(std::bind(task, y)));
         }
+        workers.wait();
     }
 
     bool is_painting_done() override {
@@ -554,6 +564,18 @@ public:
     }
 
     void result(PSP::Material *out_material) override {
+#define COPY_TEXTURE_OUT(name) copy_texture_out(out_material->name, _out_material.dim, _out_material.name)
+        COPY_TEXTURE_OUT(base);
+        COPY_TEXTURE_OUT(normal);
+        COPY_TEXTURE_OUT(height);
+        COPY_TEXTURE_OUT(roughness);
+        COPY_TEXTURE_OUT(ao);
+    }
+
+    void copy_texture_out(PSP::Texture &dst, glm::ivec2 const &dim, std::unique_ptr<Pixel3[]> &src) {
+        dst.width = dim.x;
+        dst.height = dim.y;
+        dst.buffer = src.get();
     }
 
 private:

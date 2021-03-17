@@ -174,7 +174,7 @@ public:
                     ImGui::InputText("Export path", _export_path, EXPORT_PATH_SIZ);
                     if (ImGui::Button("Export")) {
                         // TODO: material
-                        fbx_try_save(_export_path, _current_session->mesh(), nullptr);
+                        fbx_try_save(_export_path, _current_session->mesh(), _current_session->material());
                     }
                 }
                 ImGui::End();

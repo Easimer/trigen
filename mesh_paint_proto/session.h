@@ -27,6 +27,7 @@ public:
     virtual char const *title() const = 0;
 
     virtual PSP::Mesh *mesh() = 0;
+    virtual PSP::Material *material() = 0;
 };
 
 std::unique_ptr<ISession> make_session(char const *path_simulation_image);

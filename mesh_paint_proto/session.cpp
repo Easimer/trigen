@@ -328,6 +328,15 @@ public:
         }
     }
 
+    PSP::Material *material() override {
+        if (_painter != nullptr) {
+            _painter->result(&_out_material);
+            return &_out_material;
+        } else {
+            return nullptr;
+        }
+    }
+
 private:
     Debug_Mesh convert_mesh(marching_cubes::mesh const &mesh) {
         Debug_Mesh ret;
@@ -389,6 +398,7 @@ private:
     Input_Texture _tex_ao;
     PSP::Material _material;
     std::unique_ptr<PSP::IPainter> _painter;
+    PSP::Material _out_material;
 };
 
 std::unique_ptr<ISession> make_session(char const *path_simulation_image) {

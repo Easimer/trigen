@@ -10,6 +10,8 @@ set(SRC
 	session.h
 	fbx_export.cpp
 	fbx_export.h
+	fbx_stingray_pbs.cpp
+	fbx_stingray_pbs.h
 )
 
 embed_file(test_grid.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_grid.png)
