@@ -16,8 +16,8 @@ pipeline {
     }
 
     parameters {
-        string(name: 'FBX_SDK_DIR', defaultValue: '', description: 'Path to the FBX SDK installation')
-        string(name: 'OPTIX_DIR', defaultValue: '', description: 'Path to the Optix SDK installation')
+        string(name: 'FBX_SDK_DIR', defaultValue: '/srv/libraries/fbxsdk', description: 'Path to the FBX SDK installation')
+        string(name: 'OPTIX_DIR', defaultValue: '/srv/libraries/NVIDIA-OptiX-SDK-7.2.0-linux64-x86_64', description: 'Path to the Optix SDK installation')
 
         string(name: 'SOFTBODY_TESTBED_QT', defaultValue: "ON", description: 'Should testbed_qt be built (requires Qt5)')
         string(name: 'SOFTBODY_ENABLE_CUDA', defaultValue: "ON", description: 'Should the CUDA backend in softbody be built')
