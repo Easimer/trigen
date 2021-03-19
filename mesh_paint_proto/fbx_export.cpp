@@ -12,7 +12,7 @@
 // Forces exporter to use Wavefront OBJ as output format
 #define DEBUG_EXPORT_OBJ (0)
 // Forces exporter to output ASCII FBX
-#define DEBUG_EXPORT_ASCII_FBX (1)
+#define DEBUG_EXPORT_ASCII_FBX (0)
 
 #if DEBUG_EXPORT_OBJ
 #define FORMAT_FILTER_STRING "obj"
@@ -185,9 +185,11 @@ static FbxExporter *configure_exporter(FbxManager *manager, FbxIOSettings *ios, 
         }
     }
 
-    if (manager->GetIOPluginRegistry()->WriterIsFBX(file_format)) {
+    if (true || manager->GetIOPluginRegistry()->WriterIsFBX(file_format)) {
         // If we're using FBX then embed the textures
-        ios->SetBoolProp(EXP_FBX_EMBEDDED, true);
+        manager->GetIOSettings()->SetBoolProp(EXP_FBX_TEXTURE, true);
+        manager->GetIOSettings()->SetBoolProp(EXP_FBX_MATERIAL, true);
+        manager->GetIOSettings()->SetBoolProp(EXP_FBX_EMBEDDED, true);
     }
 
     // Initialize exporter
@@ -230,6 +232,8 @@ static bool create_sdk_objects(FbxManager **out_sdkManager, FbxIOSettings **out_
         sdkManager->Destroy();
         return false;
     }
+
+    sdkManager->SetIOSettings(ioSettings);
 
     *out_sdkManager = sdkManager;
     *out_ioSettings = ioSettings;
