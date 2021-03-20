@@ -12,8 +12,7 @@
 #include <psp/psp.h>
 #include <stb_image.h>
 #include <stb_image_write.h>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
+#include <worker_group.hpp>
 
 extern "C" {
     extern uint8_t const *test_grid_png;
@@ -181,13 +180,17 @@ public:
     Session(
         std::string title,
         std::vector<marching_cubes::metaball> &&metaballs
-    ) : _title(std::move(title)), _metaballs(metaballs), _mc_params{}, _psp_mesh{}, _asio(16) {
-        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_base, "bark_texture/Bark_02_4K_Base_Color.png"); });
-        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_normal, "bark_texture/Bark_02_4K_Normal.png"); });
-        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_height, "bark_texture/Bark_02_4K_Height.png"); });
-        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_roughness, "bark_texture/Bark_02_4K_Roughness.png"); });
-        boost::asio::post(_asio, [&]() { load_input_texture(&_tex_ao, "bark_texture/Bark_02_4K_AO.png"); });
-        _asio.join();
+    ) : _title(std::move(title)), _metaballs(metaballs), _mc_params{}, _psp_mesh{} {
+        auto task_load_input_texture = [&](Input_Texture *tex, char const *path) {
+            load_input_texture(tex, path);
+        };
+
+        _asio.emplace_task(std::bind(task_load_input_texture, &_tex_base, "bark_texture/Bark_02_4K_Base_Color.png"));
+        _asio.emplace_task(std::bind(task_load_input_texture, &_tex_normal, "bark_texture/Bark_02_4K_Normal.png"));
+        _asio.emplace_task(std::bind(task_load_input_texture, &_tex_height, "bark_texture/Bark_02_4K_Height.png"));
+        _asio.emplace_task(std::bind(task_load_input_texture, &_tex_roughness, "bark_texture/Bark_02_4K_Roughness.png"));
+        _asio.emplace_task(std::bind(task_load_input_texture, &_tex_ao, "bark_texture/Bark_02_4K_AO.png"));
+        _asio.wait();
     }
 
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }
@@ -377,7 +380,7 @@ private:
 private:
     std::string _title;
     std::vector<marching_cubes::metaball> _metaballs;
-    boost::asio::thread_pool _asio;
+    Worker_Group _asio;
 
     marching_cubes::params _mc_params;
     PSP::Parameters _paint_params;
