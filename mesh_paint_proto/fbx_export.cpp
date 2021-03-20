@@ -4,15 +4,15 @@
 //
 
 #include "fbx_export.h"
-#include "fbx_stingray_pbs.h"
+#include "fbx_standard_surface.h"
 #include <fbxsdk.h>
 #include <filesystem>
 #include <stb_image_write.h>
 
 // Forces exporter to use Wavefront OBJ as output format
-#define DEBUG_EXPORT_OBJ (0)
+// #define DEBUG_EXPORT_OBJ (0)
 // Forces exporter to output ASCII FBX
-#define DEBUG_EXPORT_ASCII_FBX (0)
+// #define DEBUG_EXPORT_ASCII_FBX (0)
 
 #if DEBUG_EXPORT_OBJ
 #define FORMAT_FILTER_STRING "obj"
@@ -42,7 +42,7 @@ static bool write_texture(PSP::Texture const &tex, char const *kind, std::string
     return false;
 }
 
-static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &tex, char const *kind, FbxPropertyT<FbxDouble3> &tex_prop, FbxPropertyT<FbxFloat> &use_prop) {
+static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &tex, char const *kind) {
     std::string path;
     if (!write_texture(tex, kind, path)) {
         return nullptr;
@@ -59,27 +59,13 @@ static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &t
     texture->SetRotation(0.0, 0.0);
     texture->UVSet.Set(FbxString(UV_ELEMENT_NAME));
 
-    tex_prop.ConnectSrcObject(texture);
-    use_prop.Set(1.0f);
-
     return texture;
 }
 
-static StingrayPBS *create_material(FbxScene *scene, FbxNode *mesh, PSP::Material const *mat) {
-    auto material = StingrayPBS::Create(scene, "plant_material");
-    assert(material != nullptr);
-
-    material->ShadingModel.Set("unknown");
-
-    FbxPropertyT<FbxFloat> use_base_color_dummy;
-
-    create_texture(scene, mat->base, "base_color", material->BaseColor, use_base_color_dummy);
-    create_texture(scene, mat->normal, "normal", material->NormalMap, material->UseNormalMap);
-    create_texture(scene, mat->ao, "ao", material->AoMap, material->UseAoMap);
-    create_texture(scene, mat->roughness, "roughness", material->RoughnessMap, material->UseRoughnessMap);
-
-    mesh->AddMaterial(material);
-    return material;
+static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &tex, char const *kind, FbxProperty &tex_prop) {
+    auto texture = create_texture(container, tex, kind);
+    tex_prop.ConnectSrcObject(texture);
+    return texture;
 }
 
 static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material const *material) {
@@ -113,6 +99,11 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
     auto vtxcol_element = meshNode->CreateElementVertexColor();
     vtxcol_element->SetMappingMode(FbxGeometryElement::eByControlPoint);
     vtxcol_element->SetReferenceMode(FbxGeometryElement::eDirect);
+
+    // Create material array
+    auto mat_element = meshNode->CreateElementMaterial();
+    mat_element->SetMappingMode(FbxGeometryElement::eAllSame);
+    mat_element->SetReferenceMode(FbxGeometryElement::eIndexToDirect);
 
     // Fill normal and vertex color array
     auto &normal_array = normal_element->GetDirectArray();
@@ -153,7 +144,23 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
     auto node = FbxNode::Create(scene, "plant");
     node->SetNodeAttribute(meshNode);
 
-    create_material(scene, meshNode->GetNode(), material);
+    auto implementation = fbx_standard_surface_create_implementation(scene);
+    auto bindingTable = fbx_standard_surface_create_binding_table(implementation);
+
+    auto surf = FbxArnoldStandardSurface(scene, "plant_material");
+    surf.material()->AddImplementation(implementation);
+    surf.material()->SetDefaultImplementation(implementation);
+
+    create_texture(scene, material->base, "base_color", surf.get_baseColor());
+    create_texture(scene, material->normal, "normal", surf.get_coatNormal());
+    create_texture(scene, material->roughness, "roughness", surf.get_diffuseRoughness());
+    create_texture(scene, material->ao, "ao");
+    create_texture(scene, material->height, "height");
+
+    node->AddMaterial(surf.material());
+
+    // Fill material array
+    mat_element->GetIndexArray().Add(0);
 
     auto rootNode = scene->GetRootNode();
     rootNode->AddChild(node);
@@ -249,8 +256,6 @@ bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
         goto err_ret;
     }
-
-    sdkManager->RegisterFbxClass("", FBX_TYPE(StingrayPBS), FBX_TYPE(FbxSurfaceMaterial));
 
     scene = FbxScene::Create(sdkManager, "scene");
 
