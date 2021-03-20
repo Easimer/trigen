@@ -17,7 +17,7 @@
 #include <glm/trigonometric.hpp>
 #include <glm/gtc/constants.hpp>
 #include <random>
-#include "worker_group.h"
+#include <worker_group.hpp>
 
 using Pixel1 = boost::gil::gray8c_pixel_t;
 using Pixel3 = boost::gil::rgb8_pixel_t;
