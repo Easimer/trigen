@@ -152,7 +152,7 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
     surf.material()->SetDefaultImplementation(implementation);
 
     create_texture(scene, material->base, "base_color", surf.get_baseColor());
-    create_texture(scene, material->normal, "normal", surf.get_coatNormal());
+    create_texture(scene, material->normal, "normal", surf.get_normalCamera());
     create_texture(scene, material->roughness, "roughness", surf.get_diffuseRoughness());
     create_texture(scene, material->ao, "ao");
     create_texture(scene, material->height, "height");
