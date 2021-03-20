@@ -525,7 +525,7 @@ public:
         auto task = [&](int y) {
             std::vector<Ray> rays;
 
-            auto v = float(y) / float(_out_material.dim.y);
+            auto v = 1.0f - float(y) / float(_out_material.dim.y);
             for (int x = 0; x < _out_material.dim.x; x++) {
                 auto u = float(x) / float(_out_material.dim.x);
 
