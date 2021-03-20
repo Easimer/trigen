@@ -82,7 +82,7 @@ static float coplanarity_test(glm::vec3 const &v0, glm::vec3 const &v1, glm::vec
 
 static bool parametric_form_of_point_on_triangle(glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2, glm::vec3 const &p, float &s, float &t) {
     // check for coplanarity
-    if (coplanarity_test(v0, v1, v2, p) == 0) {
+    if (coplanarity_test(v0, v1, v2, p) != 0) {
         return false;
     }
 
@@ -512,7 +512,19 @@ public:
     void step_painting(float dt) override {
         Worker_Group workers;
 
+        struct Ray {
+            glm::vec3 origin;
+            glm::vec3 direction;
+            // Which pixel to paint
+            glm::vec<2, int> texcoord;
+        };
+
+        std::vector<std::vector<Ray>> raygen_results;
+        std::mutex lock_raygen_results;
+
         auto task = [&](int y) {
+            std::vector<Ray> rays;
+
             auto v = float(y) / float(_out_material.dim.y);
             for (int x = 0; x < _out_material.dim.x; x++) {
                 auto u = float(x) / float(_out_material.dim.x);
@@ -526,23 +538,55 @@ public:
                     auto uv0 = _mesh->uv[triangle_id * 3 + 0];
                     auto uv1 = _mesh->uv[triangle_id * 3 + 1];
                     auto uv2 = _mesh->uv[triangle_id * 3 + 2];
-                    /*
-                    printf("uv [%f %f] is contained in triangle %zu ([%f %f] [%f %f] [%f %f])\n",
-                        uv.x, uv.y,
-                        triangle_id,
-                        uv0.x, uv0.y,
-                        uv1.x, uv1.y,
-                        uv2.x, uv2.y
-                    );
-                    */
+                    auto x0 = _mesh->position[i0];
+                    auto x1 = _mesh->position[i1];
+                    auto x2 = _mesh->position[i2];
+                    auto n0 = _mesh->normal[i0] ;
+                    auto n1 = _mesh->normal[i1];
+                    auto n2 = _mesh->normal[i2];
+
+                    // Not we know that `uv` is contained by this
+                    // triangle.
+                    // Find out how this point is related to the
+                    // vertices of the triangle.
+                    float s, t;
+                    if (parametric_form_of_point_on_triangle({ uv0, 0 }, { uv1, 0 }, { uv2, 0 }, { uv, 0 }, s, t)) {
+                        auto b0 = x2 - x0;
+                        auto b1 = x1 - x0;
+                        auto p = x0 + s * b0 + t * b1;
+
+                        auto ray_position = p;
+                        auto ray_normal = (n0 + n1 + n2) / 3.0f;
+
+                        rays.push_back({ ray_position, ray_normal, {x, y} });
+                    } else {
+                        assert(!"triangle doesn't contain uv");
+                    }
                 }
             }
+
+            std::lock_guard g(lock_raygen_results);
+            raygen_results.push_back(std::move(rays));
         };
 
         for (int y = 0; y < _out_material.dim.y; y++) {
             workers.emplace_task(Worker_Group::Task(std::bind(task, y)));
         }
         workers.wait();
+
+        // Aggregate generated rays
+        std::vector<Ray> rays;
+        size_t total_rays = 0;
+        for (auto &raygen_result : raygen_results) {
+            total_rays += raygen_result.size();
+        }
+        rays.reserve(total_rays);
+
+        for (auto &raygen_result : raygen_results) {
+            rays.insert(rays.end(), raygen_result.cbegin(), raygen_result.cend());
+        }
+
+        printf("Raygen results: %zu\n", total_rays);
     }
 
     bool is_painting_done() override {
