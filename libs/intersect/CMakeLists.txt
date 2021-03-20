@@ -1,6 +1,7 @@
 set(SRC
     src/ray_triangle.cpp
     src/ray_aabb.cpp
+    src/ray_sphere.cpp
     include/intersect.h
 )
 
