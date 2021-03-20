@@ -11,12 +11,6 @@
 #include <thread>
 #include <intersect.h>
 #include <boost/gil.hpp>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
-#include <boost/asio/dispatch.hpp>
-#include <boost/asio/io_service.hpp>
-#include <boost/bind.hpp>
-#include <boost/thread/thread.hpp>
 #include <mutex>
 #include <glm/geometric.hpp>
 #include <glm/mat3x3.hpp>

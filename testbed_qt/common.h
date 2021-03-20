@@ -47,6 +47,8 @@
 #include <QVBoxLayout>
 #include <QComboBox>
 #include <QLabel>
+#include <QThread>
+#include <QPlainTextEdit>
 
 #include <nodes/NodeData>
 #include <nodes/FlowScene>
