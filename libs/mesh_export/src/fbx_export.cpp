@@ -3,6 +3,7 @@
 // Purpose:
 //
 
+#include "stdafx.h"
 #include "fbx_export.h"
 #include "fbx_standard_surface.h"
 #include <fbxsdk.h>

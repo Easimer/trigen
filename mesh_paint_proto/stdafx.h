@@ -20,5 +20,3 @@
 
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
-
-#include <fbxsdk.h>

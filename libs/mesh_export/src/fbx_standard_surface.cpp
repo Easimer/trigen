@@ -3,6 +3,7 @@
 // Purpose:
 //
 
+#include "stdafx.h"
 #include "fbx_standard_surface.h"
 #include <cassert>
 
