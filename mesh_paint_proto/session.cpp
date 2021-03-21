@@ -181,6 +181,11 @@ public:
         std::string title,
         std::vector<marching_cubes::metaball> &&metaballs
     ) : _title(std::move(title)), _metaballs(metaballs), _mc_params{}, _psp_mesh{} {
+        _paint_params.out_width = 1024;
+        _paint_params.out_height = 1024;
+        _paint_params.subdiv_phi = 128;
+        _paint_params.subdiv_theta = 64;
+        
         auto task_load_input_texture = [&](Input_Texture *tex, char const *path) {
             load_input_texture(tex, path);
         };
@@ -194,6 +199,7 @@ public:
     }
 
     marching_cubes::params &marching_cubes_params() override { return _mc_params; }
+    PSP::Parameters &paint_params() override { return _paint_params; }
 
     void render(gfx::Render_Queue *rq) override {
         if (_charter_debug_mesh) {
@@ -279,10 +285,6 @@ public:
 
             _paint_params.material = &_material;
             _paint_params.mesh = &_psp_mesh;
-            _paint_params.out_width = 1024;
-            _paint_params.out_height = 1024;
-            _paint_params.subdiv_phi = 128;
-            _paint_params.subdiv_theta = 64;
 
             _painter = PSP::make_painter(_paint_params);
         }

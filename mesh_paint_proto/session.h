@@ -16,6 +16,7 @@ public:
     virtual void render(gfx::Render_Queue *rq) = 0;
 
     virtual marching_cubes::params &marching_cubes_params() = 0;
+    virtual PSP::Parameters &paint_params() = 0;
 
     virtual void do_generate_mesh() = 0;
     virtual void do_unwrap_mesh() = 0;

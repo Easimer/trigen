@@ -156,10 +156,16 @@ public:
                 if (ImGui::Button("Unwrap mesh")) {
                     _current_session->do_unwrap_mesh();
                 }
-                if (ImGui::Button("Begin painting")) {
+                
+                if (ImGui::Button("Setup painting")) {
                     _current_session->begin_painting();
                 }
-                if (ImGui::Button("Step painting")) {
+                auto &paint_params = _current_session->paint_params();
+                ImGui::InputInt("Width", &paint_params.out_width);
+                ImGui::SameLine();
+                ImGui::InputInt("Height", &paint_params.out_height);
+
+                if (ImGui::Button("Paint model")) {
                     _current_session->step_painting();
                 }
                 ImGui::Checkbox("Auto paint", &_auto_paint);
@@ -170,8 +176,8 @@ public:
                     _current_session->stop_painting();
                 }
                 if (_current_session->mesh() != nullptr) {
-                    ImGui::SameLine();
                     ImGui::InputText("Export path", _export_path, EXPORT_PATH_SIZ);
+                    ImGui::SameLine();
                     if (ImGui::Button("Export")) {
                         // TODO: material
                         fbx_try_save(_export_path, _current_session->mesh(), _current_session->material());
