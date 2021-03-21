@@ -3,7 +3,7 @@ find_package(FBXSDK REQUIRED)
 set(SRC
     src/stdafx.h
     src/fbx_export.cpp
-    include/fbx_export.h
+    include/mesh_export.h
     src/fbx_standard_surface.cpp
     src/fbx_standard_surface.h
 )

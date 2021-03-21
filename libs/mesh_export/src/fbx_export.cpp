@@ -4,7 +4,7 @@
 //
 
 #include "stdafx.h"
-#include "fbx_export.h"
+#include <mesh_export.h>
 #include "fbx_standard_surface.h"
 #include <fbxsdk.h>
 #include <filesystem>
