@@ -19,6 +19,19 @@
 #include <random>
 #include <worker_group.hpp>
 
+/*
+    :SphericalCoordinateConvention
+    Here we use spherical coordinates (θ,ϕ), where θ is the angle down from the
+    pole, and ϕ is the angle around the axis through the pole.
+    
+    x=cos(ϕ)cos(θ)
+    y=sin(ϕ)cos(θ)
+    z=sin(θ)
+    
+    u=ϕ/2π
+    v=θ/π
+*/
+
 using Pixel1 = boost::gil::gray8c_pixel_t;
 using Pixel3 = boost::gil::rgb8_pixel_t;
 
@@ -80,6 +93,19 @@ static float coplanarity_test(glm::vec3 const &v0, glm::vec3 const &v1, glm::vec
     return dot(cross(v1 - v0, p - v0), v2 - v0);
 }
 
+static void calculate_bounding_sphere(PSP::Mesh const *mesh, glm::vec3 &center_of_mass, float &radius) {
+    auto bbox_min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+    auto bbox_max = glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+    for (auto &vtx : mesh->position) {
+        bbox_min = glm::min(bbox_min, vtx);
+        bbox_max = glm::max(bbox_max, vtx);
+    }
+
+    auto bbox_extent = bbox_max - bbox_min;
+    radius = glm::max(bbox_extent.x, glm::max(bbox_extent.y, bbox_extent.z)) / 2 * 1.5f;
+    center_of_mass = bbox_min + bbox_extent / 2.f;
+}
+
 static bool parametric_form_of_point_on_triangle(glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2, glm::vec3 const &p, float &s, float &t) {
     // check for coplanarity
     if (coplanarity_test(v0, v1, v2, p) != 0) {
@@ -117,6 +143,21 @@ static bool is_inside_bounding_box(glm::vec3 const &min, glm::vec3 const &max, g
     return true;
 }
 
+// Convert a point on a given sphere to spherical coordinates.
+// 
+// \returns (theta, phi)
+static glm::vec<2, float> cartesian_to_spherical(glm::vec3 const &p, glm::vec3 const &center, float radius) {
+    auto p1 = p - center;
+    auto l1 = length(p1);
+    assert(glm::abs(l1 - radius) < 0.01f);
+    auto theta = glm::asin(p1.z / radius);
+    auto cos_theta = glm::cos(theta);
+    //auto phi = glm::asin(p1.y / (radius * cos_theta));
+    auto phi = std::atan2(p1.y, p1.x);
+
+    return { theta, phi };
+}
+
 class Old_Painter : public PSP::IPainter {
 public:
     Old_Painter(PSP::Parameters const &params) : _mesh(params.mesh), _in_material(params.material) {
@@ -145,17 +186,6 @@ public:
         _view_height = make_view(params.material->height);
         _view_roughness = make_view(params.material->roughness);
         _view_ao = make_view(params.material->ao);
-
-        /*
-            Here we use spherical coordinates (θ,ϕ), where θ is the angle down from the
-            pole, and ϕ is the angle around the axis through the pole. Now the hit point
-            coordinates can be represented as
-            x=cos(ϕ)cos(θ)
-            y=sin(ϕ)cos(θ)
-            z=sin(θ)
-            u=ϕ/2π
-            v=θ/π
-        */
 
         // Determine bounding box
         bbox_min = glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX);
@@ -371,7 +401,6 @@ public:
         }
 
         auto particles_remain = _particles_to_be_emitted + alive_particles;
-        printf("particles remaining: %zu\n", particles_remain);
         return particles_remain == 0;
     }
 
@@ -556,7 +585,7 @@ public:
                         auto p = x0 + s * b0 + t * b1;
 
                         auto ray_position = p;
-                        auto ray_normal = (n0 + n1 + n2) / 3.0f;
+                        auto ray_normal = normalize((n0 + n1 + n2) / 3.0f);
 
                         rays.push_back({ ray_position, ray_normal, {x, y} });
                     } else {
@@ -586,7 +615,86 @@ public:
             rays.insert(rays.end(), raygen_result.cbegin(), raygen_result.cend());
         }
 
-        printf("Raygen results: %zu\n", total_rays);
+        glm::vec3 center_of_mass;
+        float radius;
+        calculate_bounding_sphere(_mesh, center_of_mass, radius);
+        
+        // Create views into output textures
+        auto view_out_base = make_view(_out_material, _out_material.base);
+        auto view_out_normal = make_view(_out_material, _out_material.normal);
+        auto view_out_height = make_view(_out_material, _out_material.height);
+        auto view_out_roughness = make_view(_out_material, _out_material.roughness);
+        auto view_out_ao = make_view(_out_material, _out_material.ao);
+
+        // Raycast
+
+        auto raycast_task = [&](size_t const start_index, size_t const count) {
+            // Setup intersection test
+            std::vector<glm::vec3> ray_origins(count);
+            std::vector<glm::vec3> ray_directions(count);
+            std::vector<glm::vec3> xp(count);
+            std::vector<int> result(count);
+
+            for (size_t i = 0; i < count; i++) {
+                auto gid = start_index + i;
+                auto &R = rays[gid];
+                ray_origins[i] = R.origin;
+                ray_directions[i] = R.direction;
+            }
+
+            intersect::ray_sphere(center_of_mass, radius, count, ray_origins.data(), ray_directions.data(), result.data(), xp.data());
+
+            // Process raycast results
+
+            // Gather pixel copy operations
+            struct Image_Write_Request {
+                glm::vec2 input_uv_coord;
+                boost::gil::point_t output_pix_coord;
+            };
+            std::vector<Image_Write_Request> image_write_requests;
+            
+            for (size_t i = 0; i < count; i++) {
+                if (result[i] == 0) {
+                    // Ray missed
+                    continue;
+                }
+
+                size_t gid = start_index + i;
+                auto &R = rays[gid];
+
+                auto sph_coord = cartesian_to_spherical(xp[i], center_of_mass, radius);
+                auto const pi = glm::pi<float>();
+                auto input_uv_coord = glm::vec2(sph_coord.x / pi + 0.5f, sph_coord.y / (2 * pi) + 0.5f);
+
+                image_write_requests.push_back({ input_uv_coord, boost::gil::point_t { R.texcoord.x, R.texcoord.y } });
+                
+            }
+
+            // Copy pixels
+            for (auto &iwr : image_write_requests) {
+                view_out_base(iwr.output_pix_coord) = sample_image_ref(_view_base, iwr.input_uv_coord);
+                view_out_normal(iwr.output_pix_coord) = sample_image_ref(_view_normal, iwr.input_uv_coord);
+                view_out_height(iwr.output_pix_coord) = sample_image_ref(_view_height, iwr.input_uv_coord);
+                view_out_roughness(iwr.output_pix_coord) = sample_image_ref(_view_roughness, iwr.input_uv_coord);
+                view_out_ao(iwr.output_pix_coord) = sample_image_ref(_view_ao, iwr.input_uv_coord);
+            }
+        };
+
+        auto const raycast_worksize = 2048;
+        auto raycast_work_remains = total_rays;
+        auto raycast_work_start = 0;
+
+        while (raycast_work_remains > raycast_worksize) {
+            workers.emplace_task(std::bind(raycast_task, raycast_work_start, raycast_worksize));
+            raycast_work_start += raycast_worksize;
+            raycast_work_remains -= raycast_worksize;
+        }
+
+        if (raycast_work_remains > 0) {
+            workers.emplace_task(std::bind(raycast_task, raycast_work_start, raycast_work_remains));
+        }
+
+        workers.wait();
     }
 
     bool is_painting_done() override {

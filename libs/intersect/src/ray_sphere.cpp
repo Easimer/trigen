@@ -37,16 +37,21 @@ namespace intersect {
 		auto sphere_radius_squared = sphere_radius * sphere_radius;
 
 		for (size_t i = 0; i < num_rays; i++) {
-			auto oc = arr_ray_origin[i] - sphere_origin;
-			auto a = arr_ray_direction[i].length();
-			auto b = 2 * dot(oc, arr_ray_direction[i]);
-			auto c = oc.length() - sphere_radius_squared;
-			auto discriminant = b * b - 4 * a * c;
+			// Hearn, D. D., and Baker, M. P. Computer Graphics with OpenGL, third ed. Pearson, 2004.
+			auto f = arr_ray_origin[i] - sphere_origin;
+			auto d = arr_ray_direction[i];
+			auto bh = dot(f, d);
+			auto b = 2 * bh;
+			auto p = f - bh * d;
+			auto a = dot(d, d);
+			auto discriminant = 4 * a * (sphere_radius_squared - dot(p, p));
 
 			if (discriminant < 0) {
 				arr_ray_result[i] = 0;
 			} else {
-				auto t = (-b - glm::sqrt(discriminant)) / (2 * a);
+				auto t0 = (-b + glm::sqrt(discriminant)) / (2 * a);
+				auto t1 = (-b - glm::sqrt(discriminant)) / (2 * a);
+				auto t = glm::max(t0, t1);
 				arr_xp[i] = arr_ray_origin[i] + t * arr_ray_direction[i];
 				arr_ray_result[i] = 1;
 			}
