@@ -13,6 +13,7 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <worker_group.hpp>
+#include <set>
 
 extern "C" {
     extern uint8_t const *test_grid_png;
@@ -418,12 +419,46 @@ std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
         return nullptr;
     }
 
-    // Generate metaballs
-    std::vector<marching_cubes::metaball> metaballs;
+    // Gather particles and connections
+    std::unordered_map<sb::index_t, sb::Particle> particles;
+    std::set<std::pair<sb::index_t, sb::index_t>> connections;
 
     for (auto iter = simulation->get_particles(); !iter->ended(); iter->step()) {
-        auto p = iter->get();
-        metaballs.push_back({ p.position, (float)p.size.length() / 2 });
+        auto &p = iter->get();
+        particles[p.id] = p;
+    }
+
+    for (auto iter = simulation->get_connections(); !iter->ended(); iter->step()) {
+        auto c = iter->get();
+        if (c.parent < c.child) {
+            connections.insert({ c.parent, c.child });
+        } else {
+            connections.insert({ c.child, c.parent });
+        }
+    }
+
+    // Generate metaballs
+    std::vector<marching_cubes::metaball> metaballs;
+    for (auto &conn : connections) {
+        auto p0 = particles[conn.first].position;
+        auto p1 = particles[conn.second].position;
+        auto s0 = particles[conn.first].size;
+        auto s1 = particles[conn.second].size;
+        auto dir = p1 - p0;
+        auto dirLen = length(p1 - p0);
+        auto sizDir = s1 - s0;
+        auto steps = int((dirLen + 1) * 16.0f);
+
+        for (int s = 0; s < steps; s++) {
+            auto t = s / (float)steps;
+            auto p = p0 + t * dir;
+            auto size = s0 + t * sizDir;
+            float radius = 8.0f;
+            for (int i = 0; i < 3; i++) {
+                radius = glm::max(size[i] / 2, radius);
+            }
+            metaballs.push_back({ p, radius / 8 });
+        }
     }
 
     return std::make_unique<Session>(
