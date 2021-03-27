@@ -109,6 +109,8 @@ struct System_State {
 
     Vec4 global_center_of_mass;
     Vector<Vec4> internal_forces;
+
+    Vec4 light_source_direction;
 };
 
 class ILogger {

@@ -126,6 +126,8 @@ Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration, sb::De
 
     params = configuration;
 
+    s.light_source_direction = Vec4(0, 1, 0, 0);
+
     s.center_of_mass.resize(particle_count());
 
     compute = Make_Compute_Backend(configuration.compute_preference, this);
@@ -579,7 +581,7 @@ sb::Unique_Ptr<sb::ISoftbody_Simulation> sb::create_simulation(Config const& con
 }
 
 void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
-    light_source = pos;
+    s.light_source_direction = Vec4(pos, 0);
 }
 
 void Softbody_Simulation::step(float delta_time) {

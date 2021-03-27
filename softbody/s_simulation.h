@@ -104,7 +104,6 @@ public:
     bool assert_parallel;
     // Are we still in the initial state, that is, before the first call to step()
     bool assert_init;
-    Vec3 light_source = Vec3(0, 0, 0);
     sb::Config params;
     sb::IDebug_Visualizer *m_pVisualizer;
 

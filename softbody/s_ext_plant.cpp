@@ -44,6 +44,7 @@ private:
     Map<index_t, index_t> apical_child;
     Map<index_t, index_t> lateral_bud;
     Map<index_t, Vec4> anchor_points;
+    Map<index_t, float> lifetime;
     Dequeue<index_t> growing;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
@@ -104,7 +105,20 @@ private:
                     if (surface_dist < attachment_min_dist) {
                         anchor_points[i] = surface;
                     }
+                } else {
+                    // No anchor point found, move towards light source
+                    s.predicted_position[i] += dt * extra.phototropism_response_strength * s.light_source_direction;
                 }
+            }
+
+            if (lifetime.count(i) != 0) {
+                lifetime[i] += dt;
+            } else {
+                lifetime[i] = dt;
+            }
+
+            if (lifetime[i] > 3) {
+                s.fixed_particles.insert(i);
             }
         }
     }
@@ -177,7 +191,6 @@ private:
                     }
 
                     s.bind_pose[pidx] = s.position[pidx];
-                    s.fixed_particles.insert(pidx);
                 }
             }
         }
