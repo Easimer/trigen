@@ -79,7 +79,7 @@ public:
     }
 
     void execute(gfx::IRenderer *renderer) override {
-        gfx::Material_Unlit material;
+        gfx::Material_Unlit material{};
         material.diffuse = _diffuse;
 
         renderer->draw_textured_triangle_elements(_model, material, _transform);
@@ -121,7 +121,7 @@ public:
     }
 
     void execute(gfx::IRenderer *renderer) override {
-        gfx::Model_Descriptor model;
+        gfx::Model_Descriptor model{};
 
         model.vertex_count = _mesh->positions.size();
         model.vertices = _mesh->positions.data();
@@ -424,7 +424,7 @@ std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
     std::set<std::pair<sb::index_t, sb::index_t>> connections;
 
     for (auto iter = simulation->get_particles(); !iter->ended(); iter->step()) {
-        auto &p = iter->get();
+        auto p = iter->get();
         particles[p.id] = p;
     }
 
