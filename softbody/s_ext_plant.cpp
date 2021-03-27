@@ -170,7 +170,14 @@ private:
 
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
                 if (r >= max_size && N < extra.particle_count_limit) {
-                    growing.push_back(pidx);
+                    // don't grow if particle is underground
+                    // TODO(danielm): here we assume that Y=0 is the ground plane
+                    if (s.position[pidx].y >= 0) {
+                        growing.push_back(pidx);
+                    }
+
+                    s.bind_pose[pidx] = s.position[pidx];
+                    s.fixed_particles.insert(pidx);
                 }
             }
         }
