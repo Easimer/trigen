@@ -14,9 +14,10 @@ macro(filament_add_library TARGET LINKDIR INCLUDEDIR)
         set(EXTENSION ".a")
     endif()
 
-    add_library("Filament::${TARGET}" STATIC IMPORTED)
+    add_library("Filament::${TARGET}" INTERFACE IMPORTED)
     set_target_properties("Filament::${TARGET}" PROPERTIES
-        IMPORTED_LOCATION "${LINKDIR}/${TARGET}${EXTENSION}"
+        IMPORTED_LIBNAME "${TARGET}"
+        INTERFACE_LINK_DIRECTORIES "${LINKDIR}"
         INTERFACE_INCLUDE_DIRECTORIES "${INCLUDEDIR}"
     )
 endmacro()
