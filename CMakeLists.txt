@@ -158,12 +158,12 @@ if(${BUILD_LEGACY_STUFF})
 	add_subdirectory(bark_test)
 	add_subdirectory(ifs_test)
 	add_subdirectory(cylindergen)
-	add_subdirectory(editor)
     add_subdirectory(softbody_testbed)
 endif()
 add_subdirectory(softbody_crosscheck)
 
 add_subdirectory(mesh_paint_proto)
+add_subdirectory(editor)
 
 option(SOFTBODY_TESTBED_QT "Build the Qt5-based testbed")
 

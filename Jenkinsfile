@@ -18,6 +18,7 @@ pipeline {
     parameters {
         string(name: 'FBX_SDK_DIR', defaultValue: '/srv/libraries/fbxsdk', description: 'Path to the FBX SDK installation')
         string(name: 'OPTIX_DIR', defaultValue: '/srv/libraries/NVIDIA-OptiX-SDK-7.2.0-linux64-x86_64', description: 'Path to the Optix SDK installation')
+        string(name: 'FILAMENT_DIR', defaultValue: '/srv/libraries/filament', description: 'Path to the pre-built Filament binaries')
 
         string(name: 'SOFTBODY_TESTBED_QT', defaultValue: "ON", description: 'Should testbed_qt be built (requires Qt5)')
         string(name: 'SOFTBODY_ENABLE_CUDA', defaultValue: "ON", description: 'Should the CUDA backend in softbody be built')
@@ -40,7 +41,7 @@ pipeline {
 
         stage('Configure') {
             steps {
-                cmakeBuild buildType: 'Release', cleanBuild: true, installation: 'InSearchPath', buildDir: 'build', cmakeArgs: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY}"
+                cmakeBuild buildType: 'Release', cleanBuild: true, installation: 'InSearchPath', buildDir: 'build', cmakeArgs: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DFILAMENT_DIR=${params.FILAMENT_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY}"
             }
         }
         stage('Build') {
