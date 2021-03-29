@@ -1,11 +1,40 @@
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Filament REQUIRED)
 
 set(SRC
-	stdafx.h
-	entry.cpp
+    stdafx.h
+    entry.cpp
+
+    session.cpp
+    session.h
+    renderer.cpp
+    renderer.h
+    wnd_main.cpp
+    wnd_main.h
+    filament_viewport.cpp
+    filament_viewport.h
+)
+
+set(FILAMENT_LIBS
+    Filament::filament
+    Filament::backend
+    Filament::bluegl
+    Filament::bluevk
+    Filament::filabridge
+    Filament::filaflat
+    Filament::utils
+    Filament::geometry
+    Filament::smol-v
+    Filament::vkshaders
+    Filament::ibl
 )
 
 add_executable(editor ${SRC})
-target_link_libraries(editor PRIVATE softbody Filament::filament)
+target_link_libraries(editor PRIVATE softbody Qt5::Widgets ${FILAMENT_LIBS})
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)
+set_target_properties(editor PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")

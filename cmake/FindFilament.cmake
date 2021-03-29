@@ -8,12 +8,6 @@
 #   directory that contains bin, docs, include and lib)
 
 macro(filament_add_library TARGET LINKDIR INCLUDEDIR)
-    if(WIN32)
-        set(EXTENSION ".lib")
-    else()
-        set(EXTENSION ".a")
-    endif()
-
     add_library("Filament::${TARGET}" INTERFACE IMPORTED)
     set_target_properties("Filament::${TARGET}" PROPERTIES
         IMPORTED_LIBNAME "${TARGET}"
@@ -40,6 +34,10 @@ else()
     filament_add_library(smol-v ${LINKDIR} ${INCLUDEDIR})
     filament_add_library(vkshaders ${LINKDIR} ${INCLUDEDIR})
     filament_add_library(ibl ${LINKDIR} ${INCLUDEDIR})
+
+    if(WIN32)
+        set_target_properties(Filament::bluegl PROPERTIES INTERFACE_LINK_LIBRARIES Opengl32)
+    endif()
 
     set(FILAMENT_FOUND "yes")
 endif()
