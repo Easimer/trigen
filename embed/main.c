@@ -159,21 +159,31 @@ static void generate_variable_name(FILE* dst, char const* filename) {
 
 // Tries to decide whether an input file is a text file or not.
 static int is_text_file(FILE *file) {
-    // Nothing fancy but only detects PNG files.
+    // Nothing fancy; simply checks the file signature.
     int ret = 1;
     long orig_pos = ftell(file);
+
+    char const *sig_png = "\x89PNG";
+    // Not an actual signature but the name of the first section in
+    // a compiled material blob.
+    char const *sig_matc = "SREV_TAM";
 
     fseek(file, 0, SEEK_SET);
     unsigned char header[8];
     fread(header, 1, 8, file);
-    if (header[0] == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
+    if (memcmp(header, sig_png, 4) == 0) {
         fprintf(stderr, "[+] png-file-detected\n");
-        fseek(file, orig_pos, SEEK_SET);
-        ret = 0;
-        goto end;
+        goto end_binary;
+    } else if (memcmp(header, sig_matc, 8) == 0) {
+        fprintf(stderr, "[+] filament-material-file-detected\n");
+        goto end_binary;
     }
 
     fprintf(stderr, "[+] text-file-detected\n");
+    goto end;
+
+end_binary:
+    ret = 0;
 end:
     fseek(file, orig_pos, SEEK_SET);
     return ret;
