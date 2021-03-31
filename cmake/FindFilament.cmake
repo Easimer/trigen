@@ -20,8 +20,8 @@ if(NOT FILAMENT_DIR)
     set(FILAMENT_DIR "" CACHE PATH "Path to the pre-built Filament binaries (the directory that contains bin, docs, include and lib)")
     message(FATAL_ERROR "Please set FILAMENT_DIR")
 else()
-    set(LINKDIR "${FILAMENT_DIR}/lib/")
-    set(INCLUDEDIR "${FILAMENT_DIR}/include/")
+    set(LINKDIR "${FILAMENT_DIR}/$<IF:$<CONFIG:Debug>,debug,release>/lib/")
+    set(INCLUDEDIR "${FILAMENT_DIR}/$<IF:$<CONFIG:Debug>,debug,release>/include/")
 
     filament_add_library(filament ${LINKDIR} ${INCLUDEDIR})
     filament_add_library(backend ${LINKDIR} ${INCLUDEDIR})
@@ -38,6 +38,16 @@ else()
     if(WIN32)
         set_target_properties(Filament::bluegl PROPERTIES INTERFACE_LINK_LIBRARIES Opengl32)
     endif()
+
+    set(FILAMENT_BIN_DIR "${FILAMENT_DIR}/$<IF:$<CONFIG:Debug>,debug,release>/bin/")
+    set(FILAMENT_MATC_PATH "${FILAMENT_BIN_DIR}/matc")
+
+    macro(filament_matc input_file output_file)
+        add_custom_command(
+            OUTPUT ${output_file}
+            COMMAND ${FILAMENT_MATC_PATH} -o ${output_file} ${input_file}
+            DEPENDS ${input_file})
+    endmacro()
 
     set(FILAMENT_FOUND "yes")
 endif()
