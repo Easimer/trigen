@@ -20,6 +20,17 @@ public:
 	void paintEvent(QPaintEvent *event) override;
 	bool event(QEvent *event) override;
 	void setRenderer(Renderer *renderer);
+	void mousePressEvent(QMouseEvent *event) override;
+	void mouseReleaseEvent(QMouseEvent *event) override;
+	void mouseMoveEvent(QMouseEvent *event) override;
+	void wheelEvent(QWheelEvent *event) override;
+
+signals:
+	void onMouseDown(int x, int y);
+	void onMouseUp(int x, int y);
+	void onMouseMove(int x, int y);
+	void onMouseWheel(int y);
+	void onWindowResize(int x, int y);
 
 protected:
 	void requestRedraw();

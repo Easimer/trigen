@@ -10,20 +10,21 @@
 #include <QMainWindow>
 #include <QLayout>
 #include "session.h"
+#include "ui_wnd_main.h"
+
+namespace Ui {
+class Window_Main;
+}
 
 class Window_Main : public QMainWindow {
-    Q_OBJECT
+    Q_OBJECT;
 public:
-    explicit Window_Main(QWidget *parent = nullptr) : QMainWindow(parent) {
-        setMinimumSize(QSize(1280, 720));
-    }
+    explicit Window_Main(QWidget *parent = nullptr);
+    ~Window_Main();
 
-    void setViewport(QWidget *viewportWidget) {
-        setCentralWidget(viewportWidget);
-    }
-
-protected:
+    void setViewport(QWidget *viewport);
 
 private:
+    Ui::Window_Main *_ui;
     std::vector<std::unique_ptr<Session>> _sessions;
 };

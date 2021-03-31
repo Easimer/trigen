@@ -17,6 +17,14 @@ set(SRC
     wnd_main.h
     filament_viewport.cpp
     filament_viewport.h
+    world.h
+    world_object.h
+    world_renderable.h
+    world_collider.h
+    world_plant.h
+    filament_wrapper.h
+
+    wnd_main.ui
 )
 
 set(FILAMENT_LIBS

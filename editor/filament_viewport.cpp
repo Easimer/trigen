@@ -66,6 +66,30 @@ void Filament_Viewport::setRenderer(Renderer *renderer) {
 	requestCameraProjectionUpdate();
 }
 
+void Filament_Viewport::mousePressEvent(QMouseEvent *event) {
+	if (event->button() == Qt::LeftButton) {
+		emit onMouseDown(event->x(), event->y());
+		event->accept();
+	}
+}
+
+void Filament_Viewport::mouseReleaseEvent(QMouseEvent *event) {
+	if (event->button() == Qt::LeftButton) {
+		emit onMouseUp(event->x(), event->y());
+		event->accept();
+	}
+}
+
+void Filament_Viewport::mouseMoveEvent(QMouseEvent *event) {
+	emit onMouseMove(event->x(), event->y());
+	event->accept();
+}
+
+void Filament_Viewport::wheelEvent(QWheelEvent *event) {
+	emit onMouseWheel(event->delta());
+	event->accept();
+}
+
 void Filament_Viewport::requestRedraw() {
 	if (!_redrawPending) {
 		_redrawPending = true;
