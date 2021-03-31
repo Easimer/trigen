@@ -8,27 +8,16 @@
 #include <QApplication>
 #include <QWidget>
 #include <QResizeEvent>
-#include <filament/Engine.h>
-#include <filament/SwapChain.h>
-#include <filament/Fence.h>
-#include <filament/View.h>
-#include <filament/Renderer.h>
+
+#include "renderer.h"
 
 class Filament_Viewport : public QWidget {
 	Q_OBJECT;
 public:
-	explicit Filament_Viewport(QWidget *parent, filament::Engine::Backend backend) : QWidget(parent) {
+	explicit Filament_Viewport(QWidget *parent) : QWidget(parent) {
 		setAttribute(Qt::WA_NativeWindow);
 		setAttribute(Qt::WA_PaintOnScreen);
 		setAttribute(Qt::WA_NoSystemBackground);
-
-		_engine = filament::Engine::create(backend);
-	}
-
-	~Filament_Viewport() {
-		_engine->destroy(_view);
-		_engine->destroy(_swapChain);
-		_engine->destroy(&_engine);
 	}
 
 	QPaintEngine *paintEngine() const override final {
@@ -45,7 +34,7 @@ public:
 			return;
 		}
 
-		// TODO: recalculate camera matrix
+		requestCameraProjectionUpdate();
 
 		if (newSize.width() < oldSize.width() || newSize.height() < oldSize.height()) {
 			requestRedraw();
@@ -54,7 +43,10 @@ public:
 
 	void closeEvent(QCloseEvent *event) override {
 		QWidget::closeEvent(event);
-		filament::Fence::waitAndDestroy(_engine->createFence());
+
+		if (_renderer) {
+			_renderer->onClose();
+		}
 	}
 
 	void paintEvent(QPaintEvent *event) override {
@@ -64,8 +56,8 @@ public:
 	bool event(QEvent *event) override {
 		switch (event->type()) {
 			case QEvent::UpdateRequest:
-				if (isVisible()) {
-					draw();
+				if (isVisible() && _renderer) {
+					_renderer->draw();
 				}
 				_redrawPending = false;
 				return true;
@@ -74,12 +66,9 @@ public:
 		}
 	}
 
-	void postInit() {
-		auto nativeHandle = winId();
-
-		_swapChain = _engine->createSwapChain((void*)nativeHandle);
-		_view = _engine->createView();
-		_renderer = _engine->createRenderer();
+	void setRenderer(Renderer *renderer) {
+		_renderer = renderer;
+		requestCameraProjectionUpdate();
 	}
 
 protected:
@@ -90,16 +79,15 @@ protected:
 		}
 	}
 
-	void draw() {
-		if (_renderer->beginFrame(_swapChain)) {
-			_renderer->render(_view);
-			_renderer->endFrame();
+	void requestCameraProjectionUpdate() {
+		if (_renderer) {
+			auto const pixelRatio = devicePixelRatio();
+			auto w = width() * pixelRatio;
+			auto h = height() * pixelRatio;
+			_renderer->updateCameraProjection(w, h);
 		}
 	}
 private:
-	filament::Engine *_engine = nullptr;
-	filament::SwapChain *_swapChain = nullptr;
-	filament::View *_view = nullptr;
-	filament::Renderer *_renderer = nullptr;
+	Renderer *_renderer = nullptr;
 	bool _redrawPending = false;
 };
