@@ -45,8 +45,10 @@ else()
     macro(filament_matc input_file output_file)
         add_custom_command(
             OUTPUT ${output_file}
-            COMMAND ${FILAMENT_MATC_PATH} -o ${output_file} ${input_file}
-            DEPENDS ${input_file})
+            COMMAND ${FILAMENT_MATC_PATH} -p desktop -a vulkan -a opengl -o ${output_file} ${input_file}
+            DEPENDS ${input_file}
+            MAIN_DEPENDENCY ${input_file}
+        )
     endmacro()
 
     set(FILAMENT_FOUND "yes")
