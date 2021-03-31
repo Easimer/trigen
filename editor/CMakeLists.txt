@@ -33,8 +33,11 @@ set(FILAMENT_LIBS
     Filament::ibl
 )
 
-add_executable(editor ${SRC})
-target_link_libraries(editor PRIVATE softbody Qt5::Widgets ${FILAMENT_LIBS})
+filament_matc(${CMAKE_CURRENT_SOURCE_DIR}/materials/bakedColor.mat bakedColor.matc)
+embed_file(bakedColor.matc.cpp bakedColor.matc)
+
+add_executable(editor ${SRC} bakedColor.matc.cpp)
+target_link_libraries(editor PRIVATE softbody Qt5::Widgets arcball_camera ${FILAMENT_LIBS})
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)
-set_target_properties(editor PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")
+
