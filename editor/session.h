@@ -16,21 +16,24 @@
 class Session : public QObject {
     Q_OBJECT;
 public:
-    static std::unique_ptr<Session> create();
+    Session(char const *name);
+
+    std::string name() const { return _name; }
 
 public slots:
     void onWindowResize(int w, int h);
     void onMouseDown(int x, int y);
     void onMouseUp(int x, int y);
     void onMouseWheel(int y);
+    void onMouseMove(int x, int y);
 
 signals:
     void viewMatrixUpdated(filament::math::mat4f const &mat);
 
 protected:
-    Session();
     void emitViewMatrixUpdated();
 private:
+    std::string _name;
 	std::unique_ptr<Arcball_Camera> _camera;
     filament::Ptr<filament::Scene> _scene;
 };

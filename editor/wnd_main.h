@@ -5,12 +5,13 @@
 
 #pragma once
 
-#include <vector>
+#include <list>
 #include <memory>
 #include <QMainWindow>
 #include <QLayout>
 #include "session.h"
 #include "ui_wnd_main.h"
+#include "filament_viewport.h"
 
 namespace Ui {
 class Window_Main;
@@ -22,9 +23,16 @@ public:
     explicit Window_Main(QWidget *parent = nullptr);
     ~Window_Main();
 
-    void setViewport(QWidget *viewport);
+    void setViewport(Filament_Viewport *viewport);
+
+    void newSession(QString const &name);
+
+public slots:
+    void switchToSession(Session *ptr);
 
 private:
     Ui::Window_Main *_ui;
-    std::vector<std::unique_ptr<Session>> _sessions;
+    std::list<std::unique_ptr<Session>> _sessions;
+    Session *_currentSession = nullptr;
+    Filament_Viewport *_viewport = nullptr;
 };

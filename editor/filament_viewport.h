@@ -6,8 +6,9 @@
 #pragma once
 
 #include <QWidget>
-
+#include <QTimer>
 #include "renderer.h"
+#include <math/mat4.h>
 
 class Filament_Viewport : public QWidget {
 	Q_OBJECT;
@@ -25,6 +26,10 @@ public:
 	void mouseMoveEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;
 
+public slots:
+	void updateViewMatrix(filament::math::mat4f const &mat);
+	void requestRedraw();
+
 signals:
 	void onMouseDown(int x, int y);
 	void onMouseUp(int x, int y);
@@ -33,10 +38,10 @@ signals:
 	void onWindowResize(int x, int y);
 
 protected:
-	void requestRedraw();
 	void requestCameraProjectionUpdate();
 
 private:
 	Renderer *_renderer = nullptr;
 	bool _redrawPending = false;
+	QTimer _timer;
 };

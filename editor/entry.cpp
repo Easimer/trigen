@@ -7,10 +7,16 @@
 #include "wnd_main.h"
 #include "filament_viewport.h"
 #include "renderer.h"
+#include "world.h"
+#include "world_plant.h"
+#include "world_collider.h"
 #include <QApplication>
 
 int main(int argc, char **argv) {
 	QApplication app(argc, argv);
+
+	World world;
+	world.createEntity<World_Plant>();
 
 	Window_Main wnd;
 	Filament_Viewport viewport(&wnd);
@@ -18,7 +24,8 @@ int main(int argc, char **argv) {
 	auto nativeHandle = viewport.winId();
 	Renderer renderer(filament::Engine::Backend::VULKAN, (void *)nativeHandle);
 	viewport.setRenderer(&renderer);
-	
+
+
 	wnd.setViewport(&viewport);
 	wnd.show();
 

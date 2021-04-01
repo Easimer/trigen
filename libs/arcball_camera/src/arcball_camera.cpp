@@ -122,6 +122,7 @@ private:
     }
 
     void update_camera() {
+        printf("update_camera %f %f %f %f\n", rotation.w, rotation.x, rotation.y, rotation.z);
         camera = glm::translate(translation) * Mat4(ARCBALL_PARANOID(rotation)) * glm::translate(center_translation);
     }
 

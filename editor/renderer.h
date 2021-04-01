@@ -6,6 +6,7 @@
 #pragma once
 
 #include <filament/Engine.h>
+#include <math/mat4.h>
 #include <utils/Entity.h>
 
 class Renderer {
@@ -15,8 +16,10 @@ public:
 	void onClose();
 	void draw();
 	void updateCameraProjection(uint32_t w, uint32_t h);
+	void updateViewMatrix(filament::math::mat4f const &mat);
 
 private:
+	void *_surfaceNativeHandle;
 	filament::Engine *_engine = nullptr;
 	filament::SwapChain *_swapChain = nullptr;
 	filament::View *_view = nullptr;

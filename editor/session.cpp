@@ -7,25 +7,26 @@
 #include "session.h"
 #include <glm/gtc/type_ptr.hpp>
 
-Session::Session() : _camera(create_arcball_camera()) {
-}
-
-std::unique_ptr<Session> Session::create() {
-	struct U : Session {};
-	return std::make_unique<U>();
+Session::Session(char const *name) : _camera(create_arcball_camera()), _name(name) {
 }
 
 void Session::onMouseDown(int x, int y) {
 	_camera->mouse_down(x, y);
-	
 }
 
 void Session::onMouseUp(int x, int y) {
 	_camera->mouse_up(x, y);
+	emitViewMatrixUpdated();
+}
+
+void Session::onMouseMove(int x, int y) {
+	_camera->mouse_move(x, y);
+	emitViewMatrixUpdated();
 }
 
 void Session::onMouseWheel(int y) {
 	_camera->mouse_wheel(y);
+	emitViewMatrixUpdated();
 }
 
 void Session::onWindowResize(int w, int h) {

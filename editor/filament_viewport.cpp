@@ -13,6 +13,10 @@ Filament_Viewport::Filament_Viewport(QWidget *parent) : QWidget(parent) {
 	setAttribute(Qt::WA_NativeWindow);
 	setAttribute(Qt::WA_PaintOnScreen);
 	setAttribute(Qt::WA_NoSystemBackground);
+	_timer.setTimerType(Qt::TimerType::PreciseTimer);
+	_timer.setInterval(16.6);
+	connect(&_timer, &QTimer::timeout, this, &Filament_Viewport::requestRedraw);
+	_timer.start();
 }
 
 QPaintEngine *Filament_Viewport::paintEngine() const {
@@ -34,6 +38,8 @@ void Filament_Viewport::resizeEvent(QResizeEvent *resizeEvent) {
 	if (newSize.width() < oldSize.width() || newSize.height() < oldSize.height()) {
 		requestRedraw();
 	}
+
+	emit onWindowResize(newSize.width(), newSize.height());
 }
 
 void Filament_Viewport::closeEvent(QCloseEvent *event) {
@@ -104,4 +110,8 @@ void Filament_Viewport::requestCameraProjectionUpdate() {
 		auto h = height() * pixelRatio;
 		_renderer->updateCameraProjection(w, h);
 	}
+}
+
+void Filament_Viewport::updateViewMatrix(filament::math::mat4f const &mat) {
+	_renderer->updateViewMatrix(mat);
 }

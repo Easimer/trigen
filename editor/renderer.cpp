@@ -41,14 +41,14 @@ static const Vertex TRIANGLE_VERTICES[3] = {
     {{ 0.0f,  0.5f },  0xff0000ffu},
 };
 
-static constexpr uint16_t TRIANGLE_INDICES[3] = { 0, 1, 2 };
+static constexpr uint16_t TRIANGLE_INDICES[6] = { 0, 1, 1, 2, 2, 0 };
 
 extern "C" {
     extern unsigned long long bakedColor_matc_len;
     extern char const *bakedColor_matc;
 }
 
-Renderer::Renderer(filament::Engine::Backend backend, void *nativeHandle) {
+Renderer::Renderer(filament::Engine::Backend backend, void *nativeHandle) : _surfaceNativeHandle(nativeHandle) {
     using namespace filament;
     _engine = Engine::create(backend);
 
@@ -75,18 +75,18 @@ Renderer::Renderer(filament::Engine::Backend backend, void *nativeHandle) {
     _vb->setBufferAt(*_engine, 0,
         VertexBuffer::BufferDescriptor(TRIANGLE_VERTICES, 36, nullptr));
     _ib = IndexBuffer::Builder()
-        .indexCount(3)
+        .indexCount(6)
         .bufferType(IndexBuffer::IndexType::USHORT)
         .build(*_engine);
     _ib->setBuffer(*_engine,
-        IndexBuffer::BufferDescriptor(TRIANGLE_INDICES, 6, nullptr));
+        IndexBuffer::BufferDescriptor(TRIANGLE_INDICES, 6 * sizeof(uint16_t), nullptr));
     _mat = Material::Builder()
         .package(bakedColor_matc, bakedColor_matc_len)
         .build(*_engine);
     _renderable = utils::EntityManager::get().create();
     RenderableManager::Builder(1)
         .boundingBox({ { -1, -1, -1 }, { 1, 1, 1 } })
-        .geometry(0, RenderableManager::PrimitiveType::TRIANGLES, _vb, _ib, 0, 3)
+        .geometry(0, RenderableManager::PrimitiveType::LINES, _vb, _ib, 0, 6)
         .culling(false)
         .receiveShadows(false)
         .castShadows(false)
@@ -106,5 +106,14 @@ void Renderer::draw() {
 }
 
 void Renderer::updateCameraProjection(uint32_t w, uint32_t h) {
+    filament::Fence::waitAndDestroy(_engine->createFence());
+    auto oldSwapChain = _swapChain;
+    _swapChain = nullptr;
+    _engine->destroy(oldSwapChain);
+    _swapChain = _engine->createSwapChain(_surfaceNativeHandle);
     _view->setViewport({ 0, 0, w, h });
+}
+
+void Renderer::updateViewMatrix(filament::math::mat4f const &mat) {
+    _camera->setModelMatrix(mat);
 }

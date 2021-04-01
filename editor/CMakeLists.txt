@@ -4,6 +4,7 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Filament REQUIRED)
+find_package(FBXSDK REQUIRED)
 
 set(SRC
     stdafx.h
@@ -45,7 +46,7 @@ filament_matc(${CMAKE_CURRENT_SOURCE_DIR}/materials/bakedColor.mat bakedColor.ma
 embed_file(bakedColor.matc.cpp bakedColor.matc)
 
 add_executable(editor ${SRC} bakedColor.matc.cpp)
-target_link_libraries(editor PRIVATE softbody Qt5::Widgets arcball_camera ${FILAMENT_LIBS})
+target_link_libraries(editor PRIVATE softbody Qt5::Widgets arcball_camera FbxSdk::FbxSdk ${FILAMENT_LIBS})
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)
 
