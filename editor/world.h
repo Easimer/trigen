@@ -7,10 +7,14 @@
 
 #include <list>
 #include <memory>
+#include <filament/Scene.h>
 #include "world_object.h"
 
 class World {
 public:
+	World(filament::Scene *scene) : _scene(scene) {
+	}
+
 	template<typename T, typename ...Args>
 	void createEntity(Args... args) {
 		auto ent = std::make_unique<T>(args...);
@@ -25,4 +29,5 @@ public:
 
 private:
 	std::list<std::unique_ptr<World_Object>> _objects;
+	filament::Scene *_scene;
 };

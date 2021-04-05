@@ -15,9 +15,6 @@
 int main(int argc, char **argv) {
 	QApplication app(argc, argv);
 
-	World world;
-	world.createEntity<World_Plant>();
-
 	Window_Main wnd;
 	Filament_Viewport viewport(&wnd);
 

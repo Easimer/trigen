@@ -13,6 +13,8 @@
 #include <filament/Scene.h>
 #include <math/mat4.h>
 
+#include "world.h"
+
 class Session : public QObject {
     Q_OBJECT;
 public:
@@ -35,5 +37,6 @@ protected:
 private:
     std::string _name;
 	std::unique_ptr<Arcball_Camera> _camera;
+    World _world;
     filament::Ptr<filament::Scene> _scene;
 };

@@ -25,7 +25,7 @@ namespace filament {
 			return _ptr;
 		}
 
-		operator T() {
+		operator T*() {
 			return _ptr;
 		}
 

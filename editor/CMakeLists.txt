@@ -24,8 +24,13 @@ set(SRC
     world_collider.h
     world_plant.h
     filament_wrapper.h
+    wizard_sb_simulation.cpp
+    wizard_sb_simulation.h
+    wizard_sb_simulation_pages.h
 
     wnd_main.ui
+    wizard_sb_plant_config.ui
+    wizard_sb_compute_config.ui
 )
 
 set(FILAMENT_LIBS

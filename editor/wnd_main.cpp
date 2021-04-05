@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include "wnd_main.h"
 #include "ui_wnd_main.h"
+#include "wizard_sb_simulation.h"
 
 Window_Main::Window_Main(QWidget *parent) :
     QMainWindow(parent),
@@ -13,6 +14,12 @@ Window_Main::Window_Main(QWidget *parent) :
     _ui->setupUi(this);
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
+
+    _ui->toolBar->addAction("Add softbody", [this]() {
+        auto wizard = new Wizard_SB_Simulation(this);
+
+        wizard->show();
+    });
 }
 
 Window_Main::~Window_Main() {

@@ -15,8 +15,9 @@ class World_Plant : public World_Object {
 public:
 	~World_Plant() override = default;
 
-	World_Plant() {
+	World_Plant(sb::Config const &config) {
 		_entity = utils::EntityManager::get().create();
+		_sim = sb::create_simulation(config);
 	}
 
 	char const *className() const override {
@@ -30,5 +31,6 @@ public:
 	}
 
 private:
+	sb::Unique_Ptr<sb::ISoftbody_Simulation> _sim;
 	std::string const colliderClassName = WORLD_COLLIDER_CLASSNAME;
 };

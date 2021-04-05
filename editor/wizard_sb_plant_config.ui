@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Wizard_SB_Plant_Config</class>
+ <widget class="QWidget" name="Wizard_SB_Plant_Config">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>388</width>
+    <height>427</height>
+   </rect>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <item row="1" column="0">
+    <widget class="QLabel" name="lblParticleCountLimit">
+     <property name="text">
+      <string>Particle count limit:</string>
+     </property>
+     <property name="buddy">
+      <cstring>sbParticleCountLimit</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QSpinBox" name="sbParticleCountLimit">
+     <property name="maximum">
+      <number>65536</number>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <layout class="QHBoxLayout" name="layoutOrigin">
+     <item>
+      <widget class="QDoubleSpinBox" name="sbOriginX">
+       <property name="minimum">
+        <double>-9999.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>9999.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="sbOriginY">
+       <property name="minimum">
+        <double>-9999.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>9999.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="sbOriginZ">
+       <property name="minimum">
+        <double>-9999.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>9999.000000000000000</double>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="lblOrigin">
+     <property name="text">
+      <string>Origin:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDoubleSpinBox" name="sbDensity">
+     <property name="maximum">
+      <double>65536.000000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="lblDensity">
+     <property name="text">
+      <string>Density:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="sbPhotoRespStr">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="lblPhotoRespStr">
+     <property name="text">
+      <string>Phototropism response strength:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="lblAgingRate">
+     <property name="text">
+      <string>Aging rate:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="sbAgingRate">
+     <property name="maximum">
+      <double>100.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="lblBranchProb">
+     <property name="text">
+      <string>Branching probability:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="sbBranchProb">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.250000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDoubleSpinBox" name="sbBranchVar">
+     <property name="decimals">
+      <number>6</number>
+     </property>
+     <property name="maximum">
+      <double>6.283185000000000</double>
+     </property>
+     <property name="value">
+      <double>3.141592000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="lblBranchVar">
+     <property name="text">
+      <string>Branch angle variance:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="lblSurfAdaptStr">
+     <property name="text">
+      <string>Surface adaption strength:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="lblSurfAttachStr">
+     <property name="text">
+      <string>Surface attachment strength:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QDoubleSpinBox" name="sbSurfAdaptStr">
+     <property name="maximum">
+      <double>1024.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QDoubleSpinBox" name="sbSurfAttachStr">
+     <property name="maximum">
+      <double>1024.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="lblStiffness">
+     <property name="text">
+      <string>Initial stiffness:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QDoubleSpinBox" name="sbStiffness">
+     <property name="maximum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.050000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.200000000000000</double>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Wizard_SB_Compute_Config</class>
+ <widget class="QWidget" name="Wizard_SB_Compute_Config">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>470</width>
+    <height>272</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QLabel" name="lblMessage">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Choose a compute backend.&lt;/p&gt;&lt;p&gt;Note: &lt;span style=&quot; text-decoration: underline;&quot;&gt;GPU backends&lt;/span&gt; are not stable yet and &lt;span style=&quot; text-decoration: underline;&quot;&gt;are known to have severe problems.&lt;/span&gt; Selecting 'No preference' is not recommended because the simulator will then try to use the GPU backends first.&lt;/p&gt;&lt;p&gt;If the selected backend is not available (e.g. the CUDA backend is not available in absence of NVIDIA hardware) then the simulator will fall back to another backend. The fallback order is the following:&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;CUDA -&amp;gt; OpenCL -&amp;gt; CPU&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Compute backend</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QRadioButton" name="btnNone">
+        <property name="text">
+         <string>&amp;No preference</string>
+        </property>
+        <property name="shortcut">
+         <string>Alt+N</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="btnCPU">
+        <property name="text">
+         <string>CPU</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="btnOpenCL">
+        <property name="text">
+         <string>OpenCL</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="btnCUDA">
+        <property name="text">
+         <string>CUDA</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

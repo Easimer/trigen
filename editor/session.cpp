@@ -7,7 +7,7 @@
 #include "session.h"
 #include <glm/gtc/type_ptr.hpp>
 
-Session::Session(char const *name) : _camera(create_arcball_camera()), _name(name) {
+Session::Session(char const *name) : _camera(create_arcball_camera()), _name(name), _world(_scene) {
 }
 
 void Session::onMouseDown(int x, int y) {
