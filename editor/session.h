@@ -15,12 +15,15 @@
 
 #include "world.h"
 
+#include <softbody.h>
+
 class Session : public QObject {
     Q_OBJECT;
 public:
     Session(char const *name);
 
     std::string name() const { return _name; }
+    void createPlant(sb::Config const &cfg);
 
 public slots:
     void onWindowResize(int w, int h);

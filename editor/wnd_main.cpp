@@ -7,19 +7,41 @@
 #include "wnd_main.h"
 #include "ui_wnd_main.h"
 #include "wizard_sb_simulation.h"
+#include <QMessageBox>
+#include <QListView>
 
 Window_Main::Window_Main(QWidget *parent) :
     QMainWindow(parent),
-    _ui(new Ui::Window_Main()) {
+    _ui(new Ui::Window_Main()),
+    _splitter(Qt::Orientation::Horizontal, this) {
     _ui->setupUi(this);
+
+    setCentralWidget(&_splitter);
+    _splitter.setChildrenCollapsible(false);
+    // Placeholder items in the splitter
+    _splitter.insertWidget(0, new QWidget(this));
+    _splitter.insertWidget(1, new QWidget(this));
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
 
-    _ui->toolBar->addAction("Add softbody", [this]() {
+    _ui->toolBar->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
         auto wizard = new Wizard_SB_Simulation(this);
 
         wizard->show();
+        connect(wizard, &Wizard_SB_Simulation::accepted, [&]() {
+            auto &cfg = wizard->config();
+            if (_currentSession != nullptr) {
+                _currentSession->createPlant(cfg);
+            } else {
+                QMessageBox::critical(wizard, "Couldn't create softbody", "Couldn't create softbody: no active session!");
+            }
+        });
     });
+
+    // Disable all toolbar buttons
+    for (auto &action : _ui->toolBar->actions()) {
+        action->setEnabled(false);
+    }
 }
 
 Window_Main::~Window_Main() {
@@ -27,7 +49,8 @@ Window_Main::~Window_Main() {
 }
 
 void Window_Main::setViewport(Filament_Viewport *viewport) {
-    setCentralWidget(viewport);
+    _splitter.insertWidget(0, viewport);
+    viewport->setSizePolicy(QSizePolicy(QSizePolicy::Policy::Maximum, QSizePolicy::Policy::Maximum));
     _viewport = viewport;
 }
 
@@ -53,4 +76,10 @@ void Window_Main::newSession(QString const &name) {
 
 void Window_Main::switchToSession(Session *session) {
     _currentSession = session;
+    
+    if (session != nullptr) {
+        for (auto &action : _ui->toolBar->actions()) {
+            action->setEnabled(true);
+        }
+    }
 }

@@ -5,9 +5,14 @@
 
 #include "stdafx.h"
 #include "session.h"
+#include "world_plant.h"
 #include <glm/gtc/type_ptr.hpp>
 
 Session::Session(char const *name) : _camera(create_arcball_camera()), _name(name), _world(_scene) {
+}
+
+void Session::createPlant(sb::Config const &cfg) {
+	_world.createEntity<World_Plant>(cfg);
 }
 
 void Session::onMouseDown(int x, int y) {
