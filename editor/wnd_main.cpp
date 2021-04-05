@@ -28,7 +28,7 @@ Window_Main::Window_Main(QWidget *parent) :
         auto wizard = new Wizard_SB_Simulation(this);
 
         wizard->show();
-        connect(wizard, &Wizard_SB_Simulation::accepted, [&]() {
+        connect(wizard, &Wizard_SB_Simulation::accepted, [&, wizard]() {
             auto &cfg = wizard->config();
             if (_currentSession != nullptr) {
                 _currentSession->createPlant(cfg);
