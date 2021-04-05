@@ -70,7 +70,7 @@ void Window_Main::newSession(QString const &name) {
     connect(_viewport, &Filament_Viewport::onWindowResize, sessionPtr, &Session::onWindowResize);
     connect(sessionPtr, &Session::viewMatrixUpdated, _viewport, &Filament_Viewport::updateViewMatrix);
 
-    _currentSession = sessionPtr;
+    switchToSession(sessionPtr);
     _sessions.emplace_back(std::move(session));
 }
 
