@@ -112,8 +112,10 @@ void Renderer::updateCameraProjection(uint32_t w, uint32_t h) {
     _engine->destroy(oldSwapChain);
     _swapChain = _engine->createSwapChain(_surfaceNativeHandle);
     _view->setViewport({ 0, 0, w, h });
+
+    _camera->setProjection(90, (double)w / (double)h, 0.001, 1000.0);
 }
 
-void Renderer::updateViewMatrix(filament::math::mat4f const &mat) {
-    _camera->setModelMatrix(mat);
+void Renderer::updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center) {
+    _camera->lookAt(eye, center);
 }

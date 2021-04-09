@@ -21,27 +21,30 @@ void Session::onMouseDown(int x, int y) {
 
 void Session::onMouseUp(int x, int y) {
 	_camera->mouse_up(x, y);
-	emitViewMatrixUpdated();
+	emitCameraUpdated();
 }
 
 void Session::onMouseMove(int x, int y) {
 	_camera->mouse_move(x, y);
-	emitViewMatrixUpdated();
+	emitCameraUpdated();
 }
 
 void Session::onMouseWheel(int y) {
 	_camera->mouse_wheel(y);
-	emitViewMatrixUpdated();
+	emitCameraUpdated();
 }
 
 void Session::onWindowResize(int w, int h) {
 	_camera->set_screen_size(w, h);
 }
 
-void Session::emitViewMatrixUpdated() {
-	auto mat = _camera->get_view_matrix();
-	// Both filament and GLM use column-major matrices
-	auto &matPtr = *(filament::math::mat4f *)glm::value_ptr(mat);
-	
-	emit viewMatrixUpdated(matPtr);
+void Session::emitCameraUpdated() {
+	glm::vec3 eye, center;
+	filament::math::float3 feye, fcenter;
+
+	_camera->get_look_at(eye, center);
+	feye = { eye.x, eye.y, eye.z };
+	fcenter = { center.x, center.y, center.z };
+
+	emit cameraUpdated(feye, fcenter);
 }

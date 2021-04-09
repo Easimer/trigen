@@ -33,10 +33,10 @@ public slots:
     void onMouseMove(int x, int y);
 
 signals:
-    void viewMatrixUpdated(filament::math::mat4f const &mat);
+    void cameraUpdated(filament::math::float3 const &eye, filament::math::float3 const &center);
 
 protected:
-    void emitViewMatrixUpdated();
+    void emitCameraUpdated();
 private:
     std::string _name;
 	std::unique_ptr<Arcball_Camera> _camera;

@@ -112,6 +112,6 @@ void Filament_Viewport::requestCameraProjectionUpdate() {
 	}
 }
 
-void Filament_Viewport::updateViewMatrix(filament::math::mat4f const &mat) {
-	_renderer->updateViewMatrix(mat);
+void Filament_Viewport::updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center) {
+	_renderer->updateCamera(eye, center);
 }

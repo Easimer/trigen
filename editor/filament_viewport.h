@@ -27,7 +27,7 @@ public:
 	void wheelEvent(QWheelEvent *event) override;
 
 public slots:
-	void updateViewMatrix(filament::math::mat4f const &mat);
+	void updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center);
 	void requestRedraw();
 
 signals:

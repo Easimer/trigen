@@ -24,17 +24,15 @@ Window_Main::Window_Main(QWidget *parent) :
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
 
+    connect(&_vm, &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
+
     _ui->toolBar->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
         auto wizard = new Wizard_SB_Simulation(this);
 
         wizard->show();
         connect(wizard, &Wizard_SB_Simulation::accepted, [&, wizard]() {
             auto &cfg = wizard->config();
-            if (_currentSession != nullptr) {
-                _currentSession->createPlant(cfg);
-            } else {
-                QMessageBox::critical(wizard, "Couldn't create softbody", "Couldn't create softbody: no active session!");
-            }
+            _vm.addSoftbodySimulation(cfg);
         });
     });
 
@@ -52,31 +50,25 @@ void Window_Main::setViewport(Filament_Viewport *viewport) {
     _splitter.insertWidget(0, viewport);
     viewport->setSizePolicy(QSizePolicy(QSizePolicy::Policy::Maximum, QSizePolicy::Policy::Maximum));
     _viewport = viewport;
+
+    connect(_viewport, &Filament_Viewport::onMouseDown, &_vm, &VM_Main::onMouseDown);
+    connect(_viewport, &Filament_Viewport::onMouseUp, &_vm, &VM_Main::onMouseUp);
+    connect(_viewport, &Filament_Viewport::onMouseMove, &_vm, &VM_Main::onMouseMove);
+    connect(_viewport, &Filament_Viewport::onMouseWheel, &_vm, &VM_Main::onMouseWheel);
+    connect(_viewport, &Filament_Viewport::onWindowResize, &_vm, &VM_Main::onWindowResize);
+    connect(&_vm, &VM_Main::cameraUpdated, _viewport, &Filament_Viewport::updateCamera);
 }
 
 void Window_Main::newSession(QString const &name) {
     auto nameUtf8 = name.toUtf8();
-    auto session = std::make_unique<Session>(nameUtf8.constData());
-    auto sessionPtr = session.get();
+    auto session = _vm.createNewSession(nameUtf8.constData());
 
-    _ui->menuWindow->addAction(name, [this, sessionPtr]() {
-        switchToSession(sessionPtr);
+    _ui->menuWindow->addAction(name, [this, session]() {
+        _vm.switchToSession(session);
     });
-
-    connect(_viewport, &Filament_Viewport::onMouseDown, sessionPtr, &Session::onMouseDown);
-    connect(_viewport, &Filament_Viewport::onMouseUp, sessionPtr, &Session::onMouseUp);
-    connect(_viewport, &Filament_Viewport::onMouseMove, sessionPtr, &Session::onMouseMove);
-    connect(_viewport, &Filament_Viewport::onMouseWheel, sessionPtr, &Session::onMouseWheel);
-    connect(_viewport, &Filament_Viewport::onWindowResize, sessionPtr, &Session::onWindowResize);
-    connect(sessionPtr, &Session::viewMatrixUpdated, _viewport, &Filament_Viewport::updateViewMatrix);
-
-    switchToSession(sessionPtr);
-    _sessions.emplace_back(std::move(session));
 }
 
-void Window_Main::switchToSession(Session *session) {
-    _currentSession = session;
-    
+void Window_Main::currentSessionChanged(Session *session) {
     if (session != nullptr) {
         for (auto &action : _ui->toolBar->actions()) {
             action->setEnabled(true);

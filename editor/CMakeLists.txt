@@ -16,6 +16,8 @@ set(SRC
     renderer.h
     wnd_main.cpp
     wnd_main.h
+    vm_main.cpp
+    vm_main.h
     filament_viewport.cpp
     filament_viewport.h
     world.h

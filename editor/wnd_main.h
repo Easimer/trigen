@@ -13,6 +13,7 @@
 #include "session.h"
 #include "ui_wnd_main.h"
 #include "filament_viewport.h"
+#include "vm_main.h"
 
 namespace Ui {
 class Window_Main;
@@ -29,12 +30,11 @@ public:
     void newSession(QString const &name);
 
 public slots:
-    void switchToSession(Session *ptr);
+    void currentSessionChanged(Session *ptr);
 
 private:
     Ui::Window_Main *_ui;
-    std::list<std::unique_ptr<Session>> _sessions;
-    Session *_currentSession = nullptr;
+    VM_Main _vm;
     Filament_Viewport *_viewport = nullptr;
     QSplitter _splitter;
 };

@@ -16,7 +16,7 @@ public:
 	void onClose();
 	void draw();
 	void updateCameraProjection(uint32_t w, uint32_t h);
-	void updateViewMatrix(filament::math::mat4f const &mat);
+	void updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center);
 
 private:
 	void *_surfaceNativeHandle;

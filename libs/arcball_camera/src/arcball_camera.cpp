@@ -107,6 +107,7 @@ private:
 
          if (z > -0.1) z = -0.1;
          translation.z = z;
+         printf("translation %f\n", z);
          update_camera();
      }
 
@@ -118,23 +119,27 @@ private:
     }
 
     Mat4 get_view_matrix() override {
-        return camera;
+        return mat_view;
     }
 
     void update_camera() {
-        printf("update_camera %f %f %f %f\n", rotation.w, rotation.x, rotation.y, rotation.z);
-        camera = glm::translate(translation) * Mat4(ARCBALL_PARANOID(rotation)) * glm::translate(center_translation);
+        mat_view = glm::translate(translation) * Mat4(ARCBALL_PARANOID(rotation)) * glm::translate(center_translation);
     }
 
     void set_screen_size(int x, int y) override {
         screen_size = Vec2(x, y);
     }
 
+    void get_look_at(glm::vec3 &eye, glm::vec3 &center) override {
+        center = center_translation;
+        eye =  rotation * glm::vec4(translation, 1) * conjugate(rotation);
+    }
+
     Vec2 screen_size;
     Vec3 center_translation, translation;
     Quat rotation;
 
-    Mat4 camera;
+    Mat4 mat_view;
 
     Optional<Vec2> mouse_position;
 };
