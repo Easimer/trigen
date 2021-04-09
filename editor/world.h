@@ -7,27 +7,79 @@
 
 #include <list>
 #include <memory>
+#include <vector>
+#include <optional>
+#include <unordered_map>
 #include <filament/Scene.h>
-#include "world_object.h"
+
+#include <utils/Entity.h>
+#include <utils/EntityManager.h>
+
+#include "world_plant.h"
+#include "world_collider.h"
 
 class World {
 public:
 	World(filament::Scene *scene) : _scene(scene) {
 	}
 
-	template<typename T, typename ...Args>
-	void createEntity(Args... args) {
-		auto ent = std::make_unique<T>(args...);
-		ent->setWorld(this);
+	using Entity_Handle = std::make_signed<size_t>::type;
 
-		for (auto &object : _objects) {
-			object->onObjectAdded(ent.get());
+	Entity_Handle createEntity() {
+		std::optional<Entity> *slot = nullptr;
+		Entity_Handle ret;
+
+		for (Entity_Handle i = 0; i < _entities.size(); i++) {
+			if (!_entities[i].has_value()) {
+				slot = &_entities[i];
+				ret = i;
+				break;
+			}
 		}
 
-		_objects.emplace_back(std::move(ent));
+		if (slot == nullptr) {
+			_entities.push_back({});
+			slot = &_entities.back();
+			ret = _entities.size() - 1;
+		}
+
+		*(*slot) = { utils::EntityManager::get().create() };
+
+		return ret;
+	}
+
+	template<typename T, typename ...Args>
+	T *attachComponent(Entity_Handle ent, Args... args) {
+		T component(args...);
+
+		getMapForComponent<T>().emplace(std::make_pair(ent, std::move(component)));
+
+		return &getMapForComponent<T>().at(ent);
+	}
+
+protected:
+	template<typename T>
+	std::unordered_map<Entity_Handle, T> &getMapForComponent();
+
+	template<>
+	std::unordered_map<Entity_Handle, Collider_Component> &getMapForComponent<Collider_Component>() {
+		return _c_collider;
+	}
+
+	template<>
+	std::unordered_map<Entity_Handle, Plant_Component> &getMapForComponent<Plant_Component>() {
+		return _c_plant;
 	}
 
 private:
-	std::list<std::unique_ptr<World_Object>> _objects;
 	filament::Scene *_scene;
+
+	struct Entity {
+		utils::Entity entity;
+	};
+
+	std::vector<std::optional<Entity>> _entities;
+
+	std::unordered_map<Entity_Handle, Collider_Component> _c_collider;
+	std::unordered_map<Entity_Handle, Plant_Component> _c_plant;
 };

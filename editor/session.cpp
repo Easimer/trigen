@@ -12,7 +12,8 @@ Session::Session(char const *name) : _camera(create_arcball_camera()), _name(nam
 }
 
 void Session::createPlant(sb::Config const &cfg) {
-	_world.createEntity<World_Plant>(cfg);
+	auto ent = _world.createEntity();
+	_world.attachComponent<Plant_Component>(ent, cfg);
 }
 
 void Session::onMouseDown(int x, int y) {

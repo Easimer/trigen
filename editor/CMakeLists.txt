@@ -21,10 +21,8 @@ set(SRC
     filament_viewport.cpp
     filament_viewport.h
     world.h
-    world_object.h
-    world_renderable.h
-    world_collider.h
-    world_plant.h
+    collider_component.h
+    plant_component.h
     filament_wrapper.h
     wizard_sb_simulation.cpp
     wizard_sb_simulation.h
