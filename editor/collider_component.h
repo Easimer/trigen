@@ -8,7 +8,7 @@
 #include <memory>
 #include <softbody.h>
 
-#include "plant_component.h"
+#include "world.h"
 
 class IMesh_Collider {
 public:
@@ -17,6 +17,6 @@ public:
 
 struct Collider_Component {
 	std::unique_ptr<IMesh_Collider> mesh_collider;
-	std::unordered_map<Plant_Component *, sb::ISoftbody_Simulation::Collider_Handle> sb_handles;
+	std::unordered_map<Entity_Handle, sb::ISoftbody_Simulation::Collider_Handle> sb_handles;
 };
 

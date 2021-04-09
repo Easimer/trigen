@@ -15,15 +15,16 @@
 #include <utils/Entity.h>
 #include <utils/EntityManager.h>
 
+using Entity_Handle = std::make_signed<size_t>::type;
+
 #include "plant_component.h"
 #include "collider_component.h"
+
 
 class World {
 public:
 	World(filament::Scene *scene) : _scene(scene) {
 	}
-
-	using Entity_Handle = std::make_signed<size_t>::type;
 
 	Entity_Handle createEntity() {
 		std::optional<Entity> *slot = nullptr;

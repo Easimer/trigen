@@ -14,4 +14,5 @@ struct Plant_Component {
 	}
 
 	sb::Unique_Ptr<sb::ISoftbody_Simulation> _sim;
+	bool isRunning = false;
 };

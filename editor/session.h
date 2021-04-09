@@ -31,6 +31,7 @@ public slots:
     void onMouseUp(int x, int y);
     void onMouseWheel(int y);
     void onMouseMove(int x, int y);
+    void onTick(float deltaTime);
 
 signals:
     void cameraUpdated(filament::math::float3 const &eye, filament::math::float3 const &center);
