@@ -15,8 +15,8 @@
 #include <utils/Entity.h>
 #include <utils/EntityManager.h>
 
-#include "world_plant.h"
-#include "world_collider.h"
+#include "plant_component.h"
+#include "collider_component.h"
 
 class World {
 public:
@@ -57,7 +57,6 @@ public:
 		return &getMapForComponent<T>().at(ent);
 	}
 
-protected:
 	template<typename T>
 	std::unordered_map<Entity_Handle, T> &getMapForComponent();
 

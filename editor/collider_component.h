@@ -8,6 +8,8 @@
 #include <memory>
 #include <softbody.h>
 
+#include "plant_component.h"
+
 class IMesh_Collider {
 public:
 	virtual sb::Mesh_Collider *collider() = 0;

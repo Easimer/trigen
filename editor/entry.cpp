@@ -7,9 +7,6 @@
 #include "wnd_main.h"
 #include "filament_viewport.h"
 #include "renderer.h"
-#include "world.h"
-#include "world_plant.h"
-#include "world_collider.h"
 #include <QApplication>
 
 int main(int argc, char **argv) {
