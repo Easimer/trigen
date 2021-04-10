@@ -37,6 +37,10 @@ else()
 
     if(WIN32)
         set_target_properties(Filament::bluegl PROPERTIES INTERFACE_LINK_LIBRARIES Opengl32)
+    elseif(UNIX AND NOT APPLE)
+        find_package(Threads REQUIRED)
+        set_target_properties(Filament::bluegl PROPERTIES
+            INTERFACE_LINK_LIBRARIES "dl;Threads::Threads;c++;")
     endif()
 
     set(FILAMENT_BIN_DIR "${FILAMENT_DIR}/$<IF:$<CONFIG:Debug>,debug,release>/bin/")

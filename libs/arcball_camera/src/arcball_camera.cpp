@@ -107,7 +107,6 @@ private:
 
          if (z > -0.1) z = -0.1;
          translation.z = z;
-         printf("translation %f\n", z);
          update_camera();
      }
 
