@@ -26,6 +26,8 @@ public:
 	void mouseMoveEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;
 
+	Renderer *renderer() { return _renderer; }
+
 public slots:
 	void updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center);
 	void requestRedraw();

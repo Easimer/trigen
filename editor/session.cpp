@@ -9,7 +9,12 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <unordered_set>
 
-Session::Session(char const *name) : _camera(create_arcball_camera()), _name(name), _world(_scene) {
+Session::Session(Filament_Factory *factory, char const *name) :
+	_factory(factory),
+	_name(name),
+	_camera(create_arcball_camera()),
+	_scene(_factory->createScene()),
+	_world(_scene) {
 }
 
 void Session::createPlant(sb::Config const &cfg) {
@@ -63,7 +68,7 @@ void Session::onTick(float deltaTime) {
 		if (kv.second.isRunning) {
 			kv.second._sim->step(deltaTime);
 
-            // TODO: update plant wireframe/mesh here
+            // TODO: update plant wireframe here
 		}
 	}
 }

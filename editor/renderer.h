@@ -8,6 +8,7 @@
 #include <filament/Engine.h>
 #include <math/mat4.h>
 #include <utils/Entity.h>
+#include "filament_factory.h"
 
 class Renderer {
 public:
@@ -17,9 +18,11 @@ public:
 	void draw();
 	void updateCameraProjection(uint32_t w, uint32_t h);
 	void updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center);
+	filament::Engine *engine() { return _engine; }
 
 private:
 	void *_surfaceNativeHandle;
+	Filament_Factory _factory;
 	filament::Engine *_engine = nullptr;
 	filament::SwapChain *_swapChain = nullptr;
 	filament::View *_view = nullptr;

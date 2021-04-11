@@ -9,6 +9,7 @@
 #include <QObject>
 
 #include "session.h"
+#include "renderer.h"
 #include <softbody.h>
 
 class VM_Main : public QObject {
@@ -20,6 +21,10 @@ public:
 	void switchToSession(Session *session);
 
 	void addSoftbodySimulation(sb::Config const &cfg);
+	void setRenderer(Renderer *renderer) {
+		_renderer = renderer;
+		_factory = Filament_Factory(renderer->engine());
+	}
 
 public slots:
 	void onWindowResize(int w, int h);
@@ -33,6 +38,8 @@ signals:
 	void currentSessionChanged(Session *session);
 
 private:
+	Renderer *_renderer = nullptr;
 	std::list<std::unique_ptr<Session>> _sessions;
 	Session *_currentSession = nullptr;
+	Filament_Factory _factory;
 };

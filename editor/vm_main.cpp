@@ -4,6 +4,7 @@
 //
 
 #include "stdafx.h"
+#include <cassert>
 #include "vm_main.h"
 
 Session *VM_Main::session() {
@@ -11,7 +12,8 @@ Session *VM_Main::session() {
 }
 
 Session *VM_Main::createNewSession(char const *name) {
-	auto session = std::make_unique<Session>(name);
+	assert(_renderer != nullptr);
+	auto session = std::make_unique<Session>(&_factory, name);
 	auto sessionPtr = session.get();
 
 	switchToSession(sessionPtr);

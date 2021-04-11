@@ -14,13 +14,14 @@
 #include <math/mat4.h>
 
 #include "world.h"
+#include "filament_factory.h"
 
 #include <softbody.h>
 
 class Session : public QObject {
     Q_OBJECT;
 public:
-    Session(char const *name);
+    Session(Filament_Factory *factory, char const *name);
 
     std::string name() const { return _name; }
     void createPlant(sb::Config const &cfg);
@@ -39,8 +40,10 @@ signals:
 protected:
     void emitCameraUpdated();
 private:
+    Filament_Factory *_factory;
     std::string _name;
 	std::unique_ptr<Arcball_Camera> _camera;
-    World _world;
+    filament::Engine *_engine;
     filament::Ptr<filament::Scene> _scene;
+    World _world;
 };

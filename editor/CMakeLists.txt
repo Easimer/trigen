@@ -27,6 +27,8 @@ set(SRC
     wizard_sb_simulation.cpp
     wizard_sb_simulation.h
     wizard_sb_simulation_pages.h
+    filament_factory.cpp
+    filament_factory.h
 
     wnd_main.ui
     wizard_sb_plant_config.ui

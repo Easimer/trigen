@@ -22,7 +22,7 @@ class Window_Main;
 class Window_Main : public QMainWindow {
     Q_OBJECT;
 public:
-    explicit Window_Main(QWidget *parent = nullptr);
+    explicit Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent = nullptr);
     ~Window_Main();
 
     void setViewport(Filament_Viewport *viewport);
@@ -34,7 +34,7 @@ public slots:
 
 private:
     Ui::Window_Main *_ui;
-    VM_Main _vm;
+    std::unique_ptr<VM_Main> _vm;
     Filament_Viewport *_viewport = nullptr;
     QSplitter _splitter;
 };

@@ -14,7 +14,7 @@ namespace filament {
 		Ptr() : _ptr(nullptr) {
 		}
 
-		Ptr(T ptr, filament::Engine *engine) : _ptr(ptr), _engine(engine) {
+		Ptr(T *ptr, filament::Engine *engine) : _ptr(ptr), _engine(engine) {
 		}
 
 		~Ptr() {
