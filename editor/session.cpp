@@ -22,6 +22,10 @@ void Session::createPlant(sb::Config const &cfg) {
 	_world.attachComponent<Plant_Component>(ent, cfg);
 }
 
+filament::Scene *Session::scene() {
+	return _scene;
+}
+
 void Session::onMouseDown(int x, int y) {
 	_camera->mouse_down(x, y);
 }

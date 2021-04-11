@@ -25,6 +25,7 @@ public:
 
     std::string name() const { return _name; }
     void createPlant(sb::Config const &cfg);
+    filament::Scene *scene();
 
 public slots:
     void onWindowResize(int w, int h);

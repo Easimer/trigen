@@ -19,6 +19,7 @@ public:
 	void updateCameraProjection(uint32_t w, uint32_t h);
 	void updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center);
 	filament::Engine *engine() { return _engine; }
+	void setScene(filament::Scene *scene);
 
 private:
 	void *_surfaceNativeHandle;

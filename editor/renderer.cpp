@@ -120,3 +120,7 @@ void Renderer::updateCameraProjection(uint32_t w, uint32_t h) {
 void Renderer::updateCamera(filament::math::float3 const &eye, filament::math::float3 const &center) {
     _camera->lookAt(eye, center);
 }
+
+void Renderer::setScene(filament::Scene *scene) {
+    _view->setScene(scene);
+}

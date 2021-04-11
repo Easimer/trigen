@@ -36,6 +36,8 @@ void VM_Main::switchToSession(Session *session) {
 		connect(_currentSession, &Session::cameraUpdated, this, &VM_Main::cameraUpdated);
 	}
 
+	_renderer->setScene(_currentSession->scene());
+
 	emit currentSessionChanged(session);
 }
 
