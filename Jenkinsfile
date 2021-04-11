@@ -23,7 +23,7 @@ pipeline {
         string(name: 'SOFTBODY_TESTBED_QT', defaultValue: "ON", description: 'Should testbed_qt be built (requires Qt5)')
         string(name: 'SOFTBODY_ENABLE_CUDA', defaultValue: "ON", description: 'Should the CUDA backend in softbody be built')
         string(name: 'SOFTBODY_ENABLE_TRACY', defaultValue: "ON", description: 'Should softbody be built with instrumentation')
-        string(name: 'SOFTBODY_CLANG_TIDY', defaultValue: "ON", description: 'Should we run clang-tidy')
+        string(name: 'SOFTBODY_CLANG_TIDY', defaultValue: "OFF", description: 'Should we run clang-tidy')
         string(name: 'CMAKE_EXPORT_COMPILE_COMMANDS', defaultValue: "ON", description: 'Should compile commands be exported')
 
         string(name: 'CMAKE_C_COMPILER', defaultValue: '/usr/bin/clang', description: 'Path to the C compiler')
