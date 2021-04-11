@@ -49,25 +49,6 @@ pipeline {
                 cmakeBuild buildDir: 'build', installation: 'InSearchPath', steps: [ [args: 'all'] ]
             }
         }
-        stage('Record warnings') {
-            parallel {
-                stage('Record clang warnings') {
-                    steps {
-                        recordIssues(tools: [clang()])
-                    }
-                }
-                stage('Record clang-tidy issues') {
-                    when {
-                        expression { 
-                            return params.SOFTBODY_CLANG_TIDY == "ON"
-                        }
-                    }
-                    steps {
-                        recordIssues(tools: [clangTidy()])
-                    }
-                }
-            }
-        }
         stage('Merge into master') {
             steps {
                 sh('git checkout master')
