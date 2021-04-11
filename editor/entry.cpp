@@ -26,5 +26,5 @@ int main(int argc, char **argv) {
 	wnd.setViewport(&viewport);
 	wnd.show();
 
-	return app.exec();
+	return QApplication::exec();
 }

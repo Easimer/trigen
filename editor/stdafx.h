@@ -7,5 +7,20 @@
 
 #include <cassert>
 #include <cstdio>
+
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+#include <list>
+#include <memory>
+#include <optional>
+
+#include <glm/gtc/type_ptr.hpp>
+
+#include <filament/FilamentAPI.h>
+#include <math/mat4.h>
+
+#include <QObject>
+
+#include <softbody.h>
+#include <arcball_camera.h>
