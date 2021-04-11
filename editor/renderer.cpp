@@ -51,6 +51,7 @@ extern "C" {
 Renderer::Renderer(filament::Engine::Backend backend, void *nativeHandle) : _surfaceNativeHandle(nativeHandle), _factory(nullptr) {
     using namespace filament;
     _engine = Engine::create(backend);
+
     _factory = Filament_Factory(_engine);
 
     _swapChain = _engine->createSwapChain(nativeHandle);
@@ -61,6 +62,8 @@ Renderer::Renderer(filament::Engine::Backend backend, void *nativeHandle) : _sur
     _view->setCamera(_camera);
 
     _skybox = Skybox::Builder().color({ 0.1, 0.125, 0.25, 1.0 }).build(*_engine);
+    _factory.setCommonSkybox(_skybox);
+
     _scene = _engine->createScene();
     _scene->setSkybox(_skybox);
     _view->setScene(_scene);

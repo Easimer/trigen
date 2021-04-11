@@ -20,6 +20,7 @@ set(SRC
     vm_main.h
     filament_viewport.cpp
     filament_viewport.h
+    world.cpp
     world.h
     collider_component.h
     plant_component.h
