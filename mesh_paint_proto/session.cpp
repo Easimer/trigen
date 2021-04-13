@@ -15,6 +15,8 @@
 #include <worker_group.hpp>
 #include <set>
 
+#include <r_cmd/general.h>
+
 extern "C" {
     extern uint8_t const *test_grid_png;
     extern unsigned long long test_grid_png_len;
@@ -72,49 +74,6 @@ private:
     T const *_mesh;
 };
 
-class Render_Model : public gfx::IRender_Command {
-public:
-    Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform)
-        : _model(model), _diffuse(diffuse), _transform(transform) {
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        gfx::Material_Unlit material{};
-        material.diffuse = _diffuse;
-
-        renderer->draw_textured_triangle_elements(_model, material, _transform);
-    }
-private:
-    gfx::Model_ID _model;
-    gfx::Texture_ID _diffuse;
-    gfx::Transform _transform;
-};
-
-class Load_Texture_Command : public gfx::IRender_Command {
-public:
-    Load_Texture_Command(std::optional<gfx::Texture_ID> *handle, void const *image, size_t image_len)
-    : _handle(handle), _image(image), _image_len(image_len) {
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        if (!_handle->has_value()) {
-            gfx::Texture_ID id;
-            int width, height;
-            int channels;
-            auto data = stbi_load_from_memory((stbi_uc*)_image, _image_len, &width, &height, &channels, 3);
-            if (renderer->upload_texture(&id, width, height, gfx::Texture_Format::RGB888, data)) {
-                _handle->emplace(id);
-            }
-            stbi_image_free(data);
-        }
-    }
-
-private:
-    std::optional<gfx::Texture_ID> *_handle;
-    void const *_image;
-    size_t _image_len;
-};
-
 class Upload_Model_Command : public gfx::IRender_Command {
 public:
     Upload_Model_Command(gfx::Model_ID *out_id, Charter_Debug_Mesh const *mesh) : _out_id(out_id), _mesh(mesh) {
@@ -134,18 +93,6 @@ public:
 private:
     gfx::Model_ID *_out_id;
     Charter_Debug_Mesh const *_mesh;
-};
-
-class Destroy_Model_Command : public gfx::IRender_Command {
-public:
-    Destroy_Model_Command(gfx::Model_ID id) : _id(id) {
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        renderer->destroy_model(_id);
-    }
-private:
-    gfx::Model_ID _id;
 };
 
 class Painter_Debug_Command : public gfx::IRender_Command {

@@ -31,6 +31,8 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	stb
         mesh_export
 	Boost::thread
+	RCmd::Base
+	RCmd::Softbody
 )
 target_precompile_headers(mesh_paint_proto PRIVATE "stdafx.h")
 tri_builddir(mesh_paint_proto)
