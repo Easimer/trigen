@@ -28,7 +28,7 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
 
     connect(_vm.get(), &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
 
-    _ui->toolBar->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
+    _ui->toolBarSide->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
         auto wizard = new Wizard_SB_Simulation(this);
 
         wizard->show();
@@ -38,8 +38,26 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
         });
     });
 
+    connect(_ui->actionStart, &QAction::triggered, [&]() {
+        _ui->actionPause->setEnabled(true);
+        _ui->actionStart->setEnabled(false);
+        _vm->setRunning(true);
+    });
+
+    connect(_ui->actionPause, &QAction::triggered, [&]() {
+        _ui->actionPause->setEnabled(false);
+        _ui->actionStart->setEnabled(true);
+        _vm->setRunning(false);
+    });
+
+    // Enable/disable the start/pause button when the user changes the current session
+    connect(_vm.get(), &VM_Main::currentSessionChanged, [&](Session *session) {
+        _ui->actionStart->setEnabled(!session->isRunning());
+        _ui->actionPause->setEnabled(session->isRunning());
+    });
+
     // Disable all toolbar buttons
-    for (auto &action : _ui->toolBar->actions()) {
+    for (auto &action : _ui->toolBarSide->actions()) {
         action->setEnabled(false);
     }
 
@@ -48,6 +66,9 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
     });
 
     connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
+    connect(&_renderTimer, &QTimer::timeout, [&]() {
+        _vm->onTick(_renderTimer.interval() / 1000.0f);
+    });
     _renderTimer.start(13);
 }
 
@@ -66,7 +87,7 @@ void Window_Main::newSession(QString const &name) {
 
 void Window_Main::currentSessionChanged(Session *session) {
     if (session != nullptr) {
-        for (auto &action : _ui->toolBar->actions()) {
+        for (auto &action : _ui->toolBarSide->actions()) {
             action->setEnabled(true);
         }
     }

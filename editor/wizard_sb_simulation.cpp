@@ -75,8 +75,10 @@ Wizard_SB_Simulation::Wizard_SB_Simulation(QWidget *parent, Qt::WindowFlags flag
 void Wizard_SB_Simulation::accept() {
 	if (field(fieldSrcFromScratch).toBool()) {
 		if (field(fieldExtensionPlant).toBool()) {
+			_sbConfig.ext = sb::Extension::Plant_Simulation;
 			_sbConfig.extra.plant_sim = &_sbExtPlant;
 		} else if (field(fieldExtensionCloth).toBool()) {
+			_sbConfig.ext = sb::Extension::Debug_Cloth;
 			_sbConfig.extra.cloth_sim = &_sbExtCloth;
 		}
 

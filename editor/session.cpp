@@ -52,7 +52,7 @@ void Session::onTick(float deltaTime) {
 	}
 
 	for (auto &kv : plants) {
-		if (kv.second.isRunning) {
+		if (_isRunning) {
 			kv.second._sim->step(deltaTime);
 		}
 	}
@@ -64,7 +64,11 @@ void Session::onRender(gfx::Render_Queue *rq) {
 	gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
 	for (auto &kv : plants) {
-        gfx::allocate_command_and_initialize<Render_Particles>(rq, kv.second._sim.get(), _renderParams);
+		gfx::allocate_command_and_initialize<Visualize_Connections>(rq, kv.second._sim.get());
 	}
+}
+
+void Session::setRunning(bool isRunning) {
+	_isRunning = isRunning;
 }
 

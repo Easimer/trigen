@@ -25,9 +25,11 @@ public:
 	void setRenderer(Renderer *renderer) {
 		_renderer = renderer;
 	}
+	void onTick(float deltaTime);
 
 public slots:
 	void onRender(gfx::Render_Queue *rq);
+	void setRunning(bool isRunning);
 
 signals:
 	void cameraUpdated();

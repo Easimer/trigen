@@ -36,8 +36,20 @@ void VM_Main::addSoftbodySimulation(sb::Config const &cfg) {
 	}
 }
 
+void VM_Main::onTick(float deltaTime) {
+	if (_currentSession != nullptr) {
+		_currentSession->onTick(deltaTime);
+	}
+}
+
 void VM_Main::onRender(gfx::Render_Queue *rq) {
 	if (_currentSession != nullptr) {
 		_currentSession->onRender(rq);
+	}
+}
+
+void VM_Main::setRunning(bool isRunning) {
+	if (_currentSession != nullptr) {
+		_currentSession->setRunning(isRunning);
 	}
 }

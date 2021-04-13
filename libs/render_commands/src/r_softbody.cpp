@@ -41,8 +41,8 @@ void Render_Particles::execute(gfx::IRenderer *renderer) {
     auto iter = sim->get_particles();
     while (!iter->ended()) {
         auto particle = iter->get();
-        // lines.push_back(particle.start);
-        // lines.push_back(particle.end);
+        lines.push_back(particle.start);
+        lines.push_back(particle.end);
 
         positions.push_back(particle.position);
         sizes.push_back(particle.size);
