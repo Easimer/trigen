@@ -4,3 +4,5 @@ add_subdirectory(stb)
 add_subdirectory(intersect)
 add_subdirectory(marching_cubes)
 add_subdirectory(mesh_export)
+
+add_subdirectory(renderer_qt)

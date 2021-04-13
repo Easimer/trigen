@@ -5,9 +5,10 @@
 
 #pragma once
 
-#include "common.h"
 #include <QWidget>
 #include <QOpenGLWidget>
+#include <functional>
+#include <memory>
 #include "r_renderer.h"
 #include "r_queue.h"
 #include "arcball_camera.h"
@@ -23,7 +24,7 @@ class GLViewport : public QOpenGLWidget
 public:
     explicit GLViewport(QWidget *parent = nullptr);
 
-    void set_render_queue_filler(Fun<void(gfx::Render_Queue*)> const& f) {
+    void set_render_queue_filler(std::function<void(gfx::Render_Queue*)> const& f) {
         fill_render_queue = f;
     }
     
@@ -38,7 +39,7 @@ protected:
     void wheelEvent(QWheelEvent* ev) override;
 
 private:
-    Unique_Ptr<Arcball_Camera> camera;
-    Unique_Ptr<gfx::IRenderer> renderer;
-    Fun<void(gfx::Render_Queue* rq)> fill_render_queue;
+    std::unique_ptr<Arcball_Camera> camera;
+    std::unique_ptr<gfx::IRenderer> renderer;
+    std::function<void(gfx::Render_Queue* rq)> fill_render_queue;
 };

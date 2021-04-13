@@ -3,7 +3,6 @@
 // Purpose: OpenGL viewport implementation
 //
 
-#include "common.h"
 #include "glviewport.h"
 #include "r_queue.h"
 
@@ -37,7 +36,6 @@ void GLViewport::initializeGL() {
     if (!renderer) {
         assert(context() != NULL);
         gpCtx = context();
-        printf("GLViewport context=%p\n", gpCtx);
         renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress);
         gpCtx = NULL;
     }

@@ -20,9 +20,6 @@ set(SRC
     wnd_meshgen.cpp
     wnd_meshgen.h
 
-    glviewport.cpp
-    glviewport.h
-
     softbody_renderer.cpp
     softbody_renderer.h
 
@@ -42,7 +39,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody softbody_ext renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera)
+target_link_libraries(testbed_qt Qt5::Widgets softbody softbody_ext renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera renderer_qt)
 
 install(TARGETS testbed_qt)
 
