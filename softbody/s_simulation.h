@@ -105,7 +105,7 @@ public:
     // Are we still in the initial state, that is, before the first call to step()
     bool assert_init;
     sb::Config params;
-    sb::IDebug_Visualizer *m_pVisualizer;
+    sb::IDebug_Visualizer *m_pVisualizer = nullptr;
 
     // Stores functions whose execution has been deferred until after the parallelized
     // part

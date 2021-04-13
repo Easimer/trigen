@@ -45,7 +45,7 @@ static std::array<uint64_t, 3> get_normal_indices(System_State::Mesh_Collider_Sl
 
 class Compute_CPU_Single_Threaded : public ICompute_Backend {
 public:
-    Compute_CPU_Single_Threaded(ILogger* logger) : _log(logger) {
+    Compute_CPU_Single_Threaded(ILogger* logger) : _log(logger), _visualizer(nullptr) {
     }
 protected:
     float mass_of_particle(System_State& s, index_t i) const {
