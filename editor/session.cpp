@@ -64,9 +64,7 @@ void Session::onRender(gfx::Render_Queue *rq) {
 	gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
 	for (auto &kv : plants) {
-		if (kv.second.isRunning) {
-			gfx::allocate_command_and_initialize<Render_Particles>(rq, kv.second._sim.get(), _renderParams);
-		}
+        gfx::allocate_command_and_initialize<Render_Particles>(rq, kv.second._sim.get(), _renderParams);
 	}
 }
 
