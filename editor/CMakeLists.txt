@@ -33,7 +33,7 @@ set(SRC
 )
 
 add_executable(editor ${SRC})
-target_link_libraries(editor PRIVATE softbody Qt5::Widgets Qt5::Svg arcball_camera FbxSdk::FbxSdk)
+target_link_libraries(editor PRIVATE softbody Qt5::Widgets Qt5::Svg arcball_camera FbxSdk::FbxSdk renderer_qt)
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)
 

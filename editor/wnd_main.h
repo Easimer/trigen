@@ -12,6 +12,7 @@
 #include <QSplitter>
 #include "ui_wnd_main.h"
 #include "vm_main.h"
+#include <glviewport.h>
 
 namespace Ui {
 class Window_Main;
@@ -32,4 +33,5 @@ private:
     Ui::Window_Main *_ui;
     std::unique_ptr<VM_Main> _vm;
     QSplitter _splitter;
+    GLViewport _viewport;
 };

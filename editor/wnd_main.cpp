@@ -14,13 +14,14 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
     QMainWindow(parent),
     _ui(new Ui::Window_Main()),
     _vm(std::move(vm)),
-    _splitter(Qt::Orientation::Horizontal, this) {
+    _splitter(Qt::Orientation::Horizontal, this),
+    _viewport(this) {
     _ui->setupUi(this);
 
     setCentralWidget(&_splitter);
     _splitter.setChildrenCollapsible(false);
     // Placeholder items in the splitter
-    _splitter.insertWidget(0, new QWidget(this));
+    _splitter.insertWidget(0, &_viewport);
     _splitter.insertWidget(1, new QWidget(this));
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
