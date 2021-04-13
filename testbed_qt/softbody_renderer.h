@@ -7,14 +7,7 @@
 
 #include "r_queue.h"
 #include "softbody.h"
-
-struct Softbody_Render_Parameters {
-    Vec3 sun_position;
-    bool draw_positions;
-    bool draw_center_of_mass;
-    bool draw_goal_position;
-    bool draw_bind_pose;
-};
+#include <r_cmd/softbody.h>
 
 bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation* sim, Softbody_Render_Parameters const& params);
 void render_mesh_collider(gfx::Render_Queue *rq, sb::Mesh_Collider const *mesh);

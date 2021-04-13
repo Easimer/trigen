@@ -39,7 +39,7 @@ set(SRC
 )
 
 add_executable(testbed_qt ${SRC})
-target_link_libraries(testbed_qt Qt5::Widgets softbody softbody_ext renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera renderer_qt)
+target_link_libraries(testbed_qt Qt5::Widgets softbody softbody_ext renderer NodeEditor::nodes marching_cubes FbxSdk::FbxSdk objscan psp arcball_camera renderer_qt RCmd::Base RCmd::Softbody)
 
 install(TARGETS testbed_qt)
 
