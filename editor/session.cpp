@@ -9,29 +9,18 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <unordered_set>
 
+#include <r_cmd/general.h>
+#include <r_cmd/softbody.h>
+
 Session::Session(char const *name) :
 	_name(name),
-	_camera(create_arcball_camera()),
+	_renderParams{},
 	_world() {
 }
 
 void Session::createPlant(sb::Config const &cfg) {
 	auto ent = _world.createEntity();
 	_world.attachComponent<Plant_Component>(ent, cfg);
-}
-
-void Session::onMouseDown(int x, int y) {
-	_camera->mouse_down(x, y);
-}
-
-void Session::onMouseUp(int x, int y) {
-	_camera->mouse_up(x, y);
-	emitCameraUpdated();
-}
-
-void Session::onMouseMove(int x, int y) {
-	_camera->mouse_move(x, y);
-	emitCameraUpdated();
 }
 
 void Session::onTick(float deltaTime) {
@@ -65,20 +54,19 @@ void Session::onTick(float deltaTime) {
 	for (auto &kv : plants) {
 		if (kv.second.isRunning) {
 			kv.second._sim->step(deltaTime);
-
-            // TODO: update plant wireframe here
 		}
 	}
 }
 
-void Session::onMouseWheel(int y) {
-	_camera->mouse_wheel(y);
-	emitCameraUpdated();
+void Session::onRender(gfx::Render_Queue *rq) {
+	auto &plants = _world.getMapForComponent<Plant_Component>();
+
+	gfx::allocate_command_and_initialize<Render_Grid>(rq);
+
+	for (auto &kv : plants) {
+		if (kv.second.isRunning) {
+			gfx::allocate_command_and_initialize<Render_Particles>(rq, kv.second._sim.get(), _renderParams);
+		}
+	}
 }
 
-void Session::onWindowResize(int w, int h) {
-	_camera->set_screen_size(w, h);
-}
-
-void Session::emitCameraUpdated() {
-}

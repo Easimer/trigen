@@ -26,7 +26,7 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
 
-    // connect(_vm.get(), &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
+    connect(_vm.get(), &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
 
     _ui->toolBar->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
         auto wizard = new Wizard_SB_Simulation(this);
@@ -42,6 +42,13 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
     for (auto &action : _ui->toolBar->actions()) {
         action->setEnabled(false);
     }
+
+    _viewport.set_render_queue_filler([&](gfx::Render_Queue *rq) {
+        _vm->onRender(rq);
+    });
+
+    connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
+    _renderTimer.start(13);
 }
 
 Window_Main::~Window_Main() {

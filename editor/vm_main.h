@@ -11,6 +11,7 @@
 #include "session.h"
 #include "renderer.h"
 #include <softbody.h>
+#include <r_renderer.h>
 
 class VM_Main : public QObject {
 	Q_OBJECT;
@@ -26,11 +27,7 @@ public:
 	}
 
 public slots:
-	void onWindowResize(int w, int h);
-	void onMouseDown(int x, int y);
-	void onMouseUp(int x, int y);
-	void onMouseWheel(int y);
-	void onMouseMove(int x, int y);
+	void onRender(gfx::Render_Queue *rq);
 
 signals:
 	void cameraUpdated();

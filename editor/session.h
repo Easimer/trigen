@@ -12,6 +12,8 @@
 #include "world.h"
 
 #include <softbody.h>
+#include <r_queue.h>
+#include <r_cmd/softbody.h>
 
 class Session : public QObject {
     Q_OBJECT;
@@ -22,20 +24,11 @@ public:
     void createPlant(sb::Config const &cfg);
 
 public slots:
-    void onWindowResize(int w, int h);
-    void onMouseDown(int x, int y);
-    void onMouseUp(int x, int y);
-    void onMouseWheel(int y);
-    void onMouseMove(int x, int y);
     void onTick(float deltaTime);
+    void onRender(gfx::Render_Queue *rq);
 
-signals:
-    void cameraUpdated();
-
-protected:
-    void emitCameraUpdated();
 private:
     std::string _name;
-	std::unique_ptr<Arcball_Camera> _camera;
+    Softbody_Render_Parameters _renderParams;
     World _world;
 };

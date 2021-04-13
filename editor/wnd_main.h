@@ -13,6 +13,7 @@
 #include "ui_wnd_main.h"
 #include "vm_main.h"
 #include <glviewport.h>
+#include <QTimer>
 
 namespace Ui {
 class Window_Main;
@@ -34,4 +35,5 @@ private:
     std::unique_ptr<VM_Main> _vm;
     QSplitter _splitter;
     GLViewport _viewport;
+    QTimer _renderTimer;
 };
