@@ -25,9 +25,7 @@ Entity_Handle World::createEntity() {
     }
 
     auto &optEnt = *slot;
-    optEnt.emplace(Entity{ utils::EntityManager::get().create() });
-
-    _scene->addEntity(optEnt->entity);
+    optEnt.emplace(Entity{ });
 
     return ret;
 }

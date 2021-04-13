@@ -10,10 +10,6 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
-#include <filament/Scene.h>
-
-#include <utils/Entity.h>
-#include <utils/EntityManager.h>
 
 using Entity_Handle = std::make_signed<size_t>::type;
 
@@ -23,7 +19,7 @@ using Entity_Handle = std::make_signed<size_t>::type;
 
 class World {
 public:
-	World(filament::Scene *scene) : _scene(scene) {
+	World() {
 	}
 
 	Entity_Handle createEntity();
@@ -51,10 +47,7 @@ public:
 	}
 
 private:
-	filament::Scene *_scene;
-
 	struct Entity {
-		utils::Entity entity;
 	};
 
 	std::vector<std::optional<Entity>> _entities;

@@ -9,21 +9,15 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <unordered_set>
 
-Session::Session(Filament_Factory *factory, char const *name) :
-	_factory(factory),
+Session::Session(char const *name) :
 	_name(name),
 	_camera(create_arcball_camera()),
-	_scene(_factory->createScene()),
-	_world(_scene) {
+	_world() {
 }
 
 void Session::createPlant(sb::Config const &cfg) {
 	auto ent = _world.createEntity();
 	_world.attachComponent<Plant_Component>(ent, cfg);
-}
-
-filament::Scene *Session::scene() {
-	return _scene;
 }
 
 void Session::onMouseDown(int x, int y) {
@@ -87,12 +81,4 @@ void Session::onWindowResize(int w, int h) {
 }
 
 void Session::emitCameraUpdated() {
-	glm::vec3 eye, center;
-	filament::math::float3 feye, fcenter;
-
-	_camera->get_look_at(eye, center);
-	feye = { eye.x, eye.y, eye.z };
-	fcenter = { center.x, center.y, center.z };
-
-	emit cameraUpdated(feye, fcenter);
 }

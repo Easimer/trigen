@@ -23,7 +23,6 @@ public:
 	void addSoftbodySimulation(sb::Config const &cfg);
 	void setRenderer(Renderer *renderer) {
 		_renderer = renderer;
-		_factory = Filament_Factory(renderer->engine());
 	}
 
 public slots:
@@ -34,12 +33,11 @@ public slots:
 	void onMouseMove(int x, int y);
 
 signals:
-	void cameraUpdated(filament::math::float3 const &eye, filament::math::float3 const &center);
+	void cameraUpdated();
 	void currentSessionChanged(Session *session);
 
 private:
 	Renderer *_renderer = nullptr;
 	std::list<std::unique_ptr<Session>> _sessions;
 	Session *_currentSession = nullptr;
-	Filament_Factory _factory;
 };

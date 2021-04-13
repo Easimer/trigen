@@ -17,9 +17,6 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include <filament/FilamentAPI.h>
-#include <math/mat4.h>
-
 #include <QObject>
 
 #include <softbody.h>
