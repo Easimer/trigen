@@ -49,6 +49,8 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionCreateSoftbody"/>
+   <addaction name="actionCreateCollider"/>
   </widget>
   <widget class="QToolBar" name="toolBarTop">
    <property name="windowTitle">
@@ -86,7 +88,27 @@
     <string>Pause</string>
    </property>
   </action>
+  <action name="actionCreateSoftbody">
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/images/add_plant.svg</normaloff>:/images/add_plant.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Create softbody</string>
+   </property>
+  </action>
+  <action name="actionCreateCollider">
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/images/add_collider.svg</normaloff>:/images/add_collider.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Create collider</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

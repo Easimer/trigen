@@ -28,7 +28,7 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
 
     connect(_vm.get(), &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
 
-    _ui->toolBarSide->addAction(QIcon(":/images/add_plant.svg"), "Add softbody", [this]() {
+    connect(_ui->actionCreateSoftbody, &QAction::triggered, [&]() {
         auto wizard = new Wizard_SB_Simulation(this);
 
         wizard->show();
