@@ -9,11 +9,7 @@
 #include <softbody.h>
 
 #include "world.h"
-
-class IMesh_Collider {
-public:
-	virtual sb::Mesh_Collider *collider() = 0;
-};
+#include "mesh_collider.h"
 
 struct Collider_Component {
 	std::unique_ptr<IMesh_Collider> mesh_collider;

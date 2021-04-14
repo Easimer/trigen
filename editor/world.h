@@ -13,9 +13,10 @@
 
 using Entity_Handle = std::make_signed<size_t>::type;
 
+#include "transform_component.h"
 #include "plant_component.h"
 #include "collider_component.h"
-
+#include "mesh_render_component.h"
 
 class World {
 public:
@@ -46,12 +47,24 @@ public:
 		return _c_plant;
 	}
 
+	template<>
+	std::unordered_map<Entity_Handle, Mesh_Render_Component> &getMapForComponent<Mesh_Render_Component>() {
+		return _c_mesh_render;
+	}
+
+	template<>
+	std::unordered_map<Entity_Handle, Transform_Component> &getMapForComponent<Transform_Component>() {
+		return _c_transform;
+	}
+
 private:
-	struct Entity {
-	};
+    struct Entity {
+    };
 
 	std::vector<std::optional<Entity>> _entities;
 
+	std::unordered_map<Entity_Handle, Transform_Component> _c_transform;
 	std::unordered_map<Entity_Handle, Collider_Component> _c_collider;
 	std::unordered_map<Entity_Handle, Plant_Component> _c_plant;
+	std::unordered_map<Entity_Handle, Mesh_Render_Component> _c_mesh_render;
 };

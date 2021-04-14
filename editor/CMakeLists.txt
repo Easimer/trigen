@@ -19,11 +19,16 @@ set(SRC
     vm_main.h
     world.cpp
     world.h
+    transform_component.h
     collider_component.h
     plant_component.h
+    mesh_render_component.h
     wizard_sb_simulation.cpp
     wizard_sb_simulation.h
     wizard_sb_simulation_pages.h
+    collimp.h
+    collimp_obj.cpp
+    mesh_collider.h
 
     wnd_main.ui
     wizard_sb_plant_config.ui

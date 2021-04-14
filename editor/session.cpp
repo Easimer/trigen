@@ -59,12 +59,33 @@ void Session::onTick(float deltaTime) {
 }
 
 void Session::onRender(gfx::Render_Queue *rq) {
+	auto &transforms = _world.getMapForComponent<Transform_Component>();
 	auto &plants = _world.getMapForComponent<Plant_Component>();
+	auto &mesh_renders = _world.getMapForComponent<Mesh_Render_Component>();
 
 	gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
 	for (auto &kv : plants) {
 		gfx::allocate_command_and_initialize<Visualize_Connections>(rq, kv.second._sim.get());
+	}
+
+	// Find all entities that have both render info and a world transform
+	std::vector<std::pair<Mesh_Render_Component *, Transform_Component *>> renderables;
+	for (auto &kv : mesh_renders) {
+		if (transforms.count(kv.first)) {
+			renderables.emplace_back(std::make_pair(&kv.second, &transforms.at(kv.first)));
+		}
+	}
+
+	for (auto &renderable : renderables) {
+		auto mdl = renderable.first->model;
+		auto texDiffuse = renderable.first->material.diffuse;
+		auto transform = gfx::Transform{
+			renderable.second->position,
+			renderable.second->rotation,
+			renderable.second->scale
+		};
+		gfx::allocate_command_and_initialize<Render_Model>(rq, mdl, texDiffuse, transform);
 	}
 }
 
