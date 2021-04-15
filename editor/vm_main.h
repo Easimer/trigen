@@ -22,6 +22,7 @@ public:
 	void switchToSession(Session *session);
 
 	void addSoftbodySimulation(sb::Config const &cfg);
+	void addColliderFromPath(char const *path);
 	void setRenderer(Renderer *renderer) {
 		_renderer = renderer;
 	}

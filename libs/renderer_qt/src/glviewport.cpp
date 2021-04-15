@@ -36,6 +36,7 @@ void GLViewport::initializeGL() {
     if (!renderer) {
         assert(context() != NULL);
         gpCtx = context();
+        printf("GLViewport context: %p\n", gpCtx);
         renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress);
         gpCtx = NULL;
     }
@@ -59,6 +60,8 @@ void GLViewport::paintGL() {
     if (fill_render_queue) {
         fill_render_queue(&rq);
     }
+
+    emit rendering(&rq);
 
     rq.execute(renderer.get());
 

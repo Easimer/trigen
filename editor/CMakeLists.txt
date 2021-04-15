@@ -26,6 +26,9 @@ set(SRC
     wizard_sb_simulation.cpp
     wizard_sb_simulation.h
     wizard_sb_simulation_pages.h
+    wizard_collider.cpp
+    wizard_collider.h
+    wizard_collider_pages.h
     collimp.h
     collimp_obj.cpp
     mesh_collider.h
@@ -33,6 +36,7 @@ set(SRC
     wnd_main.ui
     wizard_sb_plant_config.ui
     wizard_sb_compute_config.ui
+    wizard_collider_browse.ui
 
     resources.qrc
 )

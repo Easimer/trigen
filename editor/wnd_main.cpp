@@ -7,6 +7,7 @@
 #include "wnd_main.h"
 #include "ui_wnd_main.h"
 #include "wizard_sb_simulation.h"
+#include "wizard_collider.h"
 #include <QMessageBox>
 #include <QListView>
 
@@ -35,6 +36,16 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
         connect(wizard, &Wizard_SB_Simulation::accepted, [&, wizard]() {
             auto &cfg = wizard->config();
             _vm->addSoftbodySimulation(cfg);
+        });
+    });
+
+    connect(_ui->actionCreateCollider, &QAction::triggered, [&]() {
+        auto wizard = new Wizard_Collider(this);
+
+        wizard->show();
+        connect(wizard, &Wizard_Collider::accepted, [&, wizard]() {
+            auto path = wizard->path().toUtf8();
+            _vm->addColliderFromPath(path.constData());
         });
     });
 

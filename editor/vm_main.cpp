@@ -36,6 +36,10 @@ void VM_Main::addSoftbodySimulation(sb::Config const &cfg) {
 	}
 }
 
+void VM_Main::addColliderFromPath(char const *path) {
+	printf("addColliderFromFile(%s)\n", path);
+}
+
 void VM_Main::onTick(float deltaTime) {
 	if (_currentSession != nullptr) {
 		_currentSession->onTick(deltaTime);
