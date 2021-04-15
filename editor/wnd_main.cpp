@@ -72,9 +72,7 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
         action->setEnabled(false);
     }
 
-    _viewport.set_render_queue_filler([&](gfx::Render_Queue *rq) {
-        _vm->onRender(rq);
-    });
+    connect(&_viewport, &GLViewport::rendering, _vm.get(), &VM_Main::onRender);
 
     connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
     connect(&_renderTimer, &QTimer::timeout, [&]() {
