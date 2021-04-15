@@ -13,20 +13,27 @@
 #include "r_queue.h"
 #include "arcball_camera.h"
 
-namespace Ui {
-class GLViewport;
-}
-
-class GLViewport : public QOpenGLWidget
-{
+/*
+ * An OpenGL viewport widget. It uses the `renderer` library for
+ * drawing and integrates the `arcball_camera` library.
+ */
+class GLViewport : public QOpenGLWidget {
     Q_OBJECT
 
 public:
     explicit GLViewport(QWidget *parent = nullptr);
 
+    /*
+     * Set the render queue filler callback function.
+     * Deprecated; use the `rendering` signal instead.
+     */
+    [[deprecated]]
     void set_render_queue_filler(std::function<void(gfx::Render_Queue*)> const& f) {
         fill_render_queue = f;
     }
+
+signals:
+    void rendering(gfx::Render_Queue *rq);
     
 protected:
     void initializeGL() override;
