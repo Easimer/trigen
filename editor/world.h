@@ -53,6 +53,11 @@ public:
 	}
 
 	template<>
+	std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> &getMapForComponent<Untextured_Mesh_Render_Component>() {
+		return _c_untex_mesh_render;
+	}
+
+	template<>
 	std::unordered_map<Entity_Handle, Transform_Component> &getMapForComponent<Transform_Component>() {
 		return _c_transform;
 	}
@@ -67,4 +72,5 @@ private:
 	std::unordered_map<Entity_Handle, Collider_Component> _c_collider;
 	std::unordered_map<Entity_Handle, Plant_Component> _c_plant;
 	std::unordered_map<Entity_Handle, Mesh_Render_Component> _c_mesh_render;
+	std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> _c_untex_mesh_render;
 };

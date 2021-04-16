@@ -11,3 +11,7 @@ struct Mesh_Render_Component {
     gfx::Model_ID model;
     gfx::Material_Unlit material;
 };
+
+struct Untextured_Mesh_Render_Component {
+    gfx::Model_ID model;
+};

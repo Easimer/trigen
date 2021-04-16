@@ -33,6 +33,8 @@ set(SRC
     collimp_obj.cpp
     mesh_collider.h
 
+    tiny_obj_loader.cpp
+
     wnd_main.ui
     wizard_sb_plant_config.ui
     wizard_sb_compute_config.ui

@@ -6,12 +6,12 @@
 #pragma once
 
 #include <softbody.h>
-
-struct Collider_Render_Buffers {
-};
+#include <r_renderer.h>
 
 class IMesh_Collider {
 public:
-	virtual sb::Mesh_Collider *collider() = 0;
-	virtual void fillRenderBuffers(Collider_Render_Buffers *buffers) = 0;
+    virtual ~IMesh_Collider() = default;
+    virtual sb::ISoftbody_Simulation::Collider_Handle uploadToSimulation(sb::ISoftbody_Simulation *sim) = 0;
+    virtual gfx::Model_ID uploadToRenderer(gfx::IRenderer *renderer) = 0;
+    virtual gfx::Transform transform() const = 0;
 };

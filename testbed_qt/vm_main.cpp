@@ -23,7 +23,7 @@ using Shape_Index = int;
 // Identifies a specific shape in a specific mesh
 using Mesh_Shape_Index = std::pair<Mesh_Index, Shape_Index>;
 
-struct Mesh_Data {
+struct Model_Data {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -42,7 +42,7 @@ public:
 private:
     bool add_mesh_collider(char const *path, std::string &err_msg) override {
         std::string warn, err;
-        Mesh_Data mesh;
+        Model_Data mesh;
 
         if (!tinyobj::LoadObj(&mesh.attrib, &mesh.shapes, &mesh.materials, &err, path)) {
             return false;
@@ -114,7 +114,7 @@ private:
         return true;
     }
 
-    void fill_out_collider_struct(sb::Mesh_Collider *collider, Mesh_Data &mesh, Shape_Index sidx) {
+    void fill_out_collider_struct(sb::Mesh_Collider *collider, Model_Data &mesh, Shape_Index sidx) {
         auto &indices = mesh.shapes[sidx].mesh.indices;
         auto N = indices.size() / 3;
         collider->transform = Mat4(1.0f);
@@ -132,7 +132,7 @@ private:
 
 private:
     sb::ISoftbody_Simulation *_simulation;
-    std::vector<Mesh_Data> _mesh_data;
+    std::vector<Model_Data> _mesh_data;
     std::map<Collider_Handle, Mesh_Shape_Index> _mesh_colliders;
 };
 
