@@ -7,13 +7,26 @@
 #include "wnd_main.h"
 #include "renderer.h"
 #include <QApplication>
+#include <imgui.h>
 
-int main(int argc, char **argv) {
+static int runApplication(int argc, char **argv) {
 	QApplication app(argc, argv);
-
 	auto vm = std::make_unique<VM_Main>();
 	Window_Main wnd(std::move(vm));
 	wnd.show();
 
 	return QApplication::exec();
+}
+
+int main(int argc, char **argv) {
+	int rc;
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+
+	rc = runApplication(argc, argv);
+
+	ImGui::DestroyContext();
+
+	return rc;
 }

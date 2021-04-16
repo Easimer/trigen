@@ -15,6 +15,8 @@
 #include <r_cmd/general.h>
 #include <r_cmd/softbody.h>
 
+#include <imgui.h>
+
 namespace fs = std::filesystem;
 
 Session::Session(char const *name) :
@@ -138,6 +140,17 @@ void Session::onRender(gfx::Render_Queue *rq) {
 			}
         }, renderable.first);
 	}
+
+	if (ImGui::Begin("Transforms")) {
+		for (auto &transform : transforms) {
+			ImGui::Separator();
+			ImGui::Text("ID: #%zd", transform.first);
+			ImGui::InputFloat3("Position", glm::value_ptr(transform.second.position));
+			ImGui::InputFloat4("Rotation", glm::value_ptr(transform.second.rotation));
+			ImGui::InputFloat3("Scale", glm::value_ptr(transform.second.scale));
+		}
+	}
+	ImGui::End();
 }
 
 void Session::setRunning(bool isRunning) {

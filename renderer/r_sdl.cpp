@@ -45,7 +45,6 @@ public:
 
     void make_gl_backend() {
         glctx = SDL_GL_CreateContext(window);
-        this->backend = gfx::make_opengl_renderer(glctx, SDL_GL_GetProcAddress);
 
         SDL_GL_SetSwapInterval(0);
         gladLoadGLLoader(SDL_GL_GetProcAddress);
@@ -55,16 +54,14 @@ public:
         ImGui::GetIO();
         ImGui::StyleColorsDark();
         ImGui_ImplSDL2_InitForOpenGL(window, glctx);
-        ImGui_ImplOpenGL3_Init("#version 130");
-
+        this->backend = gfx::make_opengl_renderer(glctx, SDL_GL_GetProcAddress);
     }
 
     ~SDL_Renderer() {
         if (glctx != NULL) {
-            ImGui_ImplOpenGL3_Shutdown();
+            backend.reset();
             ImGui_ImplSDL2_Shutdown();
             SDL_GL_DeleteContext(glctx);
-            backend.reset();
         }
     }
 
@@ -72,16 +69,14 @@ public:
         ZoneScoped;
         backend->new_frame();
 
-        ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame(window);
         ImGui::NewFrame();
     }
 
     double present() override {
         ZoneScoped;
-        backend->present();
         ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        backend->present();
 
         auto const uiTimeEnd = SDL_GetPerformanceCounter();
         auto const flFrameTime = (uiTimeEnd - m_uiTimeStart) / (double)SDL_GetPerformanceFrequency();

@@ -24,79 +24,73 @@ static void* GLGetProcAddress(char const* pFun) {
 }
 
 
-GLViewport::GLViewport(QWidget *parent) :
-    QOpenGLWidget(parent) {
-
+GLViewport::GLViewport(QWidget *parent) : QOpenGLWidgetImGui(parent) {
     camera = create_arcball_camera();
 }
 
-void GLViewport::initializeGL() {
-    QOpenGLWidget::initializeGL();
-
-    if (!renderer) {
-        assert(context() != NULL);
-        gpCtx = context();
-        printf("GLViewport context: %p\n", gpCtx);
-        renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress);
-        gpCtx = NULL;
-    }
-}
-
 void GLViewport::resizeGL(int width, int height) {
-    QOpenGLWidget::resizeGL(width, height);
-    assert(renderer != NULL);
-    assert(context() != NULL);
+    QOpenGLWidgetImGui::resizeGL(width, height);
 
     unsigned w = width;
     unsigned h = height;
-    renderer->change_resolution(&w, &h);
     camera->set_screen_size(w, h);
 }
 
-void GLViewport::paintGL() {
-    ZoneScoped;
+void GLViewport::mousePressEvent(QMouseEvent* ev) {
+    QOpenGLWidgetImGui::mousePressEvent(ev);
+    if (ev->isAccepted()) {
+        return;
+    }
+
+    if (ev->button() == Qt::LeftButton) {
+        camera->mouse_down(ev->x(), ev->y());
+        ev->accept();
+    }
+}
+
+void GLViewport::mouseReleaseEvent(QMouseEvent* ev) {
+    QOpenGLWidgetImGui::mouseReleaseEvent(ev);
+    if (ev->isAccepted()) {
+        return;
+    }
+
+    if (ev->button() == Qt::LeftButton) {
+        camera->mouse_up(ev->x(), ev->y());
+        ev->accept();
+    }
+}
+
+void GLViewport::mouseMoveEvent(QMouseEvent* ev) {
+    QOpenGLWidgetImGui::mouseMoveEvent(ev);
+    if (ev->isAccepted()) {
+        return;
+    }
+
+    if (camera->mouse_move(ev->x(), ev->y())) {
+        ev->accept();
+    }
+}
+
+void GLViewport::wheelEvent(QWheelEvent* ev) {
+    QOpenGLWidgetImGui::wheelEvent(ev);
+    if (ev->isAccepted()) {
+        return;
+    }
+
+    camera->mouse_wheel(ev->delta());
+    ev->accept();
+}
+
+void GLViewport::onRender(gfx::IRenderer *renderer) {
     gfx::Render_Queue rq(4096);
-    renderer->new_frame();
+
+    renderer->set_camera(camera->get_view_matrix());
+
     if (fill_render_queue) {
         fill_render_queue(&rq);
     }
 
     emit rendering(&rq);
 
-    rq.execute(renderer.get());
-
-    renderer->present();
-}
-
-void GLViewport::mousePressEvent(QMouseEvent* ev) {
-    if (ev->button() == Qt::LeftButton) {
-        camera->mouse_down(ev->x(), ev->y());
-        ev->accept();
-    }
-
-    renderer->set_camera(camera->get_view_matrix());
-}
-
-void GLViewport::mouseReleaseEvent(QMouseEvent* ev) {
-    if (ev->button() == Qt::LeftButton) {
-        camera->mouse_up(ev->x(), ev->y());
-        ev->accept();
-    }
-
-    renderer->set_camera(camera->get_view_matrix());
-}
-
-void GLViewport::mouseMoveEvent(QMouseEvent* ev) {
-    if (camera->mouse_move(ev->x(), ev->y())) {
-        ev->accept();
-    }
-
-    renderer->set_camera(camera->get_view_matrix());
-}
-
-void GLViewport::wheelEvent(QWheelEvent* ev) {
-    camera->mouse_wheel(ev->delta());
-    ev->accept();
-
-    renderer->set_camera(camera->get_view_matrix());
+    rq.execute(renderer);
 }

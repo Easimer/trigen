@@ -6,6 +6,8 @@ find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
 set(SRC
     src/glviewport.cpp
+    src/imgui_impl_qt.cpp
+    include/imgui_impl_qt.h
     include/glviewport.h
 )
 

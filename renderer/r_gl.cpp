@@ -310,6 +310,8 @@ public:
             printf("[ gfx ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
 
+        ImGui_ImplOpenGL3_Init("#version 130");
+
         m_view = glm::translate(Vec3(0.0f, 0.0f, 0.0f));
         m_proj = glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 8192.0f);
 
@@ -363,6 +365,10 @@ public:
         // auto gbuf = G_Buffer::make_gbuffer(width, height);
         // assert(gbuf.has_value());
         // g_buffer = std::move(gbuf.value());
+    }
+
+    ~GL_Renderer() override {
+        ImGui_ImplOpenGL3_Shutdown();
     }
 
     void LoadShaderFromStrings(
@@ -537,6 +543,7 @@ public:
         FrameMark;
         ZoneScoped;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        ImGui_ImplOpenGL3_NewFrame();
 
         line_recycler.flip();
         point_recycler.flip();
@@ -547,6 +554,8 @@ public:
         TracyPlot("GL::line_recycler::count", line_recycler.count());
         TracyPlot("GL::point_recycler::count", point_recycler.count());
         TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         return 0;
     }

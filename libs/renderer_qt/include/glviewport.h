@@ -12,12 +12,13 @@
 #include "r_renderer.h"
 #include "r_queue.h"
 #include "arcball_camera.h"
+#include "imgui_impl_qt.h"
 
 /*
  * An OpenGL viewport widget. It uses the `renderer` library for
  * drawing and integrates the `arcball_camera` library.
  */
-class GLViewport : public QOpenGLWidget {
+class GLViewport : public QOpenGLWidgetImGui {
     Q_OBJECT
 
 public:
@@ -36,17 +37,16 @@ signals:
     void rendering(gfx::Render_Queue *rq);
     
 protected:
-    void initializeGL() override;
     void resizeGL(int width, int height) override;
-    void paintGL() override;
 
     void mousePressEvent(QMouseEvent* ev) override;
     void mouseReleaseEvent(QMouseEvent* ev) override;
     void mouseMoveEvent(QMouseEvent* ev) override;
     void wheelEvent(QWheelEvent* ev) override;
 
+    void onRender(gfx::IRenderer *renderer) override;
+
 private:
     std::unique_ptr<Arcball_Camera> camera;
-    std::unique_ptr<gfx::IRenderer> renderer;
     std::function<void(gfx::Render_Queue* rq)> fill_render_queue;
 };
