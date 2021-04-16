@@ -16,7 +16,7 @@ void main() {
 #if TEXTURED
     vFrag = texture(texDiffuse, vUV);
 #else
-    vFrag = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    vFrag = vec4(0.828125f, 0.828125f, 0.828125f, 1.0f);
 #endif
 #endif
 }
