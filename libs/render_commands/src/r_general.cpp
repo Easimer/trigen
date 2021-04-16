@@ -48,6 +48,10 @@ void Render_Model::execute(gfx::IRenderer *renderer) {
     renderer->draw_textured_triangle_elements(_model, material, _transform);
 }
 
+Render_Untextured_Model::Render_Untextured_Model(gfx::Model_ID model, gfx::Transform const &transform) :
+    _model(model), _transform(transform) {
+}
+
 void Render_Untextured_Model::execute(gfx::IRenderer *renderer) {
     renderer->draw_triangle_elements(_model, _transform);
 }
