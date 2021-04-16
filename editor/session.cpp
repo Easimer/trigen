@@ -136,7 +136,7 @@ void Session::onRender(gfx::Render_Queue *rq) {
 			} else if constexpr (std::is_same_v<T, Untextured_Mesh_Render_Component *>) {
                 gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, mdl, transform);
 			} else {
-				static_assert(std::always_false_v<T>);
+				static_assert(false);
 			}
         }, renderable.first);
 	}
