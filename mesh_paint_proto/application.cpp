@@ -135,7 +135,7 @@ public:
                 if (_session_creation_dialog->close()) {
                     _session_creation_dialog.reset();
                 }
-                if (_session_creation_dialog->ready()) {
+                if (_session_creation_dialog && _session_creation_dialog->ready()) {
                     create_session(_session_creation_dialog->path());
                     _session_creation_dialog.reset();
                 }
