@@ -48,6 +48,10 @@ void Render_Model::execute(gfx::IRenderer *renderer) {
     renderer->draw_textured_triangle_elements(_model, material, _transform);
 }
 
+void Render_Untextured_Model::execute(gfx::IRenderer *renderer) {
+    renderer->draw_triangle_elements(_model, _transform);
+}
+
 Load_Texture_Command::Load_Texture_Command(std::optional<gfx::Texture_ID> *handle, void const *image, size_t image_len)
 : _handle(handle), _image(image), _image_len(image_len) {
 }

@@ -24,6 +24,16 @@ private:
     gfx::Transform _transform;
 };
 
+class Render_Untextured_Model : public gfx::IRender_Command {
+public:
+    Render_Untextured_Model(gfx::Model_ID model, gfx::Transform const &transform);
+
+    void execute(gfx::IRenderer *renderer) override;
+private:
+    gfx::Model_ID _model;
+    gfx::Transform _transform;
+};
+
 class Load_Texture_Command : public gfx::IRender_Command {
 public:
     Load_Texture_Command(std::optional<gfx::Texture_ID> *handle, void const *image, size_t image_len);
