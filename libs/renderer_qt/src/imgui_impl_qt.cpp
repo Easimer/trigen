@@ -10,7 +10,7 @@
 #include <QWheelEvent>
 #include <Tracy.hpp>
 #include "r_queue.h"
-
+#include <ImGuizmo.h>
 
 // TODO:
 //  Multiple viewports - multiple contexts:
@@ -77,12 +77,18 @@ void QOpenGLWidgetImGui::paintGL() {
     if (_firstFrame) {
         _firstFrame = false;
         ImGui::NewFrame();
+        ImGuizmo::BeginFrame();
     }
 
     onRender(_renderer.get());
     ImGui::Render();
     _renderer->present();
     ImGui::NewFrame();
+
+    ImGuizmo::BeginFrame();
+
+	ImGuiIO &io = ImGui::GetIO();
+	ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
 }
 
 void QOpenGLWidgetImGui::setImGuiMouseButton(Qt::MouseButton button, bool state) {

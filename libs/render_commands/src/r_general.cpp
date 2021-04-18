@@ -80,3 +80,11 @@ Destroy_Model_Command::Destroy_Model_Command(gfx::Model_ID id)
 void Destroy_Model_Command::execute(gfx::IRenderer *renderer) {
     renderer->destroy_model(_id);
 }
+
+Fetch_Camera_Matrices::Fetch_Camera_Matrices(glm::mat4 *out_viewMatrix, glm::mat4 *out_projectionMatrix)
+: _viewMatrix(out_viewMatrix), _projMatrix(out_projectionMatrix) {
+}
+
+void Fetch_Camera_Matrices::execute(gfx::IRenderer *renderer) {
+    renderer->get_camera(*_viewMatrix, *_projMatrix);
+}

@@ -393,6 +393,11 @@ public:
         m_view = view_matrix;
     }
 
+    void get_camera(glm::mat4 &view_matrix, glm::mat4 &projection_matrix) override {
+        view_matrix = m_view;
+        projection_matrix = m_proj;
+    }
+
     void draw_points(size_t nCount, Vec3 const* pPoints, Vec3 const& vWorldPosition) override {
         ZoneScoped;
         if (m_point_cloud_shader.has_value()) {

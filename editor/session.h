@@ -15,6 +15,12 @@
 #include <r_queue.h>
 #include <r_cmd/softbody.h>
 
+enum class Session_Gizmo_Mode {
+    Translation,
+    Rotation,
+    Scaling,
+};
+
 class Session : public QObject {
     Q_OBJECT;
 public:
@@ -30,6 +36,7 @@ public slots:
     void onRender(gfx::Render_Queue *rq);
     void setRunning(bool isRunning);
     void onMeshUpload(gfx::Render_Queue *rq);
+    void setGizmoMode(Session_Gizmo_Mode mode);
 
 private:
     std::string _name;
@@ -38,4 +45,8 @@ private:
     bool _isRunning = false;
 
     std::vector<Entity_Handle> _pendingColliderMeshUploads;
+
+    glm::mat4 _matView;
+    glm::mat4 _matProj;
+    Session_Gizmo_Mode _gizmoMode = Session_Gizmo_Mode::Translation;
 };

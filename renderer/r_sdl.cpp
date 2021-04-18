@@ -98,6 +98,11 @@ public:
         backend->set_camera(view_matrix);
     }
 
+    void get_camera(glm::mat4 &view_matrix, glm::mat4 &projection_matrix) override {
+        ZoneScoped;
+        backend->get_camera(view_matrix, projection_matrix);
+    }
+
     void draw_points(size_t nCount, glm::vec3 const* pPoints, glm::vec3 const& vWorldPosition) override {
         ZoneScoped;
         backend->draw_points(nCount, pPoints, vWorldPosition);

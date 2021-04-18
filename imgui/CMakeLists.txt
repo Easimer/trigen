@@ -4,6 +4,7 @@ set(SRC_IMGUI
 	imgui_impl_opengl3.cpp
 	imgui_impl_sdl.cpp
 	imgui_widgets.cpp
+	ImGuizmo.cpp
 
 	imgui_internal.h
 	imstb_rectpack.h
@@ -14,6 +15,7 @@ set(SRC_IMGUI
 	../public/imgui_impl_opengl3.h
 	../public/imgui_impl_sdl.h
 	../public/imconfig.h
+	../public/ImGuizmo.h
 )
 
 add_library(imgui STATIC ${SRC_IMGUI})

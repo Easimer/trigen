@@ -54,3 +54,13 @@ public:
 private:
     gfx::Model_ID _id;
 };
+
+class Fetch_Camera_Matrices : public gfx::IRender_Command {
+public:
+    Fetch_Camera_Matrices(glm::mat4 *out_viewMatrix, glm::mat4 *out_projectionMatrix);
+
+protected:
+    void execute(gfx::IRenderer *renderer) override;
+    glm::mat4 *_viewMatrix;
+    glm::mat4 *_projMatrix;
+};

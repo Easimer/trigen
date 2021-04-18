@@ -16,13 +16,16 @@
 #include <r_cmd/softbody.h>
 
 #include <imgui.h>
+#include <ImGuizmo.h>
 
 namespace fs = std::filesystem;
 
 Session::Session(char const *name) :
 	_name(name),
 	_renderParams{},
-	_world() {
+	_world(),
+    _matView(1.0f),
+    _matProj(1.0f) {
 }
 
 void Session::createPlant(sb::Config const &cfg) {
@@ -101,6 +104,8 @@ void Session::onRender(gfx::Render_Queue *rq) {
 	auto &meshRenders = _world.getMapForComponent<Mesh_Render_Component>();
 	auto &untexturedMeshRenders = _world.getMapForComponent<Untextured_Mesh_Render_Component>();
 
+	gfx::allocate_command_and_initialize<Fetch_Camera_Matrices>(rq, &_matView, &_matProj);
+
 	gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
 	for (auto &kv : plants) {
@@ -141,6 +146,20 @@ void Session::onRender(gfx::Render_Queue *rq) {
         }, renderable.first);
 	}
 
+	ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+
+	switch (_gizmoMode) {
+	case Session_Gizmo_Mode::Translation:
+		gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+		break;
+	case Session_Gizmo_Mode::Rotation:
+		gizmoOperation = ImGuizmo::OPERATION::ROTATE;
+		break;
+	case Session_Gizmo_Mode::Scaling:
+		gizmoOperation = ImGuizmo::OPERATION::SCALE;
+		break;
+	}
+
 	if (ImGui::Begin("Transforms")) {
 		for (auto &transform : transforms) {
 			ImGui::Separator();
@@ -148,6 +167,12 @@ void Session::onRender(gfx::Render_Queue *rq) {
 			ImGui::InputFloat3("Position", glm::value_ptr(transform.second.position));
 			ImGui::InputFloat4("Rotation", glm::value_ptr(transform.second.rotation));
 			ImGui::InputFloat3("Scale", glm::value_ptr(transform.second.scale));
+
+			float mat[16];
+			ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale), mat);
+			if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
+				ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale));
+			}
 		}
 	}
 	ImGui::End();
@@ -186,5 +211,9 @@ void Session::onMeshUpload(gfx::Render_Queue *rq) {
 		_pendingColliderMeshUploads.clear();
 		_pendingColliderMeshUploads.shrink_to_fit();
 	}
+}
+
+void Session::setGizmoMode(Session_Gizmo_Mode mode) {
+	_gizmoMode = mode;
 }
 
