@@ -51,6 +51,9 @@
    </attribute>
    <addaction name="actionCreateSoftbody"/>
    <addaction name="actionCreateCollider"/>
+   <addaction name="actionModeTranslate"/>
+   <addaction name="actionModeRotate"/>
+   <addaction name="actionModeScale"/>
   </widget>
   <widget class="QToolBar" name="toolBarTop">
    <property name="windowTitle">
@@ -104,6 +107,21 @@
    </property>
    <property name="text">
     <string>Create collider</string>
+   </property>
+  </action>
+  <action name="actionModeTranslate">
+   <property name="text">
+    <string>Mode: Translate</string>
+   </property>
+  </action>
+  <action name="actionModeRotate">
+   <property name="text">
+    <string>Mode: Rotate</string>
+   </property>
+  </action>
+  <action name="actionModeScale">
+   <property name="text">
+    <string>Mode: Scale</string>
    </property>
   </action>
  </widget>

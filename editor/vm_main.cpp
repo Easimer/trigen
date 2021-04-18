@@ -48,6 +48,12 @@ void VM_Main::onTick(float deltaTime) {
 	}
 }
 
+void VM_Main::setGizmoMode(Session_Gizmo_Mode mode) {
+	if (_currentSession != nullptr) {
+		_currentSession->setGizmoMode(mode);
+	}
+}
+
 void VM_Main::onRender(gfx::Render_Queue *rq) {
 	if (_currentSession != nullptr) {
 		_currentSession->onMeshUpload(rq);

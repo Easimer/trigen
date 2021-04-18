@@ -61,6 +61,18 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
         _vm->setRunning(false);
     });
 
+    connect(_ui->actionModeTranslate, &QAction::triggered, [&]() {
+        _vm->setGizmoMode(Session_Gizmo_Mode::Translation);
+    });
+
+    connect(_ui->actionModeRotate, &QAction::triggered, [&]() {
+        _vm->setGizmoMode(Session_Gizmo_Mode::Rotation);
+    });
+
+    connect(_ui->actionModeScale, &QAction::triggered, [&]() {
+        _vm->setGizmoMode(Session_Gizmo_Mode::Scaling);
+    });
+
     // Enable/disable the start/pause button when the user changes the current session
     connect(_vm.get(), &VM_Main::currentSessionChanged, [&](Session *session) {
         _ui->actionStart->setEnabled(!session->isRunning());
