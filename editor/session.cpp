@@ -8,6 +8,7 @@
 #include "world.h"
 #include "collimp.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
 #include <unordered_set>
 #include <filesystem>
 #include <variant>
@@ -61,6 +62,7 @@ void Session::addColliderFromPath(char const *path) {
 }
 
 void Session::onTick(float deltaTime) {
+	auto &transforms = _world.getMapForComponent<Transform_Component>();
 	auto &colliders = _world.getMapForComponent<Collider_Component>();
 	auto &plants = _world.getMapForComponent<Plant_Component>();
 	auto &untexturedMeshRenderables = _world.getMapForComponent<Untextured_Mesh_Render_Component>();
@@ -76,6 +78,18 @@ void Session::onTick(float deltaTime) {
 
 		if (untexturedMeshRenderables.count(colliderEnt.first) == 0) {
 			_pendingColliderMeshUploads.push_back(colliderEnt.first);
+		}
+
+		if (transforms.count(colliderEnt.first) != 0) {
+			auto &transform = transforms[colliderEnt.first];
+			if (transform.manipulated) {
+				for (auto &plantEnt : plants) {
+					auto handle = colliderEnt.second.sb_handles[plantEnt.first];
+					auto matTransform = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
+					plantEnt.second._sim->update_transform(handle, matTransform);
+				}
+			}
+			transform.manipulated = false;
 		}
 
 		// Remove SB collider handles that reference deleted plant entities
@@ -172,6 +186,7 @@ void Session::onRender(gfx::Render_Queue *rq) {
 			ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale), mat);
 			if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
 				ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale));
+				transform.second.manipulated = true;
 			}
 		}
 	}

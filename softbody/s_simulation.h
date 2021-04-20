@@ -47,6 +47,7 @@ public:
     bool remove_collider(Collider_Handle handle) override;
     void collider_changed(Collider_Handle handle) override;
     bool add_collider(Collider_Handle &out_handle, sb::Mesh_Collider const *mesh) override;
+    bool update_transform(Collider_Handle handle, glm::mat4 const &transform) override;
 
     size_t particle_count() const { return s.position.size(); }
 

@@ -358,6 +358,13 @@ namespace sb {
         virtual bool add_collider(
             Collider_Handle &out_handle,
             Mesh_Collider const *mesh) = 0;
+        
+        // Update the transform of a mesh collider.
+        //
+        // @param handle Handle of a mesh collider
+        // @param transform New transform
+        // @returns True if the handle belonged to a mesh collider, false otherwise.
+        virtual bool update_transform(Collider_Handle handle, glm::mat4 const &transform) = 0;
 
         virtual void set_debug_visualizer(IDebug_Visualizer *pVisualizer) = 0;
     };

@@ -346,6 +346,28 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     return true;
 }
 
+bool Softbody_Simulation::update_transform(Collider_Handle handle, glm::mat4 const &transform) {
+    Collider_Handle_Kind kind;
+    size_t index;
+    decode_collider_handle(handle, kind, index);
+
+    if (kind != Collider_Handle_Kind::Mesh) {
+        return false;
+    }
+
+    if (index >= s.colliders_mesh.size()) {
+        return false;
+    }
+
+    if (!s.colliders_mesh[index].used) {
+        return false;
+    }
+
+    s.colliders_mesh[index].transform = transform;
+    collider_changed(handle);
+    return true;
+}
+
 index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);

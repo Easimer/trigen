@@ -12,4 +12,6 @@ struct Transform_Component {
     glm::vec3 position;
     glm::quat rotation;
     glm::vec3 scale;
+
+    bool manipulated = false;
 };
