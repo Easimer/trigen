@@ -174,23 +174,14 @@ void Session::onRender(gfx::Render_Queue *rq) {
 		break;
 	}
 
-	if (ImGui::Begin("Transforms")) {
-		for (auto &transform : transforms) {
-			ImGui::Separator();
-			ImGui::Text("ID: #%zd", transform.first);
-			ImGui::InputFloat3("Position", glm::value_ptr(transform.second.position));
-			ImGui::InputFloat4("Rotation", glm::value_ptr(transform.second.rotation));
-			ImGui::InputFloat3("Scale", glm::value_ptr(transform.second.scale));
-
-			float mat[16];
-			ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale), mat);
-			if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
-				ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale));
-				transform.second.manipulated = true;
-			}
-		}
-	}
-	ImGui::End();
+    for (auto &transform : transforms) {
+        float mat[16];
+        ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale), mat);
+        if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
+            ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale));
+            transform.second.manipulated = true;
+        }
+    }
 }
 
 void Session::setRunning(bool isRunning) {
