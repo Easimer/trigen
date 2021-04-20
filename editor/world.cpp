@@ -30,6 +30,19 @@ Entity_Handle World::createEntity() {
     return ret;
 }
 
+bool World::removeEntity(Entity_Handle handle) {
+    if (handle >= _entities.size() || !_entities[handle].has_value()) {
+        return false;
+    }
+
+#define REMOVE_COMPONENT_FOR_ENTITY(typeName, dataMember) dataMember.erase(handle);
+    FOREACH_COMPONENT(REMOVE_COMPONENT_FOR_ENTITY);
+
+    _entities[handle].reset();
+
+    return true;
+}
+
 bool World::exists(Entity_Handle ent) const {
     if (ent < _entities.size()) {
         return _entities[ent].has_value();

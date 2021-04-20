@@ -34,6 +34,8 @@ set(SRC
     mesh_collider.h
     entity_list.cpp
     entity_list.h
+    world_qt.cpp
+    world_qt.h
 
     tiny_obj_loader.cpp
 

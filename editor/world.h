@@ -18,12 +18,23 @@ using Entity_Handle = std::make_signed<size_t>::type;
 #include "collider_component.h"
 #include "mesh_render_component.h"
 
-class World {
-public:
-	World() {
+#define DEFINE_GETMAPFORCOMPONENT(typeName, dataMember) \
+	template<> \
+	std::unordered_map<Entity_Handle, typeName> &getMapForComponent<typeName>() { \
+		return dataMember; \
 	}
 
-	virtual Entity_Handle createEntity();
+#define FOREACH_COMPONENT(func) \
+	func(Collider_Component, _c_collider) \
+	func(Plant_Component, _c_plant) \
+	func(Mesh_Render_Component, _c_mesh_render) \
+	func(Untextured_Mesh_Render_Component, _c_untex_mesh_render) \
+	func(Transform_Component, _c_transform)
+
+class World {
+public:
+	Entity_Handle createEntity();
+	bool removeEntity(Entity_Handle handle);
 
 	template<typename T, typename ...Args>
 	T *attachComponent(Entity_Handle ent, Args... args) {
@@ -37,30 +48,7 @@ public:
 	template<typename T>
 	std::unordered_map<Entity_Handle, T> &getMapForComponent();
 
-	template<>
-	std::unordered_map<Entity_Handle, Collider_Component> &getMapForComponent<Collider_Component>() {
-		return _c_collider;
-	}
-
-	template<>
-	std::unordered_map<Entity_Handle, Plant_Component> &getMapForComponent<Plant_Component>() {
-		return _c_plant;
-	}
-
-	template<>
-	std::unordered_map<Entity_Handle, Mesh_Render_Component> &getMapForComponent<Mesh_Render_Component>() {
-		return _c_mesh_render;
-	}
-
-	template<>
-	std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> &getMapForComponent<Untextured_Mesh_Render_Component>() {
-		return _c_untex_mesh_render;
-	}
-
-	template<>
-	std::unordered_map<Entity_Handle, Transform_Component> &getMapForComponent<Transform_Component>() {
-		return _c_transform;
-	}
+	FOREACH_COMPONENT(DEFINE_GETMAPFORCOMPONENT)
 
 	int numEntities() const {
 		return _entities.size();

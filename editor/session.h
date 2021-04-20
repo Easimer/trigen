@@ -9,7 +9,7 @@
 #include <arcball_camera.h>
 #include <QObject>
 
-#include "world.h"
+#include "world_qt.h"
 
 #include <softbody.h>
 #include <r_queue.h>
@@ -30,7 +30,7 @@ public:
     void createPlant(sb::Config const &cfg);
     bool isRunning() const { return _isRunning; }
 	void addColliderFromPath(char const *path);
-    World const *world() const { return &_world; }
+    QWorld const *world() const { return &_world; }
 
 public slots:
     void onTick(float deltaTime);
@@ -42,7 +42,7 @@ public slots:
 private:
     std::string _name;
     Softbody_Render_Parameters _renderParams;
-    World _world;
+    QWorld _world;
     bool _isRunning = false;
 
     std::vector<Entity_Handle> _pendingColliderMeshUploads;
