@@ -32,6 +32,8 @@ set(SRC
     collimp.h
     collimp_obj.cpp
     mesh_collider.h
+    entity_list.cpp
+    entity_list.h
 
     tiny_obj_loader.cpp
 

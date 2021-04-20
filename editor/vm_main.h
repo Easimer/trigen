@@ -12,10 +12,12 @@
 #include "renderer.h"
 #include <softbody.h>
 #include <r_renderer.h>
+#include "entity_list.h"
 
 class VM_Main : public QObject {
 	Q_OBJECT;
 public:
+	VM_Main(Entity_List_Model *entityListModel);
 	Session *session();
 	Session *createNewSession(char const *name);
 	void closeSession(Session *session);
@@ -41,4 +43,5 @@ private:
 	Renderer *_renderer = nullptr;
 	std::list<std::unique_ptr<Session>> _sessions;
 	Session *_currentSession = nullptr;
+	Entity_List_Model *_entityListModel;
 };

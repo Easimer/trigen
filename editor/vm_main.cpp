@@ -7,6 +7,10 @@
 #include <cassert>
 #include "vm_main.h"
 
+VM_Main::VM_Main(Entity_List_Model *entityListModel)
+: _entityListModel(entityListModel) {
+}
+
 Session *VM_Main::session() {
 	return _currentSession;
 }
@@ -26,6 +30,10 @@ void VM_Main::closeSession(Session *session) {
 
 void VM_Main::switchToSession(Session *session) {
 	_currentSession = session;
+
+	if (_currentSession != nullptr) {
+		_entityListModel->setCurrentWorld(_currentSession->world());
+	}
 
 	emit currentSessionChanged(session);
 }

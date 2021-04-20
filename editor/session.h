@@ -30,6 +30,7 @@ public:
     void createPlant(sb::Config const &cfg);
     bool isRunning() const { return _isRunning; }
 	void addColliderFromPath(char const *path);
+    World const *world() const { return &_world; }
 
 public slots:
     void onTick(float deltaTime);

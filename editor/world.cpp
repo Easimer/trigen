@@ -29,3 +29,11 @@ Entity_Handle World::createEntity() {
 
     return ret;
 }
+
+bool World::exists(Entity_Handle ent) const {
+    if (ent < _entities.size()) {
+        return _entities[ent].has_value();
+    }
+
+    return false;
+}

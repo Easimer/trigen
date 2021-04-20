@@ -10,20 +10,24 @@
 #include "wizard_collider.h"
 #include <QMessageBox>
 #include <QListView>
+#include "entity_list.h"
 
-Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, QWidget *parent) :
+Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstractItemModel> &&entityListModel, QWidget *parent) :
     QMainWindow(parent),
     _ui(new Ui::Window_Main()),
     _vm(std::move(vm)),
     _splitter(Qt::Orientation::Horizontal, this),
-    _viewport(this) {
+    _viewport(this),
+    _entityList(this),
+    _entityListModel(std::move(entityListModel)) {
     _ui->setupUi(this);
 
     setCentralWidget(&_splitter);
     _splitter.setChildrenCollapsible(false);
-    // Placeholder items in the splitter
     _splitter.insertWidget(0, &_viewport);
-    _splitter.insertWidget(1, new QWidget(this));
+    _splitter.insertWidget(1, &_entityList);
+
+    _entityList.setModel(_entityListModel.get());
 
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
 

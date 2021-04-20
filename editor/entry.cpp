@@ -8,11 +8,13 @@
 #include "renderer.h"
 #include <QApplication>
 #include <imgui.h>
+#include "entity_list.h"
 
 static int runApplication(int argc, char **argv) {
 	QApplication app(argc, argv);
-	auto vm = std::make_unique<VM_Main>();
-	Window_Main wnd(std::move(vm));
+	auto entityListModel = std::make_unique<Entity_List_Model>();
+	auto vm = std::make_unique<VM_Main>(entityListModel.get());
+	Window_Main wnd(std::move(vm), std::move(entityListModel));
 	wnd.show();
 
 	return QApplication::exec();

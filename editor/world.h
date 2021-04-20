@@ -23,7 +23,7 @@ public:
 	World() {
 	}
 
-	Entity_Handle createEntity();
+	virtual Entity_Handle createEntity();
 
 	template<typename T, typename ...Args>
 	T *attachComponent(Entity_Handle ent, Args... args) {
@@ -62,7 +62,13 @@ public:
 		return _c_transform;
 	}
 
-private:
+	int numEntities() const {
+		return _entities.size();
+	}
+
+	bool exists(Entity_Handle ent) const;
+
+protected:
     struct Entity {
     };
 
