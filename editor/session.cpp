@@ -165,18 +165,23 @@ void Session::onRender(gfx::Render_Queue *rq) {
 	}
 
 	using Mesh_Render = std::variant<Mesh_Render_Component *, Untextured_Mesh_Render_Component *>;
+	struct Renderable {
+		Entity_Handle handle;
+		Mesh_Render component;
+		Transform_Component *transform;
+	};
 
 	// Find all entities that have both render info and a world transform
-	std::vector<std::pair<Mesh_Render, Transform_Component *>> renderables;
+	std::vector<Renderable> renderables;
 	for (auto &kv : untexturedMeshRenders) {
 		if (transforms.count(kv.first)) {
-			renderables.emplace_back(std::make_pair(&kv.second, &transforms.at(kv.first)));
+			renderables.emplace_back(Renderable{ kv.first, &kv.second, &transforms.at(kv.first) });
 		}
 	}
 
 	for (auto &kv : meshRenders) {
 		if (transforms.count(kv.first)) {
-			renderables.emplace_back(std::make_pair(&kv.second, &transforms.at(kv.first)));
+			renderables.emplace_back(Renderable{ kv.first, &kv.second, &transforms.at(kv.first) });
 		}
 	}
 
@@ -185,17 +190,27 @@ void Session::onRender(gfx::Render_Queue *rq) {
 			using T = std::decay_t<decltype(arg)>;
             auto mdl = arg->model;
             auto transform = gfx::Transform{
-                renderable.second->position,
-                renderable.second->rotation,
-                renderable.second->scale
+                renderable.transform->position,
+                renderable.transform->rotation,
+                renderable.transform->scale
             };
+
+			glm::vec4 tintColor = { 1, 1, 1, 1 };
+
+			// Tint selected object green
+			if (_selectedEntity.has_value() && renderable.handle == _selectedEntity.value()) {
+				tintColor = { 0, 0.75f, 0, 1 };
+			}
+
 			if constexpr (std::is_same_v<T, Mesh_Render_Component *>) {
 				auto texDiffuse = arg->material.diffuse;
-                gfx::allocate_command_and_initialize<Render_Model>(rq, mdl, texDiffuse, transform);
+                auto cmd = gfx::allocate_command_and_initialize<Render_Model>(rq, mdl, texDiffuse, transform);
+				cmd->tint() = tintColor;
 			} else if constexpr (std::is_same_v<T, Untextured_Mesh_Render_Component *>) {
-                gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, mdl, transform);
+                auto cmd = gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, mdl, transform);
+				cmd->tint() = tintColor;
 			}
-        }, renderable.first);
+        }, renderable.component);
 	}
 }
 
