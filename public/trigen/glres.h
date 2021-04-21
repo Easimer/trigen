@@ -224,6 +224,11 @@ namespace gl {
     }
 
     template<>
+    inline void SetUniformLocation<glm::vec4>(Uniform_Location<glm::vec4> const& uiLoc, glm::vec4 const& vVec) {
+        glUniform4fv(uiLoc, 1, glm::value_ptr(vVec));
+    }
+
+    template<>
     inline void SetUniformLocationArray<glm::vec3>(Uniform_Location<glm::vec3*> const& uiLoc, glm::vec3 const* vVec, unsigned count) {
         glUniform3fv(uiLoc, count, (float const*)vVec);
     }
