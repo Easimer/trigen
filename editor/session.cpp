@@ -84,13 +84,16 @@ void Session::onTick(float deltaTime) {
 			}
 		}
 
+		// Collider has no mesh renderable yet; schedule a mesh upload
 		if (untexturedMeshRenderables.count(colliderEnt.first) == 0) {
 			_pendingColliderMeshUploads.push_back(colliderEnt.first);
 		}
 
+		// Check if the collider's transform was manipulated
 		if (transforms.count(colliderEnt.first) != 0) {
 			auto &transform = transforms[colliderEnt.first];
 			if (transform.manipulated) {
+				// If it was manipulated, we notify all the simulations about this change
 				for (auto &plantEnt : plants) {
 					auto handle = colliderEnt.second.sb_handles[plantEnt.first];
 					auto matTransform = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
