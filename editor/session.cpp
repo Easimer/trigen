@@ -121,6 +121,33 @@ void Session::onTick(float deltaTime) {
 			kv.second._sim->step(deltaTime);
 		}
 	}
+
+	ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+
+	switch (_gizmoMode) {
+	case Session_Gizmo_Mode::Translation:
+		gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+		break;
+	case Session_Gizmo_Mode::Rotation:
+		gizmoOperation = ImGuizmo::OPERATION::ROTATE;
+		break;
+	case Session_Gizmo_Mode::Scaling:
+		gizmoOperation = ImGuizmo::OPERATION::SCALE;
+		break;
+	}
+
+	if (_selectedEntity) {
+		if (transforms.count(_selectedEntity.value())) {
+            float mat[16];
+			auto &transform = transforms[_selectedEntity.value()];
+
+            ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale), mat);
+            if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
+                ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale));
+                transform.manipulated = true;
+            }
+		}
+	}
 }
 
 void Session::onRender(gfx::Render_Queue *rq) {
@@ -169,33 +196,6 @@ void Session::onRender(gfx::Render_Queue *rq) {
                 gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, mdl, transform);
 			}
         }, renderable.first);
-	}
-
-	ImGuizmo::OPERATION gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-
-	switch (_gizmoMode) {
-	case Session_Gizmo_Mode::Translation:
-		gizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-		break;
-	case Session_Gizmo_Mode::Rotation:
-		gizmoOperation = ImGuizmo::OPERATION::ROTATE;
-		break;
-	case Session_Gizmo_Mode::Scaling:
-		gizmoOperation = ImGuizmo::OPERATION::SCALE;
-		break;
-	}
-
-	if (_selectedEntity) {
-		if (transforms.count(_selectedEntity.value())) {
-            float mat[16];
-			auto &transform = transforms[_selectedEntity.value()];
-
-            ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale), mat);
-            if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
-                ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale));
-                transform.manipulated = true;
-            }
-		}
 	}
 }
 
