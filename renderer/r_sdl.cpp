@@ -113,7 +113,7 @@ public:
         backend->draw_lines(pEndpoints, nLineCount, vWorldPosition, vStartColor, vEndColor);
     }
 
-    void draw_ellipsoids(gfx::Render_Context_Supplement const& ctx, size_t count, glm::vec3 const* centers, glm::vec3 const* sizes, glm::quat const* rotations, glm::vec3 const& color) override {
+    void draw_ellipsoids(gfx::Render_Parameters const& ctx, size_t count, glm::vec3 const* centers, glm::vec3 const* sizes, glm::quat const* rotations, glm::vec3 const& color) override {
         ZoneScoped;
         backend->draw_ellipsoids(ctx, count, centers, sizes, rotations, color);
     }
@@ -216,6 +216,15 @@ public:
     ) override {
         ZoneScoped;
         return backend->draw_triangle_elements(model_handle, transform);
+    }
+
+    void draw_triangle_elements(
+        gfx::Render_Parameters const &params,
+        gfx::Model_ID model_handle,
+        gfx::Transform const &transform
+    ) override {
+        ZoneScoped;
+        return backend->draw_triangle_elements(params, model_handle, transform);
     }
 
 private:

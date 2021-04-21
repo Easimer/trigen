@@ -331,13 +331,15 @@ public:
         });
         LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            m_element_model_shader = { std::move(program), locMVP };
+            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
+            m_element_model_shader = { std::move(program), locMVP, locTintColor };
         });
 
         Shader_Define_List vtx_color_defines = { {"GENERIC_SHADER_WITH_VERTEX_COLORS", "1"} };
         LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program& program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            m_element_model_shader_with_vtx_color = { std::move(program), locMVP };
+            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
+            m_element_model_shader_with_vtx_color = { std::move(program), locMVP, locTintColor };
         });
 
         Shader_Define_List textured_defines = { {"TEXTURED", "1"} };
@@ -445,7 +447,7 @@ public:
     }
 
     void draw_ellipsoids(
-        gfx::Render_Context_Supplement const& ctx,
+        gfx::Render_Parameters const& ctx,
         size_t count,
         Vec3 const* centers,
         Vec3 const* sizes,
@@ -843,6 +845,15 @@ public:
         gfx::Model_ID model_handle,
         gfx::Transform const &transform
     ) override {
+        gfx::Render_Parameters rp;
+        draw_triangle_elements(rp, model_handle, transform);
+    }
+
+    void draw_triangle_elements(
+        gfx::Render_Parameters const &params,
+        gfx::Model_ID model_handle,
+        gfx::Transform const &transform
+    ) override {
         if (model_handle == nullptr) {
             return;
         }
@@ -861,6 +872,12 @@ public:
 
             auto matMVP = m_proj * m_view * matTransform;
             gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            if (params.tint_color.has_value()) {
+                gl::SetUniformLocation(shader.locTintColor, params.tint_color.value());
+            } else {
+                gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+            }
 
             glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
         } else {
@@ -892,6 +909,7 @@ private:
     struct Element_Model_Shader {
         gl::Shader_Program program;
         gl::Uniform_Location<Mat4> locMVP;
+        gl::Uniform_Location<Vec4> locTintColor;
     };
 
     struct Textured_Element_Model_Shader {

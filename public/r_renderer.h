@@ -15,9 +15,12 @@
 #include <glm/gtc/quaternion.hpp>
 
 namespace gfx {
-    struct Render_Context_Supplement {
+    struct Render_Parameters {
         // Position of the sun
         std::optional<glm::vec3> sun;
+
+        // Mesh surface tint color
+        std::optional<glm::vec4> tint_color;
     };
 
     using Model_ID = void*;
@@ -66,7 +69,7 @@ namespace gfx {
         ) = 0;
 
         virtual void draw_ellipsoids(
-            Render_Context_Supplement const& ctx,
+            Render_Parameters const& ctx,
             size_t count,
             glm::vec3 const* centers,
             glm::vec3 const* sizes,
@@ -107,6 +110,12 @@ namespace gfx {
         ) = 0;
 
         virtual void draw_triangle_elements(
+            gfx::Model_ID model_handle,
+            gfx::Transform const &transform
+        ) = 0;
+
+        virtual void draw_triangle_elements(
+            Render_Parameters const &params,
             gfx::Model_ID model_handle,
             gfx::Transform const &transform
         ) = 0;

@@ -69,7 +69,7 @@ void Render_Particles::execute(gfx::IRenderer *renderer) {
 
     assert(positions.size() == goal_positions.size());
 
-    gfx::Render_Context_Supplement ctx;
+    gfx::Render_Parameters ctx;
     ctx.sun = params.sun_position;
 
     renderer->draw_lines(lines.data(), lines.size() / 2, Vec3(0, 0, 0), Vec3(0, 0.50, 0), Vec3(0, 1.00, 0));

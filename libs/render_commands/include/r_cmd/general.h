@@ -17,21 +17,27 @@ class Render_Model : public gfx::IRender_Command {
 public:
     Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform);
 
+    glm::vec4 &tint() { return _tintColor; }
+
     void execute(gfx::IRenderer *renderer) override;
 private:
     gfx::Model_ID _model;
     gfx::Texture_ID _diffuse;
     gfx::Transform _transform;
+    glm::vec4 _tintColor;
 };
 
 class Render_Untextured_Model : public gfx::IRender_Command {
 public:
     Render_Untextured_Model(gfx::Model_ID model, gfx::Transform const &transform);
 
+    glm::vec4 &tint() { return _tintColor; }
+
     void execute(gfx::IRenderer *renderer) override;
 private:
     gfx::Model_ID _model;
     gfx::Transform _transform;
+    glm::vec4 _tintColor;
 };
 
 class Load_Texture_Command : public gfx::IRender_Command {
