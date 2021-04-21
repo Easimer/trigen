@@ -74,3 +74,13 @@ void VM_Main::setRunning(bool isRunning) {
 		_currentSession->setRunning(isRunning);
 	}
 }
+
+void VM_Main::entitySelectionChanged(QModelIndex const &idx) {
+	if (_currentSession != nullptr) {
+		if (idx.isValid()) {
+			_currentSession->selectEntity(idx.row());
+		} else {
+			_currentSession->deselectEntity();
+		}
+	}
+}

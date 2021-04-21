@@ -34,6 +34,7 @@ public:
 public slots:
 	void onRender(gfx::Render_Queue *rq);
 	void setRunning(bool isRunning);
+	void entitySelectionChanged(QModelIndex const &idx);
 
 signals:
 	void cameraUpdated();

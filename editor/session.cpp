@@ -61,6 +61,14 @@ void Session::addColliderFromPath(char const *path) {
 	}
 }
 
+void Session::selectEntity(int index) {
+	_selectedEntity = Entity_Handle(index);
+}
+
+void Session::deselectEntity() {
+	_selectedEntity.reset();
+}
+
 void Session::onTick(float deltaTime) {
 	auto &transforms = _world.getMapForComponent<Transform_Component>();
 	auto &colliders = _world.getMapForComponent<Collider_Component>();
@@ -174,14 +182,18 @@ void Session::onRender(gfx::Render_Queue *rq) {
 		break;
 	}
 
-    for (auto &transform : transforms) {
-        float mat[16];
-        ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale), mat);
-        if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
-            ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.second.position), glm::value_ptr(transform.second.rotation), glm::value_ptr(transform.second.scale));
-            transform.second.manipulated = true;
-        }
-    }
+	if (_selectedEntity) {
+		if (transforms.count(_selectedEntity.value())) {
+            float mat[16];
+			auto &transform = transforms[_selectedEntity.value()];
+
+            ImGuizmo::RecomposeMatrixFromComponents(glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale), mat);
+            if (ImGuizmo::Manipulate(glm::value_ptr(_matView), glm::value_ptr(_matProj), gizmoOperation, ImGuizmo::MODE::WORLD, mat)) {
+                ImGuizmo::DecomposeMatrixToComponents(mat, glm::value_ptr(transform.position), glm::value_ptr(transform.rotation), glm::value_ptr(transform.scale));
+                transform.manipulated = true;
+            }
+		}
+	}
 }
 
 void Session::setRunning(bool isRunning) {

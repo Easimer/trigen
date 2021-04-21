@@ -90,6 +90,18 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstrac
 
     connect(&_viewport, &GLViewport::rendering, _vm.get(), &VM_Main::onRender);
 
+    connect(_entityList.selectionModel(), &QItemSelectionModel::currentChanged, _vm.get(), &VM_Main::entitySelectionChanged);
+    connect(_entityList.selectionModel(), &QItemSelectionModel::selectionChanged, [&](QItemSelection const &selected, QItemSelection const &deselected) {
+        if (selected.size() == 0) {
+            // Pass an invalid model index to signal the deselection
+            _vm->entitySelectionChanged(QModelIndex());
+        } else {
+            for (auto &selectionRange : selected) {
+                _vm->entitySelectionChanged(selectionRange.topLeft());
+            }
+        }
+    });
+
     connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
     connect(&_renderTimer, &QTimer::timeout, [&]() {
         _vm->onTick(_renderTimer.interval() / 1000.0f);

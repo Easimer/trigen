@@ -6,6 +6,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <arcball_camera.h>
 #include <QObject>
 
@@ -31,6 +32,8 @@ public:
     bool isRunning() const { return _isRunning; }
 	void addColliderFromPath(char const *path);
     QWorld const *world() const { return &_world; }
+    void selectEntity(int index);
+    void deselectEntity();
 
 public slots:
     void onTick(float deltaTime);
@@ -44,6 +47,7 @@ private:
     Softbody_Render_Parameters _renderParams;
     QWorld _world;
     bool _isRunning = false;
+    std::optional<Entity_Handle> _selectedEntity;
 
     std::vector<Entity_Handle> _pendingColliderMeshUploads;
 

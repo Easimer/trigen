@@ -26,7 +26,7 @@ Q_INVOKABLE QVariant Entity_List_Model::data(const QModelIndex &index, int role)
     }
 
     if (role == Qt::DisplayRole) {
-        return QString("Entity #") + QString::number(index.row());
+        return QString("Entity #%1").arg(index.row());
     } else {
         return QVariant();
     }
