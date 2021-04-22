@@ -47,6 +47,7 @@ set(SRC
     wizard_sb_plant_config.ui
     wizard_sb_compute_config.ui
     wizard_collider_browse.ui
+    dlg_meshgen.ui
 
     resources.qrc
 )

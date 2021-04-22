@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <functional>
 
 #include "world_qt.h"
 
@@ -40,6 +41,8 @@ public:
     VM_Meshgen(QWorld const *world, Entity_Handle ent);
 
     bool checkEntity() const;
+
+    void foreachInputTexture(std::function<void(char const *, Input_Texture &)> const &callback);
 
 public slots:
     void numberOfSubdivionsChanged(int subdivisions);

@@ -19,6 +19,14 @@ bool VM_Meshgen::checkEntity() const {
     return _world->exists(_ent) && (_world->getMapForComponent<Plant_Component>().count(_ent) > 0);
 }
 
+void VM_Meshgen::foreachInputTexture(std::function<void(char const *, Input_Texture &)> const &callback) {
+    callback("Base color", _texBase);
+    callback("Normal map", _texNormal);
+    callback("Height map", _texHeight);
+    callback("Roughness map", _texRoughness);
+    callback("AO", _texAo);
+}
+
 void VM_Meshgen::destroyModel(gfx::Model_ID handle) {
     _modelsDestroying.push_back(handle);
 }

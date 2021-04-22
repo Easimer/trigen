@@ -7,9 +7,48 @@
 
 #include "dlg_meshgen.h"
 #include "vm_meshgen.h"
+
+#include <QBoxLayout>
 #include <QDialog>
+#include <QFileDialog>
+#include <QLineEdit>
+#include <QPushButton>
+
 #include <marching_cubes.h>
 #include <psp/psp.h>
+
+#include <ui_dlg_meshgen.h>
+
+class QTextureWidget : public QWidget {
+    Q_OBJECT;
+
+public:
+    QTextureWidget(QWidget *parent)
+        : QWidget(parent)
+        , _layout(QBoxLayout::Direction::LeftToRight, this)
+        , _editPath(this)
+        , _btnBrowse("Browse...", this) {
+        _layout.addWidget(&_editPath);
+        _layout.addWidget(&_btnBrowse);
+        connect(&_btnBrowse, &QPushButton::clicked, [&]() {
+            auto path = QFileDialog::getOpenFileName(this, "Load a texture", QString(), "Images (*.png *.jpg *.bmp);;All files (*.*)");
+            if (path.isEmpty()) {
+                return;
+            }
+
+            _editPath.setText(path);
+            emit pathChanged(path);
+        });
+    }
+
+signals:
+    void pathChanged(QString const &path);
+
+private:
+    QBoxLayout _layout;
+    QLineEdit _editPath;
+    QPushButton _btnBrowse;
+};
 
 class Dialog_Meshgen : public QDialog, public IDialog_Meshgen {
     Q_OBJECT;
@@ -19,6 +58,12 @@ public:
     Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
         : QDialog(parent)
         , _vm(world, entity) {
+        _ui.setupUi(this);
+
+        _vm.foreachInputTexture([&](char const *name, Input_Texture &tex) {
+            auto texWidget = new QTextureWidget(this);
+            _ui.layoutTextures->addRow(name, texWidget);
+        });
     }
 
     ~Dialog_Meshgen() override = default;
@@ -28,6 +73,8 @@ public:
 
 private:
     VM_Meshgen _vm;
+
+    Ui::Dialog_Meshgen _ui;
 };
 
 IDialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent) {
