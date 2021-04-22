@@ -23,8 +23,14 @@
    </item>
    <item row="1" column="1">
     <widget class="QSpinBox" name="sbParticleCountLimit">
+     <property name="minimum">
+      <number>8</number>
+     </property>
      <property name="maximum">
       <number>65536</number>
+     </property>
+     <property name="value">
+      <double>128</double>
      </property>
     </widget>
    </item>
