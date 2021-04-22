@@ -60,15 +60,24 @@ public:
         , _vm(world, entity) {
         _ui.setupUi(this);
 
-        _vm.foreachInputTexture([&](char const *name, Input_Texture &tex) {
+        _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
             auto texWidget = new QTextureWidget(this);
             _ui.layoutTextures->addRow(name, texWidget);
+            connect(texWidget, &QTextureWidget::pathChanged, [&](QString const &path) {
+                pathToTextureChanged(kind, path);
+            });
         });
     }
 
     ~Dialog_Meshgen() override = default;
 
     void onRender(gfx::Render_Queue *rq) override {
+    }
+
+protected slots:
+    void pathToTextureChanged(Texture_Kind kind, QString const &path) {
+        auto pathUtf8 = path.toUtf8();
+        _vm.loadTextureFromPath(kind, pathUtf8.constData());
     }
 
 private:

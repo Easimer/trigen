@@ -64,6 +64,7 @@ target_link_libraries(editor PRIVATE
     RCmd::Softbody
     marching_cubes
     psp
+    stb
 )
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)

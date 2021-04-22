@@ -20,6 +20,14 @@
 #include <r_queue.h>
 #include <r_renderer.h>
 
+enum class Texture_Kind {
+    Base,
+    Normal,
+    Height,
+    Roughness,
+    AO,
+};
+
 struct Basic_Mesh {
     gfx::Model_ID renderer_handle = nullptr;
 
@@ -42,11 +50,12 @@ public:
 
     bool checkEntity() const;
 
-    void foreachInputTexture(std::function<void(char const *, Input_Texture &)> const &callback);
+    void foreachInputTexture(std::function<void(Texture_Kind, char const *, Input_Texture &)> const &callback);
 
 public slots:
     void numberOfSubdivionsChanged(int subdivisions);
     void metaballRadiusChanged(float metaballRadius);
+    void loadTextureFromPath(Texture_Kind kind, char const *path);
 
 protected:
     void regenerateMetaballs();

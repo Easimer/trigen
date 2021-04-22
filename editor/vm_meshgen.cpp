@@ -10,6 +10,8 @@
 
 #include <r_cmd/general.h>
 
+#include <stb_image.h>
+
 VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     : _world(world)
     , _ent(ent) {
@@ -19,12 +21,12 @@ bool VM_Meshgen::checkEntity() const {
     return _world->exists(_ent) && (_world->getMapForComponent<Plant_Component>().count(_ent) > 0);
 }
 
-void VM_Meshgen::foreachInputTexture(std::function<void(char const *, Input_Texture &)> const &callback) {
-    callback("Base color", _texBase);
-    callback("Normal map", _texNormal);
-    callback("Height map", _texHeight);
-    callback("Roughness map", _texRoughness);
-    callback("AO", _texAo);
+void VM_Meshgen::foreachInputTexture(std::function<void(Texture_Kind, char const *, Input_Texture &)> const &callback) {
+    callback(Texture_Kind::Base, "Base color", _texBase);
+    callback(Texture_Kind::Normal, "Normal map", _texNormal);
+    callback(Texture_Kind::Height, "Height map", _texHeight);
+    callback(Texture_Kind::Roughness, "Roughness map", _texRoughness);
+    callback(Texture_Kind::AO, "AO", _texAo);
 }
 
 void VM_Meshgen::destroyModel(gfx::Model_ID handle) {
@@ -47,6 +49,50 @@ void VM_Meshgen::numberOfSubdivionsChanged(int subdivisions) {
 
 void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     _metaballRadius = metaballRadius;
+}
+
+void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
+    int channels, width, height;
+    std::unique_ptr<uint8_t[]> data;
+    stbi_uc *buffer;
+    if ((buffer = stbi_load(path, &width, &height, &channels, 3)) != nullptr) {
+        auto size = size_t(width) * size_t(height) * 3;
+        data = std::make_unique<uint8_t[]>(size);
+        memcpy(data.get(), buffer, size);
+        stbi_image_free(buffer);
+    } else {
+        assert(0);
+        return;
+    }
+
+    Input_Texture *tex = nullptr;
+
+    switch (kind) {
+    case Texture_Kind::Base:
+        tex = &_texBase;
+        break;
+    case Texture_Kind::Normal:
+        tex = &_texNormal;
+        break;
+    case Texture_Kind::Height:
+        tex = &_texHeight;
+        break;
+    case Texture_Kind::Roughness:
+        tex = &_texRoughness;
+        break;
+    case Texture_Kind::AO:
+        tex = &_texAo;
+        break;
+    }
+
+    if (tex != nullptr) {
+        tex->data = std::move(data);
+        tex->info.buffer = tex->data.get();
+        tex->info.width = width;
+        tex->info.height = height;
+    } else {
+        assert(0);
+    }
 }
 
 void VM_Meshgen::regenerateMetaballs() {
