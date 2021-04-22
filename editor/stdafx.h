@@ -8,16 +8,20 @@
 #include <cassert>
 #include <cstdio>
 
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <list>
 #include <memory>
 #include <optional>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include <glm/gtc/type_ptr.hpp>
 
 #include <QObject>
+#include <QWidget>
+#include <QWizard>
+
+#include <glviewport.h>
 
 #include <softbody.h>
 #include <arcball_camera.h>
