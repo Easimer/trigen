@@ -36,6 +36,10 @@ set(SRC
     entity_list.h
     world_qt.cpp
     world_qt.h
+    dlg_meshgen.cpp
+    dlg_meshgen.h
+    vm_meshgen.cpp
+    vm_meshgen.h
 
     tiny_obj_loader.cpp
 
