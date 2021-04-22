@@ -69,6 +69,17 @@ void Session::deselectEntity() {
 	_selectedEntity.reset();
 }
 
+bool Session::selectedEntity(Entity_Handle *out) const {
+    assert(out != nullptr);
+	if (!_selectedEntity.has_value() || out == nullptr) {
+        return false;
+	}
+
+	*out = *_selectedEntity;
+
+	return true;
+}
+
 void Session::onTick(float deltaTime) {
 	auto &transforms = _world.getMapForComponent<Transform_Component>();
 	auto &colliders = _world.getMapForComponent<Collider_Component>();

@@ -10,7 +10,7 @@
 
 #include <r_cmd/general.h>
 
-VM_Meshgen::VM_Meshgen(World *world, Entity_Handle ent)
+VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     : _world(world)
     , _ent(ent) {
 }

@@ -37,7 +37,7 @@ struct Input_Texture {
 
 class VM_Meshgen {
 public:
-    VM_Meshgen(World *world, Entity_Handle ent);
+    VM_Meshgen(QWorld const *world, Entity_Handle ent);
 
     bool checkEntity() const;
 
@@ -55,7 +55,7 @@ protected:
     void cleanupModels(gfx::Render_Queue *rq);
 
 private:
-    World *_world;
+    QWorld const *_world;
     Entity_Handle _ent;
 
     std::vector<marching_cubes::metaball> _metaballs;

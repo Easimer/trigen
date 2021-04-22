@@ -37,6 +37,11 @@ public:
         return _world.getMapForComponent<T>();
     }
 
+	template<typename T>
+    std::unordered_map<Entity_Handle, T> const &getMapForComponent() const {
+        return _world.getMapForComponent<T>();
+    }
+
 	int numEntities() const {
 		return _world.numEntities();
 	}

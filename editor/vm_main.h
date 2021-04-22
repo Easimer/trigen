@@ -30,6 +30,7 @@ public:
 	}
 	void onTick(float deltaTime);
 	void setGizmoMode(Session_Gizmo_Mode mode);
+    void createMeshgenDialog(QWidget *parent);
 
 public slots:
 	void onRender(gfx::Render_Queue *rq);

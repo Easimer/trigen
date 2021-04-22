@@ -34,6 +34,7 @@ public:
     QWorld const *world() const { return &_world; }
     void selectEntity(int index);
     void deselectEntity();
+    bool selectedEntity(Entity_Handle *out) const;
 
 public slots:
     void onTick(float deltaTime);

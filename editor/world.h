@@ -22,6 +22,11 @@ using Entity_Handle = std::make_signed<size_t>::type;
 	template<> \
 	std::unordered_map<Entity_Handle, typeName> &getMapForComponent<typeName>() { \
 		return dataMember; \
+	} \
+\
+	template<> \
+	std::unordered_map<Entity_Handle, typeName> const &getMapForComponent<typeName>() const { \
+		return dataMember; \
 	}
 
 #define FOREACH_COMPONENT(func) \
@@ -47,6 +52,9 @@ public:
 
 	template<typename T>
 	std::unordered_map<Entity_Handle, T> &getMapForComponent();
+
+	template<typename T>
+	std::unordered_map<Entity_Handle, T> const &getMapForComponent() const;
 
 	FOREACH_COMPONENT(DEFINE_GETMAPFORCOMPONENT)
 

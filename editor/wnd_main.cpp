@@ -102,6 +102,10 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstrac
         }
     });
 
+    connect(_ui->actionMeshgen, &QAction::triggered, [&]() {
+        _vm->createMeshgenDialog(this);
+    });
+
     connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
     connect(&_renderTimer, &QTimer::timeout, [&]() {
         _vm->onTick(_renderTimer.interval() / 1000.0f);

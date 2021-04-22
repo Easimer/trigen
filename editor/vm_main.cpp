@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include <cassert>
 #include "vm_main.h"
+#include "dlg_meshgen.h"
 
 VM_Main::VM_Main(Entity_List_Model *entityListModel)
 : _entityListModel(entityListModel) {
@@ -59,6 +60,15 @@ void VM_Main::onTick(float deltaTime) {
 void VM_Main::setGizmoMode(Session_Gizmo_Mode mode) {
 	if (_currentSession != nullptr) {
 		_currentSession->setGizmoMode(mode);
+	}
+}
+
+void VM_Main::createMeshgenDialog(QWidget *parent) {
+	if (_currentSession != nullptr) {
+        Entity_Handle selectedEntity;
+		if (_currentSession->selectedEntity(&selectedEntity)) {
+            auto dlg = make_meshgen_dialog(_currentSession->world(), selectedEntity, parent);
+		}
 	}
 }
 

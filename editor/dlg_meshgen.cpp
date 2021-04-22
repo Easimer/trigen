@@ -6,6 +6,7 @@
 #include "stdafx.h"
 
 #include "dlg_meshgen.h"
+#include "vm_meshgen.h"
 #include <QDialog>
 #include <marching_cubes.h>
 #include <psp/psp.h>
@@ -15,8 +16,9 @@ class Dialog_Meshgen : public QDialog, public IDialog_Meshgen {
     Q_INTERFACES(IDialog_Meshgen);
 
 public:
-    Dialog_Meshgen(QWidget *parent)
-        : QDialog(parent) {
+    Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
+        : QDialog(parent)
+        , _vm(world, entity) {
     }
 
     ~Dialog_Meshgen() override = default;
@@ -25,10 +27,13 @@ public:
     }
 
 private:
+    VM_Meshgen _vm;
 };
 
-std::unique_ptr<IDialog_Meshgen> make_meshgen_dialog(QWidget *parent) {
-    return std::unique_ptr<IDialog_Meshgen>();
+IDialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent) {
+    auto ret = new Dialog_Meshgen(world, entity, parent);
+    ret->show();
+    return ret;
 }
 
 #include "dlg_meshgen.moc"

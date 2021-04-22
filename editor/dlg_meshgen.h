@@ -9,6 +9,8 @@
 #include <QWidget>
 #include <r_queue.h>
 
+#include "world_qt.h"
+
 class IDialog_Meshgen {
 public:
     virtual ~IDialog_Meshgen() = default;
@@ -19,4 +21,4 @@ public slots:
 
 Q_DECLARE_INTERFACE(IDialog_Meshgen, "IDialog_Meshgen");
 
-std::unique_ptr<IDialog_Meshgen> make_meshgen_dialog(QWidget *parent);
+IDialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent);

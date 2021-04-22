@@ -54,6 +54,7 @@
    <addaction name="actionModeTranslate"/>
    <addaction name="actionModeRotate"/>
    <addaction name="actionModeScale"/>
+   <addaction name="actionMeshgen"/>
   </widget>
   <widget class="QToolBar" name="toolBarTop">
    <property name="windowTitle">
@@ -122,6 +123,11 @@
   <action name="actionModeScale">
    <property name="text">
     <string>Mode: Scale</string>
+   </property>
+  </action>
+  <action name="actionMeshgen">
+   <property name="text">
+    <string>Meshgen</string>
    </property>
   </action>
  </widget>
