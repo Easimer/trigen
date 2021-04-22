@@ -58,6 +58,7 @@ public slots:
     void numberOfSubdivionsChanged(int subdivisions);
     void metaballRadiusChanged(float metaballRadius);
     void loadTextureFromPath(Texture_Kind kind, char const *path);
+    void resolutionChanged(int resolution);
 
 protected:
     void regenerateMetaballs();

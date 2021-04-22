@@ -27,19 +27,21 @@ public:
         gfx::Model_Descriptor model{};
 
         assert(*_out_id == nullptr);
+        fill(&model, _mesh);
 
         renderer->create_model(_out_id, &model);
     }
 
-    void fill(gfx::Model_Descriptor *d, Unwrapped_Mesh *mesh) {
-        model.uv = (std::array<float, 2>*)_mesh->uv.data();
+    void fill(gfx::Model_Descriptor *d, Unwrapped_Mesh const *mesh) {
+        fill(d, (Basic_Mesh *)mesh);
+        d->uv = (std::array<float, 2>*)_mesh->uv.data();
     }
 
-    void fill(gfx::Model_Descriptor *d, Basic_Mesh *mesh) {
-        model.vertex_count = _mesh->positions.size();
-        model.vertices = _mesh->positions.data();
-        model.element_count = _mesh->elements.size();
-        model.elements = _mesh->elements.data();
+    void fill(gfx::Model_Descriptor *d, Basic_Mesh const *mesh) {
+        d->vertex_count = _mesh->positions.size();
+        d->vertices = _mesh->positions.data();
+        d->element_count = _mesh->elements.size();
+        d->elements = _mesh->elements.data();
     }
 
 private:
@@ -106,7 +108,7 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
     if (_unwrappedMesh.has_value()) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
-            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _basicMesh->renderer_handle, renderTransform);
+            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
         }
@@ -198,6 +200,13 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
     }
 }
 
+void VM_Meshgen::resolutionChanged(int resolution) {
+    _paintParams.out_width = resolution;
+    _paintParams.out_height = resolution;
+
+    repaintMesh();
+}
+
 void VM_Meshgen::regenerateMetaballs() {
     assert(checkEntity());
 
@@ -269,8 +278,6 @@ void VM_Meshgen::regenerateMesh() {
 }
 
 void VM_Meshgen::regenerateUVs() {
-    assert(_pspMesh.has_value());
-
     if (!_pspMesh.has_value()) {
         return;
     }
@@ -284,8 +291,6 @@ void VM_Meshgen::regenerateUVs() {
 }
 
 void VM_Meshgen::repaintMesh() {
-    assert(_pspMesh.has_value());
-
     if (!_pspMesh.has_value()) {
         return;
     }

@@ -57,6 +57,7 @@ public:
     Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
         : Base_Dialog_Meshgen(parent)
         , _vm(world, entity) {
+        setAttribute(Qt::WA_DeleteOnClose);
         _ui.setupUi(this);
 
         _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
@@ -69,8 +70,10 @@ public:
 
         connect(_ui.sbMetaballRadius, qOverload<double>(&QDoubleSpinBox::valueChanged), &_vm, &VM_Meshgen::metaballRadiusChanged);
         connect(_ui.sbNumSubdivisions, qOverload<int>(&QSpinBox::valueChanged), &_vm, &VM_Meshgen::numberOfSubdivionsChanged);
+        connect(_ui.sbResolution, qOverload<int>(&QSpinBox::valueChanged), &_vm, &VM_Meshgen::resolutionChanged);
 
         // HACKHACKHACK(danielm): trigger the valueChanged signal for fields with default values
+        _vm.resolutionChanged(_ui.sbResolution->value());
         _vm.numberOfSubdivionsChanged(_ui.sbNumSubdivisions->value());
         _vm.metaballRadiusChanged(_ui.sbMetaballRadius->value());
     }
