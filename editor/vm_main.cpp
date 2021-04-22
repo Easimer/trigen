@@ -68,6 +68,8 @@ void VM_Main::createMeshgenDialog(QWidget *parent) {
         Entity_Handle selectedEntity;
 		if (_currentSession->selectedEntity(&selectedEntity)) {
             auto dlg = make_meshgen_dialog(_currentSession->world(), selectedEntity, parent);
+            dlg->show();
+            connect(this, &VM_Main::rendering, dlg, &Base_Dialog_Meshgen::onRender);
 		}
 	}
 }
@@ -77,6 +79,8 @@ void VM_Main::onRender(gfx::Render_Queue *rq) {
 		_currentSession->onMeshUpload(rq);
 		_currentSession->onRender(rq);
 	}
+
+    emit rendering(rq);
 }
 
 void VM_Main::setRunning(bool isRunning) {

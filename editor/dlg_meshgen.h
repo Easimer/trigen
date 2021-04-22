@@ -6,19 +6,23 @@
 #pragma once
 
 #include <memory>
-#include <QWidget>
+#include <QDialog>
 #include <r_queue.h>
 
 #include "world_qt.h"
 
-class IDialog_Meshgen {
+class Base_Dialog_Meshgen : public QDialog {
+    Q_OBJECT;
+
 public:
-    virtual ~IDialog_Meshgen() = default;
+    Base_Dialog_Meshgen(QWidget *parent = nullptr)
+        : QDialog(parent) {
+    }
+
+    virtual ~Base_Dialog_Meshgen() = default;
 
 public slots:
     virtual void onRender(gfx::Render_Queue *rq) = 0;
 };
 
-Q_DECLARE_INTERFACE(IDialog_Meshgen, "IDialog_Meshgen");
-
-IDialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent);
+Base_Dialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent);

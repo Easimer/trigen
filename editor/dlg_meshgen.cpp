@@ -50,13 +50,12 @@ private:
     QPushButton _btnBrowse;
 };
 
-class Dialog_Meshgen : public QDialog, public IDialog_Meshgen {
+class Dialog_Meshgen : public Base_Dialog_Meshgen {
     Q_OBJECT;
-    Q_INTERFACES(IDialog_Meshgen);
 
 public:
     Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
-        : QDialog(parent)
+        : Base_Dialog_Meshgen(parent)
         , _vm(world, entity) {
         _ui.setupUi(this);
 
@@ -67,11 +66,19 @@ public:
                 pathToTextureChanged(kind, path);
             });
         });
+
+        connect(_ui.sbMetaballRadius, qOverload<double>(&QDoubleSpinBox::valueChanged), &_vm, &VM_Meshgen::metaballRadiusChanged);
+        connect(_ui.sbNumSubdivisions, qOverload<int>(&QSpinBox::valueChanged), &_vm, &VM_Meshgen::numberOfSubdivionsChanged);
+
+        // HACKHACKHACK(danielm): trigger the valueChanged signal for fields with default values
+        _vm.numberOfSubdivionsChanged(_ui.sbNumSubdivisions->value());
+        _vm.metaballRadiusChanged(_ui.sbMetaballRadius->value());
     }
 
     ~Dialog_Meshgen() override = default;
 
     void onRender(gfx::Render_Queue *rq) override {
+        _vm.onRender(rq);
     }
 
 protected slots:
@@ -86,10 +93,8 @@ private:
     Ui::Dialog_Meshgen _ui;
 };
 
-IDialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent) {
-    auto ret = new Dialog_Meshgen(world, entity, parent);
-    ret->show();
-    return ret;
+Base_Dialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent) {
+    return new Dialog_Meshgen(world, entity, parent);
 }
 
 #include "dlg_meshgen.moc"

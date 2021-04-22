@@ -12,13 +12,112 @@
 
 #include <stb_image.h>
 
+/**
+ * @param T Either Basic_Mesh or Unwrapped_Mesh
+ */
+template<typename T>
+class Upload_Model_Command : public gfx::IRender_Command {
+public:
+    Upload_Model_Command(gfx::Model_ID *out_id, T const *mesh) : _out_id(out_id), _mesh(mesh) {
+        assert(_out_id != nullptr);
+        assert(_mesh != nullptr);
+    }
+
+    void execute(gfx::IRenderer *renderer) override {
+        gfx::Model_Descriptor model{};
+
+        assert(*_out_id == nullptr);
+
+        renderer->create_model(_out_id, &model);
+    }
+
+    void fill(gfx::Model_Descriptor *d, Unwrapped_Mesh *mesh) {
+        model.uv = (std::array<float, 2>*)_mesh->uv.data();
+    }
+
+    void fill(gfx::Model_Descriptor *d, Basic_Mesh *mesh) {
+        model.vertex_count = _mesh->positions.size();
+        model.vertices = _mesh->positions.data();
+        model.element_count = _mesh->elements.size();
+        model.elements = _mesh->elements.data();
+    }
+
+private:
+    gfx::Model_ID *_out_id;
+    T const *_mesh;
+};
+
+static Basic_Mesh convertMesh(marching_cubes::mesh const &mesh) {
+    Basic_Mesh ret;
+
+    std::transform(
+        mesh.positions.begin(), mesh.positions.end(),
+        std::back_inserter(ret.positions),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
+    ret.elements = mesh.indices;
+    return ret;
+}
+
+Unwrapped_Mesh convertMesh(PSP::Mesh const &mesh) {
+    Unwrapped_Mesh ret;
+
+    std::transform(
+        mesh.position.begin(), mesh.position.end(),
+        std::back_inserter(ret.positions),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
+    std::transform(
+        mesh.elements.begin(), mesh.elements.end(),
+        std::back_inserter(ret.elements),
+        [&](auto p) { return (unsigned)p; });
+
+    ret.uv = mesh.uv;
+
+    return ret;
+}
+
 VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     : _world(world)
     , _ent(ent) {
+    _meshgenParams.subdivisions = 2;
+    _metaballRadius = 1;
 }
 
 bool VM_Meshgen::checkEntity() const {
     return _world->exists(_ent) && (_world->getMapForComponent<Plant_Component>().count(_ent) > 0);
+}
+
+void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
+    gfx::Transform renderTransform {
+        { 0, 0, 0 },
+        { 1, 0, 0, 0 },
+        { 1, 1, 1 }
+    };
+    auto &transforms = _world->getMapForComponent<Transform_Component>();
+    if (transforms.count(_ent)) {
+        auto &transform = transforms.at(_ent);
+        renderTransform.position = transform.position;
+        renderTransform.rotation = transform.rotation;
+        renderTransform.scale = transform.scale;
+    }
+    if (_unwrappedMesh.has_value()) {
+        if (_unwrappedMesh->renderer_handle != nullptr) {
+            // Render mesh
+            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _basicMesh->renderer_handle, renderTransform);
+        } else {
+            gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
+        }
+    } else if (_basicMesh.has_value()) {
+        if (_basicMesh->renderer_handle != nullptr) {
+            // Render basic mesh
+            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _basicMesh->renderer_handle, renderTransform);
+        } else {
+            gfx::allocate_command_and_initialize<Upload_Model_Command<Basic_Mesh>>(rq, &_basicMesh->renderer_handle, &*_basicMesh);
+        }
+    }
 }
 
 void VM_Meshgen::foreachInputTexture(std::function<void(Texture_Kind, char const *, Input_Texture &)> const &callback) {
@@ -45,10 +144,14 @@ void VM_Meshgen::cleanupModels(gfx::Render_Queue *rq) {
 
 void VM_Meshgen::numberOfSubdivionsChanged(int subdivisions) {
     _meshgenParams.subdivisions = subdivisions;
+
+    regenerateMesh();
 }
 
 void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     _metaballRadius = metaballRadius;
+
+    regenerateMetaballs();
 }
 
 void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
@@ -153,6 +256,8 @@ void VM_Meshgen::regenerateMetaballs() {
 void VM_Meshgen::regenerateMesh() {
     auto mesh = marching_cubes::generate(_metaballs, _meshgenParams);
 
+    _basicMesh = convertMesh(mesh);
+
     PSP::Mesh pspMesh;
     pspMesh.position = std::move(mesh.positions);
     pspMesh.normal = std::move(mesh.normal);
@@ -172,6 +277,8 @@ void VM_Meshgen::regenerateUVs() {
 
     _pspMesh->uv.clear();
     PSP::unwrap(_pspMesh.value());
+
+    _unwrappedMesh = convertMesh(*_pspMesh);
 
     repaintMesh();
 }

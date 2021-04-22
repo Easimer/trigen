@@ -28,7 +28,7 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QSpinBox" name="spinBox">
+       <widget class="QSpinBox" name="sbNumSubdivisions">
         <property name="minimum">
          <number>2</number>
         </property>
@@ -95,6 +95,13 @@
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
           <layout class="QFormLayout" name="layoutTextures"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btnRepaint">
+           <property name="text">
+            <string>Repaint</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>

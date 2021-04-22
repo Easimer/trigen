@@ -44,12 +44,14 @@ struct Input_Texture {
     PSP::Texture info;
 };
 
-class VM_Meshgen {
+class VM_Meshgen : public QObject {
+    Q_OBJECT;
+
 public:
     VM_Meshgen(QWorld const *world, Entity_Handle ent);
 
     bool checkEntity() const;
-
+    void onRender(gfx::Render_Queue *rq);
     void foreachInputTexture(std::function<void(Texture_Kind, char const *, Input_Texture &)> const &callback);
 
 public slots:

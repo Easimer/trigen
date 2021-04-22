@@ -40,6 +40,7 @@ public slots:
 signals:
 	void cameraUpdated();
 	void currentSessionChanged(Session *session);
+	void rendering(gfx::Render_Queue *rq);
 
 private:
 	Renderer *_renderer = nullptr;
