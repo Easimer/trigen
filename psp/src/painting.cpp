@@ -401,7 +401,7 @@ public:
     }
 
     bool is_painting_done() override {
-        return false;
+        return true;
     }
 
     size_t num_particles() override {

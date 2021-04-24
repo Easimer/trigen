@@ -346,7 +346,8 @@ public:
         LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, textured_defines, discard, [&](gl::Shader_Program& program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
-            m_element_model_shader_textured = { std::move(program), locMVP, locTexDiffuse };
+            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
+            m_element_model_shader_textured = { std::move(program), locMVP, locTexDiffuse, locTintColor };
         });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
@@ -830,6 +831,8 @@ public:
             auto matMVP = m_proj * m_view * matTransform;
             gl::SetUniformLocation(shader.locMVP, matMVP);
 
+            gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+
             auto texDiffuse = (Texture *)material.diffuse;
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
@@ -916,6 +919,7 @@ private:
         gl::Shader_Program program;
         gl::Uniform_Location<Mat4> locMVP;
         gl::Uniform_Location<GLint> locTexDiffuse;
+        gl::Uniform_Location<Vec4> locTintColor;
     };
 
     std::optional<Line_Shader> m_line_shader;

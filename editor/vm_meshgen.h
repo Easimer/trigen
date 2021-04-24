@@ -90,8 +90,10 @@ private:
     Input_Texture _texAo;
 
     PSP::Material _outputMaterial;
+    gfx::Texture_ID _texOutBase = nullptr;
 
     std::unique_ptr<PSP::IPainter> _painter;
 
     std::vector<gfx::Model_ID> _modelsDestroying;
+    std::vector<gfx::Texture_ID> _texturesDestroying;
 };

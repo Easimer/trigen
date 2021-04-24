@@ -70,3 +70,17 @@ protected:
     glm::mat4 *_viewMatrix;
     glm::mat4 *_projMatrix;
 };
+
+class Upload_Texture_Command : public gfx::IRender_Command {
+public:
+    Upload_Texture_Command(gfx::Texture_ID *outHandle, void const *buffer, int width, int height, gfx::Texture_Format format);
+
+protected:
+    void execute(gfx::IRenderer *renderer) override;
+
+    gfx::Texture_ID *_outHandle;
+    void const *_buffer;
+    int _width;
+    int _height;
+    gfx::Texture_Format _format;
+};

@@ -63,7 +63,7 @@ public:
         _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
             auto texWidget = new QTextureWidget(this);
             _ui.layoutTextures->addRow(name, texWidget);
-            connect(texWidget, &QTextureWidget::pathChanged, [&](QString const &path) {
+            connect(texWidget, &QTextureWidget::pathChanged, [&, kind](QString const &path) {
                 pathToTextureChanged(kind, path);
             });
         });

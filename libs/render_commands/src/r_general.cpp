@@ -91,3 +91,24 @@ Fetch_Camera_Matrices::Fetch_Camera_Matrices(glm::mat4 *out_viewMatrix, glm::mat
 void Fetch_Camera_Matrices::execute(gfx::IRenderer *renderer) {
     renderer->get_camera(*_viewMatrix, *_projMatrix);
 }
+
+Upload_Texture_Command::Upload_Texture_Command(gfx::Texture_ID *outHandle, void const *buffer, int width, int height, gfx::Texture_Format format)
+    : _outHandle(outHandle)
+    , _buffer(buffer)
+    , _width(width)
+    , _height(height)
+    , _format(format) {
+    assert(_outHandle != nullptr);
+    assert(_buffer != nullptr);
+    assert(_width > 0);
+    assert(_height > 0);
+}
+
+void Upload_Texture_Command::execute(gfx::IRenderer *renderer) {
+    assert(*_outHandle == nullptr);
+    if (_outHandle == nullptr || *_outHandle != nullptr || _buffer == nullptr || _width == 0 || _height == 0) {
+        return;
+    }
+
+    renderer->upload_texture(_outHandle, _width, _height, _format, _buffer);
+}

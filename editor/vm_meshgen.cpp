@@ -105,10 +105,19 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         renderTransform.rotation = transform.rotation;
         renderTransform.scale = transform.scale;
     }
+
+    if (_outputMaterial.base.buffer != nullptr && _texOutBase == nullptr) {
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBase, _outputMaterial.base.buffer, _outputMaterial.base.width, _outputMaterial.base.height, gfx::Texture_Format::RGB888);
+    }
+
     if (_unwrappedMesh.has_value()) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
-            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
+            if (_texOutBase != nullptr) {
+                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBase, renderTransform);
+            } else {
+                gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
+            }
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
         }
@@ -295,17 +304,43 @@ void VM_Meshgen::repaintMesh() {
         return;
     }
 
+    PSP::Texture texBlack = {};
+    char const blackPixel[3] = { 0, 0, 0 };
+
+    texBlack.buffer = blackPixel;
+    texBlack.width = 1;
+    texBlack.height = 1;
+
+    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target) {
+        if (input.data == nullptr) {
+            target = texBlack;
+        } else {
+            target = input.info;
+        }
+    };
+
     assert(_pspMesh->uv.size() == _pspMesh->elements.size());
 
-    _inputMaterial.base = _texBase.info;
-    _inputMaterial.normal = _texNormal.info;
-    _inputMaterial.height = _texHeight.info;
-    _inputMaterial.roughness = _texRoughness.info;
-    _inputMaterial.ao = _texAo.info;
+    putPlaceholderTextureIfEmpty(_texBase, _inputMaterial.base);
+    putPlaceholderTextureIfEmpty(_texNormal, _inputMaterial.normal);
+    putPlaceholderTextureIfEmpty(_texHeight, _inputMaterial.height);
+    putPlaceholderTextureIfEmpty(_texRoughness, _inputMaterial.roughness);
+    putPlaceholderTextureIfEmpty(_texAo, _inputMaterial.ao);
 
     _paintParams.material = &_inputMaterial;
     _paintParams.mesh = &_pspMesh.value();
 
+    if (_texOutBase != nullptr) {
+        _texturesDestroying.push_back(_texOutBase);
+    }
+    _texOutBase = nullptr;
+    _outputMaterial = {};
     _painter = PSP::make_painter(_paintParams);
+
+    _painter->step_painting(0);
+
+    if (_painter->is_painting_done()) {
+        _painter->result(&_outputMaterial);
+    }
 }
 
