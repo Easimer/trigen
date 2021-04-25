@@ -74,6 +74,8 @@ public slots:
      */
     void onExportPathAvailable(QString const &path);
 
+    void renderNormalsOptionChanged(bool renderNormals) { _renderNormals = renderNormals; }
+
 signals:
     /**
      * Called when the export process succeeded without any errors
@@ -133,4 +135,6 @@ private:
 
     std::vector<gfx::Model_ID> _modelsDestroying;
     std::vector<gfx::Texture_ID> _texturesDestroying;
+
+    bool _renderNormals = false;
 };

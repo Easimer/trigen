@@ -50,6 +50,20 @@ private:
     T const *_mesh;
 };
 
+class Render_Normals_Command : public gfx::IRender_Command {
+public:
+    Render_Normals_Command(std::vector<glm::vec3> &&lines)
+        : _lines(std::move(lines)) {
+    }
+
+    void execute(gfx::IRenderer *renderer) {
+        renderer->draw_lines(_lines.data(), _lines.size() / 2, glm::vec3(0, 0, 0), glm::vec3(0.4, 0.4, 0.8), glm::vec3(0.4, 0.4, 1.0));
+    }
+
+private:
+    std::vector<glm::vec3> _lines;
+};
+
 static Basic_Mesh convertMesh(marching_cubes::mesh const &mesh) {
     Basic_Mesh ret;
 
@@ -122,12 +136,28 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
         }
+
     } else if (_basicMesh.has_value()) {
         if (_basicMesh->renderer_handle != nullptr) {
             // Render basic mesh
             gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _basicMesh->renderer_handle, renderTransform);
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Basic_Mesh>>(rq, &_basicMesh->renderer_handle, &*_basicMesh);
+        }
+    }
+
+    if (_pspMesh.has_value()) {
+
+        if (_renderNormals) {
+            std::vector<glm::vec3> lines;
+            // DEBUG: for each vertex, draw the normal
+            for (size_t i = 0; i < _pspMesh->position.size(); i++) {
+                auto start = _pspMesh->position[i];
+                auto end = start + _pspMesh->normal[i];
+                lines.push_back(start);
+                lines.push_back(end);
+            }
+            gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
         }
     }
 }

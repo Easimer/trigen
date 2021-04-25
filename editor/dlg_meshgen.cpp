@@ -74,6 +74,8 @@ public:
             _vm.onExportPathAvailable(path);
         });
 
+        connect(_ui.chkRenderNormals, &QCheckBox::stateChanged, &_vm, &VM_Meshgen::renderNormalsOptionChanged);
+
         auto btnExport = new QPushButton(tr("&Export..."));
         btnExport->setDefault(true);
 
