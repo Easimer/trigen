@@ -63,10 +63,17 @@ void Session::addColliderFromPath(char const *path) {
 
 void Session::selectEntity(int index) {
 	_selectedEntity = Entity_Handle(index);
+
+	if (_world.getMapForComponent<Plant_Component>().count(_selectedEntity.value())) {
+        emit meshgenAvailabilityChanged(true);
+    } else {
+        emit meshgenAvailabilityChanged(false);
+	}
 }
 
 void Session::deselectEntity() {
 	_selectedEntity.reset();
+    emit meshgenAvailabilityChanged(false);
 }
 
 bool Session::selectedEntity(Entity_Handle *out) const {

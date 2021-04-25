@@ -41,6 +41,7 @@ signals:
 	void cameraUpdated();
 	void currentSessionChanged(Session *session);
 	void rendering(gfx::Render_Queue *rq);
+    void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
 
 private:
 	Renderer *_renderer = nullptr;

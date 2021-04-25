@@ -34,6 +34,8 @@ void VM_Main::switchToSession(Session *session) {
 
 	if (_currentSession != nullptr) {
 		_entityListModel->setCurrentWorld(_currentSession->world());
+
+        connect(_currentSession, &Session::meshgenAvailabilityChanged, this, &VM_Main::meshgenAvailabilityChanged);
 	}
 
 	emit currentSessionChanged(session);

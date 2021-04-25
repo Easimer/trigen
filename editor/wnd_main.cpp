@@ -106,6 +106,10 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstrac
         _vm->createMeshgenDialog(this);
     });
 
+    connect(_vm.get(), &VM_Main::meshgenAvailabilityChanged, [&](bool isAvailable) {
+        _ui->actionMeshgen->setEnabled(isAvailable);
+    });
+
     connect(&_renderTimer, SIGNAL(timeout()), &_viewport, SLOT(update()));
     connect(&_renderTimer, &QTimer::timeout, [&]() {
         _vm->onTick(_renderTimer.interval() / 1000.0f);
@@ -128,8 +132,12 @@ void Window_Main::newSession(QString const &name) {
 
 void Window_Main::currentSessionChanged(Session *session) {
     if (session != nullptr) {
+        // Enable all buttons on the sidebar when the first session is created
         for (auto &action : _ui->toolBarSide->actions()) {
             action->setEnabled(true);
         }
+        
+        // Except the meshgen button
+        _ui->actionMeshgen->setEnabled(false);
     }
 }

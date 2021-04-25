@@ -43,6 +43,9 @@ public slots:
     void onMeshUpload(gfx::Render_Queue *rq);
     void setGizmoMode(Session_Gizmo_Mode mode);
 
+signals:
+	void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
+
 private:
     std::string _name;
     Softbody_Render_Parameters _renderParams;
