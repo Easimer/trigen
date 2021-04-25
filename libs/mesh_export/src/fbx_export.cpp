@@ -135,9 +135,9 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
         auto i2 = mesh->elements[off2];
 
         meshNode->BeginPolygon();
-        meshNode->AddPolygon(i0, off0);
-        meshNode->AddPolygon(i1, off1);
         meshNode->AddPolygon(i2, off2);
+        meshNode->AddPolygon(i1, off1);
+        meshNode->AddPolygon(i0, off0);
         meshNode->EndPolygon();
     }
     meshNode->BuildMeshEdgeArray();
