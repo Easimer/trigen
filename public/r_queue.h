@@ -136,9 +136,9 @@ namespace gfx {
      * @return Pointer to the newly created command
      */
     template<typename T, class ... Arg>
-    T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg ... args) {
+    T* allocate_command_and_initialize(gfx::Render_Queue* rq, Arg&& ... args) {
         auto cmd = rq->allocate<T>();
-        new(cmd) T(args...);
+        new(cmd) T(std::forward<Arg>(args)...);
         rq->push(cmd);
         return cmd;
     }
