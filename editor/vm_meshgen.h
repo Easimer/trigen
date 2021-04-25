@@ -60,6 +60,43 @@ public slots:
     void loadTextureFromPath(Texture_Kind kind, char const *path);
     void resolutionChanged(int resolution);
 
+    /**
+     * Call this from the view when the user wants to export the generated
+     * mesh.
+     */
+    void onExportClicked();
+
+    /**
+     * Call this from slot that received the showExportFileDialog
+     * signal when the user has entered a non-empty export path.
+     *
+     * @param path File path entered by the user.
+     */
+    void onExportPathAvailable(QString const &path);
+
+signals:
+    /**
+     * Called when the export process succeeded without any errors
+     * and the file was saved to the disk.
+     */
+    void exported();
+
+    /**
+     * Emitted if anything goes wrong during export.
+     * May be used by the view to display an error message box.
+     *
+     * @param msg Error message
+     */
+    void exportError(QString const &msg);
+
+    /**
+     * Emitted after onExportClicked is called and the mesh is ready
+     * for export.
+     * The receiver slot should call onExportPathAvailable when the
+     * user has entered a non-empty export path.
+     */
+    void showExportFileDialog();
+
 protected:
     void regenerateMetaballs();
     void regenerateMesh();

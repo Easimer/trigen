@@ -8,6 +8,7 @@
 
 #include <set>
 
+#include <mesh_export.h>
 #include <r_cmd/general.h>
 
 #include <stb_image.h>
@@ -214,6 +215,40 @@ void VM_Meshgen::resolutionChanged(int resolution) {
     _paintParams.out_height = resolution;
 
     repaintMesh();
+}
+
+void VM_Meshgen::onExportClicked() {
+    if (!_pspMesh) {
+        emit exportError("Meshgen isn't done yet!");
+        return;
+    }
+
+    if (!_painter || !_painter->is_painting_done()) {
+        emit exportError("Painting isn't done yet!");
+        return;
+    }
+
+    emit showExportFileDialog();
+}
+
+void VM_Meshgen::onExportPathAvailable(QString const &path) {
+    assert(!path.isEmpty());
+    if (path.isEmpty()) {
+        return;
+    }
+
+    assert(_pspMesh.has_value());
+    if (!_pspMesh.has_value()) {
+        emit exportError("Generated mesh has disappeared between validation and saving. Programmer error?");
+    }
+
+    auto const pathu8 = path.toUtf8();
+
+    if (fbx_try_save(pathu8.constData(), &_pspMesh.value(), &_outputMaterial)) {
+        emit exported();
+    } else {
+        emit exportError("Couldn't save FBX file!");
+    }
 }
 
 void VM_Meshgen::regenerateMetaballs() {

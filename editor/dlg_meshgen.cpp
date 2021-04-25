@@ -12,6 +12,7 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 
 #include <marching_cubes.h>
@@ -59,6 +60,29 @@ public:
         , _vm(world, entity) {
         setAttribute(Qt::WA_DeleteOnClose);
         _ui.setupUi(this);
+
+        connect(&_vm, &VM_Meshgen::exportError, [&](QString const &msg) {
+            QMessageBox::critical(this, tr("Exporting has failed"), msg);
+        });
+
+        connect(&_vm, &VM_Meshgen::showExportFileDialog, [&]() {
+            auto path = QFileDialog::getSaveFileName(this, "Export...", QString(), "Autodesk FBX (*.fbx)");
+            if (path.isEmpty()) {
+                return;
+            }
+
+            _vm.onExportPathAvailable(path);
+        });
+
+        auto btnExport = new QPushButton(tr("&Export..."));
+        btnExport->setDefault(true);
+
+        connect(btnExport, &QPushButton::clicked, &_vm, &VM_Meshgen::onExportClicked);
+        connect(&_vm, &VM_Meshgen::exported, this, &QDialog::accepted);
+
+        _ui.buttonBox->addButton(btnExport, QDialogButtonBox::ActionRole);
+        _ui.buttonBox->addButton(QDialogButtonBox::Close);
+        connect(_ui.buttonBox, &QDialogButtonBox::rejected, this, &QDialog::rejected);
 
         _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
             auto texWidget = new QTextureWidget(this);
