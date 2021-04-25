@@ -205,6 +205,8 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
         tex->info.buffer = tex->data.get();
         tex->info.width = width;
         tex->info.height = height;
+
+        repaintMesh();
     } else {
         assert(0);
     }
