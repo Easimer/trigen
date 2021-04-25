@@ -266,6 +266,7 @@ bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *
 
     build_mesh(scene, mesh, material);
     save_scene(sdkManager, ioSettings, scene, path);
+    ret = true;
 
     scene->Destroy();
 err_sdk:
