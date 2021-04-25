@@ -12,6 +12,26 @@
 #include "s_iterators.h"
 #include "f_serialization.internal.h"
 #include <raymarching.h>
+#include <intersect.h>
+
+// TODO(danielm): duplicate of the implementation in s_compute_ref.cpp!!!
+static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+    auto base = triangle_index * 3;
+    return {
+        c.vertex_indices[base + 0],
+        c.vertex_indices[base + 1],
+        c.vertex_indices[base + 2]
+    };
+}
+
+static std::array<uint64_t, 3> get_normal_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+    auto base = triangle_index * 3;
+    return {
+        c.normal_indices[base + 0],
+        c.normal_indices[base + 1],
+        c.normal_indices[base + 2]
+    };
+}
 
 static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
         sb::sdf::ast::Expression<float>* expr,
@@ -94,6 +114,9 @@ private:
                     }
                 }
 
+                for (auto &C : s.colliders_mesh) {
+                }
+
                 // If the surface is close enough, move towards it
                 if (surface != NULL && surface_dist < surface_adaption_min_dist) {
                     auto surface_fun = make_sdf_ast_wrapper(surface->expr, surface->sp);
@@ -130,6 +153,8 @@ private:
     bool try_grow_branch(index_t pidx, IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
         if (length(s.velocity[pidx]) > 2) return false;
 
+        bool ret = false;
+
         auto lateral_chance = rnd.normal();
         constexpr auto new_size = Vec3(0.25f, 0.25f, 2.0f);
         auto longest_axis = longest_axis_normalized(s.size[pidx]);
@@ -137,7 +162,7 @@ private:
 
         auto parent = parents[pidx];
         auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
-        auto branch_len = 2.0f;
+        auto branch_len = 1.0f;
 
         if (lateral_chance < extra.branching_probability) {
             auto angle = rnd.central() * extra.branch_angle_variance;
@@ -150,21 +175,59 @@ private:
 
             auto pos = s.position[pidx] + branch_len * lateral_branch_dir;
 
-            pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                lateral_bud[pidx] = l_idx;
-                parents[l_idx] = pidx;
-            });
+            if (!checkIntersection(s, s.position[pidx], pos)) {
+                pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
+                    auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                    lateral_bud[pidx] = l_idx;
+                    parents[l_idx] = pidx;
+                });
+                ret = true;
+            }
         }
         auto pos = s.position[pidx] + branch_len * branch_dir;
 
-        pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-            auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-            apical_child[pidx] = a_idx;
-            parents[a_idx] = pidx;
-        });
+        if (!checkIntersection(s, s.position[pidx], pos)) {
+            pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
+                auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                apical_child[pidx] = a_idx;
+                parents[a_idx] = pidx;
+            });
+            ret = true;
+        }
 
-        return true;
+        return ret;
+    }
+
+    bool checkIntersection(System_State const &s, Vec3 from, Vec3 to) {
+        for (auto const &coll : s.colliders_mesh) {
+            if (!coll.used)
+                continue;
+
+            auto const dir = to - from;
+
+            // for every triangle in coll: check intersection
+
+            // TODO(danielm): check each triangle but do a minimum search by
+            // `t` so that we only consider the nearest intersected surf?
+            // cuz rn this may create multiple collision constraints for a
+            // particle
+            for (auto j = 0ull; j < coll.triangle_count; j++) {
+                auto base = j * 3;
+                glm::vec3 xp;
+                float t;
+                // TODO(danielm): these matrix vector products could be cached
+                auto [vi0, vi1, vi2] = get_vertex_indices(coll, j);
+                auto [ni0, ni1, ni2] = get_normal_indices(coll, j);
+                auto v0 = coll.transform * Vec4(coll.vertices[vi0], 1);
+                auto v1 = coll.transform * Vec4(coll.vertices[vi1], 1);
+                auto v2 = coll.transform * Vec4(coll.vertices[vi2], 1);
+                if (intersect::ray_triangle(xp, t, from, dir, v0, v1, v2) || t > 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     void growth(IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
