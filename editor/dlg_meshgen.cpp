@@ -83,7 +83,6 @@ public:
         connect(&_vm, &VM_Meshgen::exported, this, &QDialog::accepted);
 
         _ui.buttonBox->addButton(btnExport, QDialogButtonBox::ActionRole);
-        _ui.buttonBox->addButton(QDialogButtonBox::Close);
         connect(_ui.buttonBox, &QDialogButtonBox::rejected, this, &QDialog::rejected);
 
         _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
