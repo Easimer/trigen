@@ -103,13 +103,6 @@
          <item>
           <layout class="QFormLayout" name="layoutTextures"/>
          </item>
-         <item>
-          <widget class="QPushButton" name="btnRepaint">
-           <property name="text">
-            <string>Repaint</string>
-           </property>
-          </widget>
-         </item>
         </layout>
        </widget>
       </item>
