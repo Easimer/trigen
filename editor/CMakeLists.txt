@@ -65,6 +65,7 @@ target_link_libraries(editor PRIVATE
     marching_cubes
     psp
     stb
+    mesh_export
 )
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)
