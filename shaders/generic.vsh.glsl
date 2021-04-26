@@ -26,6 +26,6 @@ void main() {
 
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
 #if TEXTURED
-    vUV = aUV;
+    vUV =  vec2(aUV.x, 1 - aUV.y);
 #endif
 }

@@ -16,7 +16,7 @@ void main() {
     vFrag = vec4(vColor, 1.0f) * tintColor;
 #else
 #if TEXTURED
-    vFrag = texture(texDiffuse, vec2(vUV.x, 1 - vUV.y)) * tintColor;
+    vFrag = texture(texDiffuse, vUV) * tintColor;
 #else
     vFrag = vec4(0.828125f, 0.828125f, 0.828125f, 1.0f) * tintColor;
 #endif
