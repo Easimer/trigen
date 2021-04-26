@@ -37,15 +37,31 @@ void Render_Grid::execute(gfx::IRenderer *renderer) {
     renderer->draw_lines(grid, 40, Vec3(0, 0, 0), Vec3(0.4, 0.4, 0.4), Vec3(0.4, 0.4, 0.4));
 }
 
-Render_Model::Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform) :
-    _model(model), _diffuse(diffuse), _transform(transform) {
+Render_Model::Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform)
+    : _model(model)
+    , _diffuse(diffuse)
+    , _normal(nullptr)
+    , _transform(transform) {
+}
+
+Render_Model::Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Texture_ID normal, gfx::Transform const &transform)
+    : _model(model)
+    , _diffuse(diffuse)
+    , _normal(normal)
+    , _transform(transform) {
 }
 
 void Render_Model::execute(gfx::IRenderer *renderer) {
-    gfx::Material_Unlit material{};
-    material.diffuse = _diffuse;
-
-    renderer->draw_textured_triangle_elements(_model, material, _transform);
+    if (_normal != nullptr) {
+        gfx::Material_Lit material;
+        material.diffuse = _diffuse;
+        material.normal = _normal;
+        renderer->draw_textured_triangle_elements(_model, material, _transform);
+    } else {
+        gfx::Material_Unlit material;
+        material.diffuse = _diffuse;
+        renderer->draw_textured_triangle_elements(_model, material, _transform);
+    }
 }
 
 Render_Untextured_Model::Render_Untextured_Model(gfx::Model_ID model, gfx::Transform const &transform) :

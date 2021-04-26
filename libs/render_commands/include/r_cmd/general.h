@@ -16,6 +16,7 @@ private:
 class Render_Model : public gfx::IRender_Command {
 public:
     Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Transform const &transform);
+    Render_Model(gfx::Model_ID model, gfx::Texture_ID diffuse, gfx::Texture_ID normal, gfx::Transform const &transform);
 
     glm::vec4 &tint() { return _tintColor; }
 
@@ -23,6 +24,7 @@ public:
 private:
     gfx::Model_ID _model;
     gfx::Texture_ID _diffuse;
+    gfx::Texture_ID _normal;
     gfx::Transform _transform;
     glm::vec4 _tintColor;
 };

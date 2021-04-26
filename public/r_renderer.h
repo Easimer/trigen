@@ -27,11 +27,12 @@ namespace gfx {
     using Texture_ID = void*;
 
     struct Model_Descriptor {
-        size_t vertex_count;
-        std::array<float, 3> const *vertices;
-        std::array<float, 2> const *uv;
-        size_t element_count;
-        unsigned const *elements;
+        size_t vertex_count = 0;
+        std::array<float, 3> const *vertices = nullptr;
+        std::array<float, 3> const *normals = nullptr;
+        std::array<float, 2> const *uv = nullptr;
+        size_t element_count = 0;
+        unsigned const *elements = nullptr;
     };
 
     enum class Texture_Format {
@@ -40,6 +41,11 @@ namespace gfx {
 
     struct Material_Unlit {
         Texture_ID diffuse;
+    };
+
+    struct Material_Lit {
+        Texture_ID diffuse;
+        Texture_ID normal;
     };
 
     struct Transform {
@@ -106,6 +112,12 @@ namespace gfx {
         virtual void draw_textured_triangle_elements(
             Model_ID model,
             Material_Unlit const &material,
+            Transform const &transform
+        ) = 0;
+
+        virtual void draw_textured_triangle_elements(
+            Model_ID model,
+            Material_Lit const &material,
             Transform const &transform
         ) = 0;
 

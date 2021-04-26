@@ -32,6 +32,7 @@ struct Basic_Mesh {
     gfx::Model_ID renderer_handle = nullptr;
 
     std::vector<std::array<float, 3>> positions;
+    std::vector<std::array<float, 3>> normals;
     std::vector<unsigned> elements;
 };
 
@@ -130,6 +131,7 @@ private:
 
     PSP::Material _outputMaterial;
     gfx::Texture_ID _texOutBase = nullptr;
+    gfx::Texture_ID _texOutNormal = nullptr;
 
     std::unique_ptr<PSP::IPainter> _painter;
 

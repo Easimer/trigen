@@ -58,6 +58,10 @@ struct Model {
     unsigned num_vertices;
     gl::VBO vertices;
     gl::VBO uvs;
+
+    gl::VBO tangents;
+    gl::VBO bitangents;
+    gl::VBO normals;
 };
 
 struct G_Buffer {
@@ -348,6 +352,17 @@ public:
             auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
             auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
             m_element_model_shader_textured = { std::move(program), locMVP, locTexDiffuse, locTintColor };
+        });
+
+        Shader_Define_List textured_lit_defines = { { "TEXTURED", "1" }, { "LIT", "1" } };
+        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, textured_lit_defines, discard, [&](gl::Shader_Program& program) {
+            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+            auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
+            auto locTexNormal = gl::Uniform_Location<GLint>(program, "texNormal");
+            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
+            auto locSunPosition = gl::Uniform_Location<Vec3>(program, "sunPosition");
+            auto locModelMatrix = gl::Uniform_Location<Mat3>(program, "matModel");
+            m_element_model_shader_textured_lit = { std::move(program), locMVP, locTexDiffuse, locTintColor, locModelMatrix, locTexNormal, locSunPosition };
         });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
@@ -756,6 +771,14 @@ public:
         std::remove_if(_textures.begin(), _textures.end(), [&](Texture const &t) { return &t == id; });
     }
 
+    static glm::vec3 vec3_cast(std::array<float, 3> const &arr) {
+        return glm::vec3(arr[0], arr[1], arr[2]);
+    }
+
+    static glm::vec2 vec2_cast(std::array<float, 2> const &arr) {
+        return glm::vec2(arr[0], arr[1]);
+    }
+
     bool create_model(gfx::Model_ID *out_id, gfx::Model_Descriptor const *model) override {
         if (out_id == nullptr || model == nullptr) {
             return false;
@@ -779,6 +802,95 @@ public:
             auto idx = model->elements[i];
             vertices_buf[i] = model->vertices[idx];
         }
+
+        // TODO(danielm): UV unwrapping generates a UV map where the texcoords
+        // are the same for 2 or more vertices of the same triangle. This
+        // breaks the algorithm below.
+
+        if (false && model->vertices != nullptr && model->uv != nullptr && model->normals != nullptr) {
+            // Precompute tangents and bitangents
+            std::vector<glm::vec3> normals(num_vertices);
+            std::vector<glm::vec3> tangents(num_vertices);
+            std::vector<glm::vec3> bitangents(num_vertices);
+            auto num_triangles = model->element_count / 3;
+            for (size_t t = 0; t < num_triangles; t++) {
+                auto idx0 = model->elements[t * 3 + 0];
+                auto idx1 = model->elements[t * 3 + 1];
+                auto idx2 = model->elements[t * 3 + 2];
+                auto normal0 = vec3_cast(model->normals[idx0]);
+                auto normal1 = vec3_cast(model->normals[idx1]);
+                auto normal2 = vec3_cast(model->normals[idx2]);
+                auto uv0 = vec2_cast(model->uv[idx0]);
+                auto uv1 = vec2_cast(model->uv[idx1]);
+                auto uv2 = vec2_cast(model->uv[idx2]);
+                auto pos0 = vec3_cast(model->vertices[idx0]);
+                auto pos1 = vec3_cast(model->vertices[idx1]);
+                auto pos2 = vec3_cast(model->vertices[idx2]);
+
+                auto edge0 = pos1 - pos0;
+                auto edge1 = pos2 - pos0;
+                auto dUV0 = uv1 - uv0;
+                auto dUV1 = uv2 - uv0;
+                if (length(dUV0) < glm::epsilon<float>() || length(dUV1) < glm::epsilon<float>() || length(edge0) < glm::epsilon<float>() || length(edge1) < glm::epsilon<float>()) {
+                    // Degenerate triangle
+                    glm::vec3 tangent(1, 0, 0);
+                    glm::vec3 bitangent(0, 1, 0);
+                    glm::vec3 normal(0, 0, -1);
+                    normals[t * 3 + 0] = normal;
+                    normals[t * 3 + 1] = normal;
+                    normals[t * 3 + 2] = normal;
+                    tangents[t * 3 + 0] = tangent;
+                    tangents[t * 3 + 1] = tangent;
+                    tangents[t * 3 + 2] = tangent;
+                    bitangents[t * 3 + 0] = bitangent;
+                    bitangents[t * 3 + 1] = bitangent;
+                    bitangents[t * 3 + 2] = bitangent;
+                    continue;
+                }
+
+                auto f = 1.0f / (dUV0.x * dUV1.y - dUV1.x * dUV0.y);
+
+                glm::vec3 tangent;
+                tangent.x = f * (dUV1.y * edge0.x - dUV0.y * edge1.x);
+                tangent.y = f * (dUV1.y * edge0.y - dUV0.y * edge1.y);
+                tangent.z = f * (dUV1.y * edge0.z - dUV0.y * edge1.z);
+                tangent = normalize(tangent);
+                assert(length(tangent) < 9999);
+
+                glm::vec3 bitangent;
+                bitangent.x = f * (dUV0.x * edge1.x - dUV1.x * edge0.x);
+                bitangent.y = f * (dUV0.x * edge1.y - dUV1.x * edge0.y);
+                bitangent.z = f * (dUV0.x * edge1.z - dUV1.x * edge0.z);
+                bitangent = normalize(bitangent);
+                assert(length(bitangent) < 9999);
+
+                normals[t * 3 + 0] = normalize(normal0);
+                normals[t * 3 + 1] = normalize(normal1);
+                normals[t * 3 + 2] = normalize(normal2);
+                tangents[t * 3 + 0] = tangent;
+                tangents[t * 3 + 1] = tangent;
+                tangents[t * 3 + 2] = tangent;
+                bitangents[t * 3 + 0] = bitangent;
+                bitangents[t * 3 + 1] = bitangent;
+                bitangents[t * 3 + 2] = bitangent;
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl.normals);
+            glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), normals.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(2);
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl.tangents);
+            glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), tangents.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(3);
+
+            glBindBuffer(GL_ARRAY_BUFFER, mdl.bitangents);
+            glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), bitangents.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(4);
+        }
+
         glBindBuffer(GL_ARRAY_BUFFER, mdl.vertices);
         glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), vertices_buf.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
@@ -888,6 +1000,54 @@ public:
         }
     }
 
+    virtual void draw_textured_triangle_elements(
+        gfx::Model_ID model_handle,
+        gfx::Material_Lit const &material,
+        gfx::Transform const &transform) override {
+        if (model_handle == nullptr) {
+            return;
+        }
+
+        if (m_element_model_shader_textured_lit.has_value()) {
+            auto model = (Model *)model_handle;
+            glBindVertexArray(model->vao);
+
+            auto& shader = *m_element_model_shader_textured_lit;
+            glUseProgram(shader.program);
+
+            auto matModel = glm::mat4_cast(transform.rotation) * glm::scale(transform.scale);
+            auto matTransform = glm::translate(transform.position) * matModel;
+
+            auto matMVP = m_proj * m_view * matTransform;
+            gl::SetUniformLocation(shader.locMVP, matMVP);
+
+            auto matNormal =
+                scale(1.0f / transform.scale) *
+                mat4_cast(inverse(transform.rotation)) *
+                translate(-transform.position);
+
+            gl::SetUniformLocation(shader.locModelMatrix, glm::mat3(matModel));
+
+            gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+
+            gl::SetUniformLocation(shader.locSunPosition, { 0, 0, 1 });
+
+            auto texDiffuse = (Texture *)material.diffuse;
+            glActiveTexture(GL_TEXTURE0 + 0);
+            glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
+            gl::SetUniformLocation(shader.locTexDiffuse, 0);
+
+            auto texNormal = (Texture *)material.normal;
+            glActiveTexture(GL_TEXTURE0 + 1);
+            glBindTexture(GL_TEXTURE_2D, texNormal->texture);
+            gl::SetUniformLocation(shader.locTexNormal, 1);
+
+            glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
+        } else {
+            printf("renderer: can't draw textured triangle elements: no shader!\n");
+        }
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
@@ -922,11 +1082,18 @@ private:
         gl::Uniform_Location<Vec4> locTintColor;
     };
 
+    struct Textured_Element_Model_Shader_Lit : public Textured_Element_Model_Shader {
+        gl::Uniform_Location<Mat3> locModelMatrix;
+        gl::Uniform_Location<GLint> locTexNormal;
+        gl::Uniform_Location<Vec3> locSunPosition;
+    };
+
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
     std::optional<Element_Model_Shader> m_element_model_shader;
     std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
     std::optional<Textured_Element_Model_Shader> m_element_model_shader_textured;
+    std::optional<Textured_Element_Model_Shader_Lit> m_element_model_shader_textured_lit;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 

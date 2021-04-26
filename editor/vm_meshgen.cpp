@@ -43,6 +43,7 @@ public:
         d->vertices = _mesh->positions.data();
         d->element_count = _mesh->elements.size();
         d->elements = _mesh->elements.data();
+        d->normals = mesh->normals.data();
     }
 
 private:
@@ -73,6 +74,12 @@ static Basic_Mesh convertMesh(marching_cubes::mesh const &mesh) {
         [&](auto p) -> std::array<float, 3> {
             return { p.x, p.y, p.z };
         });
+    std::transform(
+        mesh.normal.begin(), mesh.normal.end(),
+        std::back_inserter(ret.normals),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
     ret.elements = mesh.indices;
     return ret;
 }
@@ -83,6 +90,12 @@ Unwrapped_Mesh convertMesh(PSP::Mesh const &mesh) {
     std::transform(
         mesh.position.begin(), mesh.position.end(),
         std::back_inserter(ret.positions),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
+    std::transform(
+        mesh.normal.begin(), mesh.normal.end(),
+        std::back_inserter(ret.normals),
         [&](auto p) -> std::array<float, 3> {
             return { p.x, p.y, p.z };
         });
@@ -125,10 +138,15 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBase, _outputMaterial.base.buffer, _outputMaterial.base.width, _outputMaterial.base.height, gfx::Texture_Format::RGB888);
     }
 
+    if (_outputMaterial.normal.buffer != nullptr && _texOutNormal == nullptr) {
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutNormal, _outputMaterial.normal.buffer, _outputMaterial.normal.width, _outputMaterial.normal.height, gfx::Texture_Format::RGB888);
+    }
+
     if (_unwrappedMesh.has_value()) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
-            if (_texOutBase != nullptr) {
+            if (_texOutBase != nullptr && _texOutNormal != nullptr) {
+                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBase, _texOutNormal, renderTransform);
                 gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBase, renderTransform);
             } else {
                 gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
@@ -378,21 +396,31 @@ void VM_Meshgen::repaintMesh() {
     texBlack.width = 1;
     texBlack.height = 1;
 
-    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target) {
+    PSP::Texture texNormal = {};
+    char const normalPixel[3] = { 128, 128, 255 };
+
+    texNormal.buffer = normalPixel;
+    texNormal.width = 1;
+    texNormal.height = 1;
+
+    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target, PSP::Texture const &placeholder) {
         if (input.data == nullptr) {
-            target = texBlack;
+            target = placeholder;
         } else {
             target = input.info;
         }
     };
 
+    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texBlack);
+    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texNormal);
+
     assert(_pspMesh->uv.size() == _pspMesh->elements.size());
 
-    putPlaceholderTextureIfEmpty(_texBase, _inputMaterial.base);
-    putPlaceholderTextureIfEmpty(_texNormal, _inputMaterial.normal);
-    putPlaceholderTextureIfEmpty(_texHeight, _inputMaterial.height);
-    putPlaceholderTextureIfEmpty(_texRoughness, _inputMaterial.roughness);
-    putPlaceholderTextureIfEmpty(_texAo, _inputMaterial.ao);
+    putBlackTextureIfEmpty(_texBase, _inputMaterial.base);
+    putNormalTextureIfEmpty(_texNormal, _inputMaterial.normal);
+    putBlackTextureIfEmpty(_texHeight, _inputMaterial.height);
+    putBlackTextureIfEmpty(_texRoughness, _inputMaterial.roughness);
+    putBlackTextureIfEmpty(_texAo, _inputMaterial.ao);
 
     _paintParams.material = &_inputMaterial;
     _paintParams.mesh = &_pspMesh.value();
@@ -401,6 +429,12 @@ void VM_Meshgen::repaintMesh() {
         _texturesDestroying.push_back(_texOutBase);
     }
     _texOutBase = nullptr;
+
+    if (_texOutNormal != nullptr) {
+        _texturesDestroying.push_back(_texOutNormal);
+    }
+    _texOutNormal = nullptr;
+
     _outputMaterial = {};
     _painter = PSP::make_painter(_paintParams);
 
