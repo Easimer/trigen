@@ -9,7 +9,6 @@
 #include <QObject>
 
 #include "session.h"
-#include "renderer.h"
 #include <softbody.h>
 #include <r_renderer.h>
 #include "entity_list.h"
@@ -25,9 +24,6 @@ public:
 
 	void addSoftbodySimulation(sb::Config const &cfg);
 	void addColliderFromPath(char const *path);
-	void setRenderer(Renderer *renderer) {
-		_renderer = renderer;
-	}
 	void onTick(float deltaTime);
 	void setGizmoMode(Session_Gizmo_Mode mode);
     void createMeshgenDialog(QWidget *parent);
@@ -44,7 +40,6 @@ signals:
     void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
 
 private:
-	Renderer *_renderer = nullptr;
 	std::list<std::unique_ptr<Session>> _sessions;
 	Session *_currentSession = nullptr;
 	Entity_List_Model *_entityListModel;

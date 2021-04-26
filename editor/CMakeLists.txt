@@ -11,8 +11,6 @@ set(SRC
 
     session.cpp
     session.h
-    renderer.cpp
-    renderer.h
     wnd_main.cpp
     wnd_main.h
     vm_main.cpp

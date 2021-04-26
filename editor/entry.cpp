@@ -5,7 +5,6 @@
 
 #include "stdafx.h"
 #include "wnd_main.h"
-#include "renderer.h"
 #include <QApplication>
 #include <imgui.h>
 #include "entity_list.h"
