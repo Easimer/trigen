@@ -390,14 +390,14 @@ void VM_Meshgen::repaintMesh() {
     }
 
     PSP::Texture texBlack = {};
-    char const blackPixel[3] = { 0, 0, 0 };
+    uint8_t const blackPixel[3] = { 0, 0, 0 };
 
     texBlack.buffer = blackPixel;
     texBlack.width = 1;
     texBlack.height = 1;
 
     PSP::Texture texNormal = {};
-    char const normalPixel[3] = { 128, 128, 255 };
+    uint8_t const normalPixel[3] = { 128, 128, 255 };
 
     texNormal.buffer = normalPixel;
     texNormal.width = 1;
