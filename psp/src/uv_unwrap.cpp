@@ -292,7 +292,7 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         // UV' = (UV - min) / (max - min)
         for (auto tri : chart.triangles) {
             auto baseVtxIdx = tri * 3;
-            // per-component multiplication
+
             for (int v = 0; v < 3; v++) {
                 auto elementIdx = baseVtxIdx + v;
                 auto vtxIdx = mesh.elements[baseVtxIdx + v];
