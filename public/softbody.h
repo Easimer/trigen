@@ -262,23 +262,23 @@ namespace sb {
         size_t triangle_count;
 
         // Pointer to the vertex index buffer.
-        uint64_t *vertex_indices;
+        uint64_t const *vertex_indices;
         // Pointer to the normal index buffer.
-        uint64_t *normal_indices;
+        uint64_t const *normal_indices;
 
         // Number of elements in the position buffer.
         // This should be at least `max(vertex_indices)+1`.
         size_t position_count;
         // Pointer to the position vector buffer.
         // Assumed to be in the following format: XYZ XYZ XYZ
-        float *positions;
+        float const *positions;
 
         // Number of elements in the normal buffer.
         // This should be at least `max(normal_indices)+1`.
         size_t normal_count;
         // Pointer to the normal vector buffer.
         // Assumed to be in the following format: XYZ XYZ XYZ
-        float *normals;
+        float const *normals;
 
         glm::mat4 transform;
     };
