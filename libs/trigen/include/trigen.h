@@ -7,6 +7,7 @@
 #define H_EASI_TRIGEN
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef _WIN32
 #define TRIGEN_EXPORT __declspec(dllexport)
