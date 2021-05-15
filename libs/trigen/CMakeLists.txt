@@ -4,7 +4,16 @@ set(SRC
     include/trigen.hpp
 )
 
+set(SRC_CSHARP
+    src/trigen.cs
+)
+
 add_library(trigen SHARED ${SRC})
 target_include_directories(trigen PUBLIC include/)
 set_target_properties(trigen PROPERTIES FOLDER "Libs")
 tri_builddir(trigen)
+
+if(${TRIGEN_BUILD_CSHARP_BINDING})
+    add_library(trigen-net SHARED ${SRC_CSHARP})
+	set_target_properties(trigen-net PROPERTIES FOLDER "Libs")
+endif()

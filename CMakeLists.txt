@@ -24,6 +24,11 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 52 61 75)
 endif()
 
+option(TRIGEN_BUILD_CSHARP_BINDING "Build the C# bindings for libtrigen")
+if(${TRIGEN_BUILD_CSHARP_BINDING})
+	enable_language(CSharp)
+endif()
+
 # Include public headers for all targets
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/public")
 

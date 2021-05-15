@@ -6,6 +6,12 @@
 #include "trigen.h"
 #include "trigen.hpp"
 
+#include <softbody.h>
+
+struct Trigen_Session_t {
+    sb::ISoftbody_Simulation *simulation;
+};
+
 extern "C" {
 
 Trigen_Status TRIGEN_API Trigen_CreateSession(Trigen_Session *session, Trigen_Parameters const *params) {
