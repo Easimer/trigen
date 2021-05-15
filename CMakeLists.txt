@@ -128,8 +128,6 @@ if(${SOFTBODY_CLANG_TIDY})
     endif()
 endif()
 
-option(BUILD_LEGACY_STUFF "Build legacy projects (bark_test, ifs_test, cylindergen)")
-
 macro(target_disable_clang_tidy TGT)
 	set_target_properties(${TGT} PROPERTIES C_CLANG_TIDY "" CXX_CLANG_TIDY "")
 endmacro()
@@ -154,12 +152,6 @@ add_subdirectory(psp)
 add_subdirectory(objscan)
 add_subdirectory(softbody)
 
-if(${BUILD_LEGACY_STUFF})
-	add_subdirectory(bark_test)
-	add_subdirectory(ifs_test)
-	add_subdirectory(cylindergen)
-    add_subdirectory(softbody_testbed)
-endif()
 add_subdirectory(softbody_crosscheck)
 
 add_subdirectory(mesh_paint_proto)
