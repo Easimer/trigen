@@ -10,6 +10,7 @@ set(SRC_CSHARP
 
 add_library(trigen SHARED ${SRC})
 target_include_directories(trigen PUBLIC include/)
+target_link_libraries(trigen PRIVATE marching_cubes psp softbody)
 set_target_properties(trigen PROPERTIES FOLDER "Libs")
 tri_builddir(trigen)
 

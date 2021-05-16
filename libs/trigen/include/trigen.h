@@ -22,9 +22,31 @@ typedef struct Trigen_Collider_t *Trigen_Collider;
 
 typedef enum Trigen_Status_t {
     Trigen_OK = 0,
+    Trigen_InvalidArguments,
+    Trigen_OutOfMemory,
+    Trigen_InvalidConfiguration,
 } Trigen_Status;
 
+enum Trigen_Flags {
+    Trigen_F_None       = 0,
+    Trigen_F_PreferCPU  = 1 << 0,
+};
+
 typedef struct Trigen_Parameters_t {
+    unsigned int flags;
+
+    float seed_position[3];
+
+    float density;
+    float attachment_strength;
+    float surface_adaption_strength;
+    float stiffness;
+    float aging_rate;
+    float phototropism_response_strength;
+    float branching_probability;
+    float branch_angle_variance;
+
+    unsigned particle_count_limit;
 } Trigen_Parameters;
 
 typedef struct Trigen_Collider_Mesh_t {
