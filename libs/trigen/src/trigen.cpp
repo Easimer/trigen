@@ -11,6 +11,7 @@
 #include <softbody.h>
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <list>
 #include <memory>
