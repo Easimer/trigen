@@ -102,6 +102,7 @@ typedef enum Trigen_Texture_Kind_t {
     Trigen_Texture_HeightMap,
     Trigen_Texture_RoughnessMap,
     Trigen_Texture_AmbientOcclusionMap,
+    Trigen_Texture_Max,
 } Trigen_Texture_Kind;
 
 #ifdef __cplusplus

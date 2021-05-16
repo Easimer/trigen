@@ -295,16 +295,71 @@ Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh
 
 Trigen_Status TRIGEN_API Trigen_Painting_SetInputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const *texture) {
     assert(session);
+    assert(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max);
+    assert(texture);
+    assert(texture->image);
+    if (session == nullptr ||
+        !(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max) ||
+        texture == nullptr ||
+        texture->image == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    // TODO: assuming RGB888 here with no padding
+    auto size = texture->width * texture->height * 3;
+
+    Input_Texture *tex = nullptr;
+    switch (kind) {
+    case Trigen_Texture_BaseColor:
+        tex = &session->_texBase;
+        break;
+    case Trigen_Texture_NormalMap:
+        tex = &session->_texNormal;
+        break;
+    case Trigen_Texture_HeightMap:
+        tex = &session->_texHeight;
+        break;
+    case Trigen_Texture_RoughnessMap:
+        tex = &session->_texRoughness;
+        break;
+    case Trigen_Texture_AmbientOcclusionMap:
+        tex = &session->_texAo;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+
+    if (tex != nullptr) {
+        auto data = std::make_unique<uint8_t[]>(size);
+        memcpy(data.get(), texture->image, size);
+        tex->data = std::move(data);
+        tex->info.buffer = tex->data.get();
+        tex->info.width = texture->width;
+        tex->info.height = texture->height;
+    }
+
     return Trigen_OK;
 }
 
 Trigen_Status TRIGEN_API Trigen_Painting_SetOutputResolution(Trigen_Session session, int width, int height) {
     assert(session);
+    if (session == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    session->_paintParams.out_width = width;
+    session->_paintParams.out_height = height;
+
     return Trigen_OK;
 }
 
 Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
     assert(session);
+    if (session == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
     return Trigen_OK;
 }
 
