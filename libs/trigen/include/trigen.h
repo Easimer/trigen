@@ -22,9 +22,12 @@ typedef struct Trigen_Collider_t *Trigen_Collider;
 
 typedef enum Trigen_Status_t {
     Trigen_OK = 0,
+    Trigen_Failure,
     Trigen_InvalidArguments,
     Trigen_OutOfMemory,
     Trigen_InvalidConfiguration,
+    Trigen_InvalidMesh,
+    Trigen_NotReady,
 } Trigen_Status;
 
 enum Trigen_Flags {
@@ -73,13 +76,14 @@ typedef struct Trigen_Collider_Mesh_t {
     // Pointer to the normal vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
     float const *normals;
-
-    // Pointer to a 4x4 matrix representing the transform of the collider
-    // object
-    float const *transform;
 } Trigen_Collider_Mesh;
 
 typedef struct Trigen_Mesh_t {
+    float const *position;
+    float const *normal;
+    size_t const *elements;
+
+    float const *uv;
 } Trigen_Mesh;
 
 typedef struct Trigen_Transform_t {
@@ -100,17 +104,6 @@ typedef enum Trigen_Texture_Kind_t {
     Trigen_Texture_AmbientOcclusionMap,
 } Trigen_Texture_Kind;
 
-/*
-- Regen metaballs
-- Set number of subdivisions
-- Regen mesh
-- Set texture of input material
-- Repaint mesh
-- Set output material resolution
-- Get texture of output material
-- Get mesh
-*/
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -123,14 +116,19 @@ Trigen_Status TRIGEN_API Trigen_UpdateCollider(Trigen_Collider collider, Trigen_
 
 Trigen_Status TRIGEN_API Trigen_Grow(Trigen_Session session, float time);
 
+Trigen_Status TRIGEN_API Trigen_Metaballs_SetRadius(Trigen_Session session, float radius);
+Trigen_Status TRIGEN_API Trigen_Metaballs_Regenerate(Trigen_Session session);
+
 Trigen_Status TRIGEN_API Trigen_Mesh_SetSubdivisions(Trigen_Session session, int subdivisions);
 Trigen_Status TRIGEN_API Trigen_Mesh_Regenerate(Trigen_Session session);
-Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh const *mesh);
+Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh *mesh);
 
 Trigen_Status TRIGEN_API Trigen_Painting_SetInputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const *texture);
 Trigen_Status TRIGEN_API Trigen_Painting_SetOutputResolution(Trigen_Session session, int width, int height);
 Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session);
 Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const **texture);
+
+Trigen_Status TRIGEN_API Trigen_GetErrorMessage(char const **message, Trigen_Status rc);
 
 #ifdef __cplusplus
 }
