@@ -127,7 +127,7 @@ Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh
 Trigen_Status TRIGEN_API Trigen_Painting_SetInputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const *texture);
 Trigen_Status TRIGEN_API Trigen_Painting_SetOutputResolution(Trigen_Session session, int width, int height);
 Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session);
-Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const **texture);
+Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture *texture);
 
 Trigen_Status TRIGEN_API Trigen_GetErrorMessage(char const **message, Trigen_Status rc);
 

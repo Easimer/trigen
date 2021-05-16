@@ -169,7 +169,7 @@ Trigen_Status TRIGEN_API Trigen_UpdateCollider(Trigen_Collider collider, Trigen_
 }
 
 Trigen_Status TRIGEN_API Trigen_Grow(Trigen_Session session, float time) {
-    if (session == nullptr || time < 0 || isnan(time) || !isfinite(time)) {
+    if (session == nullptr || time < 0 || std::isnan(time) || !std::isfinite(time)) {
         return Trigen_InvalidArguments;
     }
 
@@ -361,11 +361,95 @@ Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
         return Trigen_InvalidArguments;
     }
 
+    PSP::Texture texBlack = {};
+    uint8_t const blackPixel[3] = { 0, 0, 0 };
+
+    texBlack.buffer = blackPixel;
+    texBlack.width = 1;
+    texBlack.height = 1;
+
+    PSP::Texture texNormal = {};
+    uint8_t const normalPixel[3] = { 128, 128, 255 };
+
+    texNormal.buffer = normalPixel;
+    texNormal.width = 1;
+    texNormal.height = 1;
+
+    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target, PSP::Texture const &placeholder) {
+        if (input.data == nullptr) {
+            target = placeholder;
+        } else {
+            target = input.info;
+        }
+    };
+
+    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texBlack);
+    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texNormal);
+
+    assert(_pspMesh->uv.size() == _pspMesh->elements.size());
+
+    putBlackTextureIfEmpty(session->_texBase, session->_inputMaterial.base);
+    putNormalTextureIfEmpty(session->_texNormal, session->_inputMaterial.normal);
+    putBlackTextureIfEmpty(session->_texHeight, session->_inputMaterial.height);
+    putBlackTextureIfEmpty(session->_texRoughness, session->_inputMaterial.roughness);
+    putBlackTextureIfEmpty(session->_texAo, session->_inputMaterial.ao);
+
+    session->_paintParams.material = &session->_inputMaterial;
+    session->_paintParams.mesh = &session->_pspMesh.value();
+
+    session->_outputMaterial = {};
+    session->_painter = PSP::make_painter(session->_paintParams);
+
+    session->_painter->step_painting(0);
+
+    if (session->_painter->is_painting_done()) {
+        session->_painter->result(&session->_outputMaterial);
+    }
+
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const **texture) {
+Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture *texture) {
     assert(session);
+    assert(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max);
+    assert(texture);
+    if (session == nullptr ||
+        !(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max) ||
+        texture == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    if (session->_outputMaterial.base.buffer == nullptr) {
+        return Trigen_NotReady;
+    }
+
+    session->_outputMaterial.ao.buffer;
+    PSP::Texture *tex = nullptr;
+    switch (kind) {
+    case Trigen_Texture_BaseColor:
+        tex = &session->_outputMaterial.base;
+        break;
+    case Trigen_Texture_NormalMap:
+        tex = &session->_outputMaterial.normal;
+        break;
+    case Trigen_Texture_HeightMap:
+        tex = &session->_outputMaterial.height;
+        break;
+    case Trigen_Texture_RoughnessMap:
+        tex = &session->_outputMaterial.roughness;
+        break;
+    case Trigen_Texture_AmbientOcclusionMap:
+        tex = &session->_outputMaterial.ao;
+        break;
+    default:
+        assert(0);
+        break;
+    }
+
+    texture->width = tex->width;
+    texture->height = tex->height;
+    texture->image = tex->buffer;
+
     return Trigen_OK;
 }
 
