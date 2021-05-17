@@ -224,22 +224,20 @@ public:
     }
 
     void begin_painting() override {
-        if (_painter == nullptr) {
-            _material.base = _tex_base.info;
-            _material.normal = _tex_normal.info;
-            _material.height = _tex_height.info;
-            _material.roughness = _tex_roughness.info;
-            _material.ao = _tex_ao.info;
+        _material.base = _tex_base.info;
+        _material.normal = _tex_normal.info;
+        _material.height = _tex_height.info;
+        _material.roughness = _tex_roughness.info;
+        _material.ao = _tex_ao.info;
 
-            _paint_params.material = &_material;
-            _paint_params.mesh = &_psp_mesh;
+        _paint_params.material = &_material;
+        _paint_params.mesh = &_psp_mesh;
 
-            _painter = PSP::make_painter(_paint_params);
-        }
+        _painter = PSP::make_painter(_paint_params);
     }
 
     void step_painting() override {
-        if (_painter != nullptr && !_painter->is_painting_done()) {
+        if (_painter != nullptr) {
             _painter->step_painting(0.1f);
 
             if (_painter->is_painting_done()) {
