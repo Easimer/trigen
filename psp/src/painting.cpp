@@ -22,10 +22,10 @@
 #include <glm/gtc/constants.hpp>
 
 #include <boost/gil.hpp>
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/box.hpp>
-#include <boost/geometry/geometries/point.hpp>
-#include <boost/geometry/index/rtree.hpp>
+
+#include "uv_quadtree.h"
+
+#include <Tracy.hpp>
 
 /*
     :SphericalCoordinateConvention
@@ -166,57 +166,6 @@ static glm::vec<2, float> cartesian_to_spherical(glm::vec3 const &p, glm::vec3 c
     return { theta, phi };
 }
 
-static bool is_same_side(glm::vec3 p1, glm::vec3 p2, glm::vec3 a, glm::vec3 b) {
-    auto cp1 = cross(b - a, p1 - a);
-    auto cp2 = cross(b - a, p2 - a);
-    return dot(cp1, cp2) >= 0;
-}
-
-static bool is_point_in_triangle(glm::vec2 x, glm::vec2 p0, glm::vec2 p1, glm::vec2 p2) {
-    auto a = glm::vec3(p0, 0.f);
-    auto b = glm::vec3(p1, 0.f);
-    auto c = glm::vec3(p2, 0.f);
-    auto p = glm::vec3(x, 0.f);
-    return (is_same_side(p, a, b, c) && is_same_side(p, b, a, c) && is_same_side(p, c, a, b));
-}
-
-static bool find_triangle_containing_uv(PSP::Mesh const *mesh, glm::vec2 uv, size_t *triangle_id) {
-    assert(mesh != NULL);
-    assert(0 <= uv.x && uv.x <= 1);
-    assert(0 <= uv.y && uv.y <= 1);
-    assert(triangle_id != NULL);
-
-    bool ret = false;
-
-    auto N = mesh->elements.size() / 3;
-    for (size_t t = 0; t < N; t++) {
-        auto i0 = mesh->elements[t * 3 + 0];
-        auto i1 = mesh->elements[t * 3 + 1];
-        auto i2 = mesh->elements[t * 3 + 2];
-
-        auto uv0 = mesh->uv[t * 3 + 0];
-        auto uv1 = mesh->uv[t * 3 + 1];
-        auto uv2 = mesh->uv[t * 3 + 2];
-
-        auto p0 = mesh->position[i0];
-        auto p1 = mesh->position[i1];
-        auto p2 = mesh->position[i2];
-
-        auto area = 0.5f * glm::abs(glm::determinant(glm::mat3(glm::vec3(uv0, 1), glm::vec3(uv1, 1), glm::vec3(uv2, 1))));
-
-        if (area > 0 && is_point_in_triangle(uv, uv0, uv1, uv2)) {
-            // assert(ret == false);
-            ret = true;
-            *triangle_id = t;
-//#ifdef NDEBUG
-            break;
-//#endif
-        }
-    }
-
-    return ret;
-}
-
 class Painter : public PSP::IPainter {
 public:
     Painter(PSP::Parameters const &params) : _mesh(params.mesh), _in_material(params.material) {
@@ -259,6 +208,8 @@ public:
             glm::vec<2, int> texcoord;
         };
 
+        auto uvIndex = make_uv_spatial_index(_mesh);
+
         std::vector<std::vector<Ray>> raygen_results;
         std::mutex lock_raygen_results;
 
@@ -270,8 +221,10 @@ public:
                 auto u = float(x) / float(_out_material.dim.x);
 
                 auto uv = glm::vec2(u, v);
-                size_t triangle_id;
-                if (find_triangle_containing_uv(_mesh, uv, &triangle_id)) {
+                auto maybe_triangle_id = uvIndex->find_triangle(uv);
+                if (maybe_triangle_id.has_value()) {
+                    auto triangle_id = maybe_triangle_id.value();
+
                     auto i0 = _mesh->elements[triangle_id * 3 + 0];
                     auto i1 = _mesh->elements[triangle_id * 3 + 1];
                     auto i2 = _mesh->elements[triangle_id * 3 + 2];
