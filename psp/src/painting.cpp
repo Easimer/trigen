@@ -4,20 +4,28 @@
 //
 
 #include "painting.h"
+
 #include <cfloat>
 #include <cmath>
 #include <memory>
 #include <vector>
 #include <thread>
-#include <intersect.h>
-#include <boost/gil.hpp>
+#include <random>
 #include <mutex>
+
+#include <intersect.h>
+#include <worker_group.hpp>
+
 #include <glm/geometric.hpp>
 #include <glm/mat3x3.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/gtc/constants.hpp>
-#include <random>
-#include <worker_group.hpp>
+
+#include <boost/gil.hpp>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/index/rtree.hpp>
 
 /*
     :SphericalCoordinateConvention
