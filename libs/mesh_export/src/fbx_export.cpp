@@ -348,25 +348,11 @@ static bool create_sdk_objects(FbxManager **out_sdkManager, FbxIOSettings **out_
     return true;
 }
 
-bool fbx_try_save(char const *path, PSP::Mesh const *inMesh, PSP::Material const *inMaterial) {
+static bool fbx_try_save(char const *path, IMesh const *mesh, Material const &material) {
     FbxManager *sdkManager;
     FbxIOSettings *ioSettings;
     FbxScene *scene;
     bool ret = false;
-
-    PSPTexture texBase(&inMaterial->base);
-    PSPTexture texNormal(&inMaterial->normal);
-    PSPTexture texHeight(&inMaterial->height);
-    PSPTexture texRoughness(&inMaterial->roughness);
-    PSPTexture texAo(&inMaterial->ao);
-    Material material = {
-        &texBase,
-        &texNormal,
-        &texHeight,
-        &texRoughness,
-        &texAo,
-    };
-    PSPMesh mesh(inMesh);
 
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
         goto err_ret;
@@ -379,7 +365,7 @@ bool fbx_try_save(char const *path, PSP::Mesh const *inMesh, PSP::Material const
     }
 
 
-    build_mesh(scene, &mesh, material);
+    build_mesh(scene, mesh, material);
     save_scene(sdkManager, ioSettings, scene, path);
     ret = true;
 
@@ -389,6 +375,26 @@ err_sdk:
     sdkManager->Destroy();
 err_ret:
     return ret;
+}
+
+bool fbx_try_save(char const *path, PSP::Mesh const *inMesh, PSP::Material const *inMaterial) {
+    PSPMesh mesh(inMesh);
+
+    PSPTexture texBase(&inMaterial->base);
+    PSPTexture texNormal(&inMaterial->normal);
+    PSPTexture texHeight(&inMaterial->height);
+    PSPTexture texRoughness(&inMaterial->roughness);
+    PSPTexture texAo(&inMaterial->ao);
+
+    Material material = {
+        &texBase,
+        &texNormal,
+        &texHeight,
+        &texRoughness,
+        &texAo,
+    };
+
+    return fbx_try_save(path, &mesh, material);
 }
 
 bool fbx_try_save(char const *path, Mesh_Export_Mesh const &mesh, Mesh_Export_Material const &material) {
