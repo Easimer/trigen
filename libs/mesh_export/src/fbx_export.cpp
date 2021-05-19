@@ -38,6 +38,24 @@ public:
     virtual int height() const = 0;
 };
 
+class IMesh {
+public:
+    virtual ~IMesh() = default;
+
+    virtual int numControlPoints() const = 0;
+    virtual FbxVector4 position(int idxControlPoint) const = 0;
+
+    virtual int numTriangles() const = 0;
+    virtual std::tuple<int, int, int> vertexIndices(int idxTriangle) const = 0;
+    virtual std::tuple<int, int, int> uvIndices(int idxTriangle) const = 0;
+
+    virtual FbxVector4 normal(int idxControlPoint) const = 0;
+    virtual FbxColor vertexColor(int idx) const = 0;
+
+    virtual int numUVs() const = 0;
+    virtual FbxVector2 uv(int idx) const = 0;
+};
+
 struct Material {
     ITexture const *base;
     ITexture const *normal;
@@ -67,6 +85,58 @@ public:
 
 private:
     PSP::Texture const *_tex;
+};
+
+class PSPMesh : public IMesh {
+public:
+    PSPMesh(PSP::Mesh const *mesh) : _mesh(mesh) {}
+    ~PSPMesh() override = default;
+
+    int numControlPoints() const override {
+        size_t ret_zu = _mesh->position.size();
+        assert(ret_zu < INT_MAX);
+        return int(ret_zu);
+    }
+
+    FbxVector4 position(int idxControlPoint) const override {
+        auto &pos = _mesh->position[idxControlPoint];
+        return FbxVector4(pos.x, pos.y, pos.z);
+    }
+
+    int numTriangles() const override {
+        return _mesh->elements.size() / 3;
+    }
+
+    std::tuple<int, int, int> vertexIndices(int idxTriangle) const override {
+        auto [off0, off1, off2] = uvIndices(idxTriangle);
+        return { _mesh->elements[off0], _mesh->elements[off1], _mesh->elements[off2] };
+    }
+
+    std::tuple<int, int, int> uvIndices(int idxTriangle) const override {
+        return { idxTriangle * 3 + 0,  idxTriangle * 3 + 1, idxTriangle * 3 + 2 };
+    }
+
+    FbxVector4 normal(int idxControlPoint) const override {
+        auto &normal = _mesh->normal[idxControlPoint];
+        return FbxVector4(normal.x, normal.y, normal.z);
+    }
+
+    FbxColor vertexColor(int idx) const override {
+        auto &col = _mesh->chart_debug_color[idx];
+        return FbxColor(float(col.r) / 255.f, float(col.g) / 255.f, float(col.b) / 255.f);
+    }
+
+    int numUVs() const override {
+        return _mesh->uv.size();
+    }
+
+    FbxVector2 uv(int idx) const override {
+        auto &uv = _mesh->uv[idx];
+        return FbxVector2(uv.x, uv.y);
+    }
+
+private:
+    PSP::Mesh const *_mesh;
 };
 
 static bool write_texture(ITexture const *tex, char const *kind, std::string &path) {
@@ -109,20 +179,17 @@ static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, 
     return texture;
 }
 
-static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, Material const &material) {
+static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &material) {
     auto meshNode = FbxMesh::Create(scene, "mesh");
 
-    auto num_control_points_zu = mesh->position.size();
-    assert(num_control_points_zu < INT_MAX);
-    auto num_control_points = int(num_control_points_zu);
+    auto num_control_points = mesh->numControlPoints();
 
     meshNode->InitControlPoints(num_control_points);
 
     // Fill control point array with vertex positions
     auto controlPoints = meshNode->GetControlPoints();
     for (int i = 0; i < num_control_points; i++) {
-        auto &pos = mesh->position[i];
-        controlPoints[i] = FbxVector4(pos.x, pos.y, pos.z);
+        controlPoints[i] = mesh->position(i);
     }
 
     // Create normal array
@@ -150,29 +217,22 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, Material const &m
     auto &normal_array = normal_element->GetDirectArray();
     auto &vtxcol_array = vtxcol_element->GetDirectArray();
     for (int i = 0; i < num_control_points; i++) {
-        auto &normal = mesh->normal[i];
-        auto &col = mesh->chart_debug_color[i];
-        normal_array.Add(FbxVector4(normal.x, normal.y, normal.z));
-        vtxcol_array.Add(FbxColor(float(col.r) / 255.f, float(col.g) / 255.f, float(col.b) / 255.f));
+        normal_array.Add(mesh->normal(i));
+        vtxcol_array.Add(mesh->vertexColor(i));
     }
 
     // Fill UV array
     auto &uv_array = uv_element->GetDirectArray();
-    auto num_elements = mesh->uv.size();
+    auto num_elements = mesh->numUVs();
     for (int i = 0; i < num_elements; i++) {
-        auto &uv = mesh->uv[i];
-        uv_array.Add(FbxVector2(uv.x, uv.y));
+        uv_array.Add(mesh->uv(i));
     }
 
     // Add triangles
-    auto num_triangles = mesh->elements.size() / 3;
+    auto num_triangles = mesh->numTriangles();
     for (size_t t = 0; t < num_triangles; t++) {
-        auto off0 = t * 3 + 0;
-        auto off1 = t * 3 + 1;
-        auto off2 = t * 3 + 2;
-        auto i0 = mesh->elements[off0];
-        auto i1 = mesh->elements[off1];
-        auto i2 = mesh->elements[off2];
+        auto [off0, off1, off2] = mesh->uvIndices(t);
+        auto [i0, i1, i2] = mesh->vertexIndices(t);
 
         meshNode->BeginPolygon();
         meshNode->AddPolygon(i2, off2);
@@ -288,7 +348,7 @@ static bool create_sdk_objects(FbxManager **out_sdkManager, FbxIOSettings **out_
     return true;
 }
 
-bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *inMaterial) {
+bool fbx_try_save(char const *path, PSP::Mesh const *inMesh, PSP::Material const *inMaterial) {
     FbxManager *sdkManager;
     FbxIOSettings *ioSettings;
     FbxScene *scene;
@@ -306,6 +366,7 @@ bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *
         &texRoughness,
         &texAo,
     };
+    PSPMesh mesh(inMesh);
 
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
         goto err_ret;
@@ -318,7 +379,7 @@ bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *
     }
 
 
-    build_mesh(scene, mesh, material);
+    build_mesh(scene, &mesh, material);
     save_scene(sdkManager, ioSettings, scene, path);
     ret = true;
 
