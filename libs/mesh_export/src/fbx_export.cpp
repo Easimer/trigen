@@ -29,12 +29,52 @@
 
 #define UV_ELEMENT_NAME "uv"
 
-static bool write_texture(PSP::Texture const &tex, char const *kind, std::string &path) {
+class ITexture {
+public:
+    virtual ~ITexture() = default;
+
+    virtual void const *buffer() const = 0;
+    virtual int width() const = 0;
+    virtual int height() const = 0;
+};
+
+struct Material {
+    ITexture const *base;
+    ITexture const *normal;
+    ITexture const *height;
+    ITexture const *roughness;
+    ITexture const *ao;
+};
+
+class PSPTexture : public ITexture {
+public:
+    PSPTexture(PSP::Texture const *tex)
+        : _tex(tex) { }
+
+    ~PSPTexture() override = default;
+
+    void const *buffer() const override {
+        return _tex->buffer;
+    }
+
+    int width() const override {
+        return _tex->width;
+    }
+
+    int height() const override {
+        return _tex->height;
+    }
+
+private:
+    PSP::Texture const *_tex;
+};
+
+static bool write_texture(ITexture const *tex, char const *kind, std::string &path) {
     auto tmpdir_path = std::filesystem::temp_directory_path();
     auto filename = std::filesystem::path("trigen_" + std::string(kind) + ".png");
     path = (tmpdir_path / filename).string();
 
-    if (stbi_write_png(path.c_str(), tex.width, tex.height, 3, tex.buffer, tex.width * 3) > 0) {
+    if (stbi_write_png(path.c_str(), tex->width(), tex->height(), 3, tex->buffer(), tex->width() * 3) > 0) {
         return true;
     }
 
@@ -43,7 +83,7 @@ static bool write_texture(PSP::Texture const &tex, char const *kind, std::string
     return false;
 }
 
-static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &tex, char const *kind) {
+static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, char const *kind) {
     std::string path;
     if (!write_texture(tex, kind, path)) {
         return nullptr;
@@ -63,13 +103,13 @@ static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &t
     return texture;
 }
 
-static FbxFileTexture *create_texture(FbxScene *container, PSP::Texture const &tex, char const *kind, FbxProperty &tex_prop) {
+static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, char const *kind, FbxProperty &tex_prop) {
     auto texture = create_texture(container, tex, kind);
     tex_prop.ConnectSrcObject(texture);
     return texture;
 }
 
-static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material const *material) {
+static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, Material const &material) {
     auto meshNode = FbxMesh::Create(scene, "mesh");
 
     auto num_control_points_zu = mesh->position.size();
@@ -152,11 +192,11 @@ static void build_mesh(FbxScene *scene, PSP::Mesh const *mesh, PSP::Material con
     surf.material()->AddImplementation(implementation);
     surf.material()->SetDefaultImplementation(implementation);
 
-    create_texture(scene, material->base, "base_color", surf.get_baseColor());
-    create_texture(scene, material->normal, "normal", surf.get_normalCamera());
-    create_texture(scene, material->roughness, "roughness", surf.get_diffuseRoughness());
-    create_texture(scene, material->ao, "ao");
-    create_texture(scene, material->height, "height");
+    create_texture(scene, material.base, "base_color", surf.get_baseColor());
+    create_texture(scene, material.normal, "normal", surf.get_normalCamera());
+    create_texture(scene, material.roughness, "roughness", surf.get_diffuseRoughness());
+    create_texture(scene, material.ao, "ao");
+    create_texture(scene, material.height, "height");
 
     node->AddMaterial(surf.material());
 
@@ -248,11 +288,24 @@ static bool create_sdk_objects(FbxManager **out_sdkManager, FbxIOSettings **out_
     return true;
 }
 
-bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *material) {
+bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *inMaterial) {
     FbxManager *sdkManager;
     FbxIOSettings *ioSettings;
     FbxScene *scene;
     bool ret = false;
+
+    PSPTexture texBase(&inMaterial->base);
+    PSPTexture texNormal(&inMaterial->normal);
+    PSPTexture texHeight(&inMaterial->height);
+    PSPTexture texRoughness(&inMaterial->roughness);
+    PSPTexture texAo(&inMaterial->ao);
+    Material material = {
+        &texBase,
+        &texNormal,
+        &texHeight,
+        &texRoughness,
+        &texAo,
+    };
 
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
         goto err_ret;
@@ -264,6 +317,7 @@ bool fbx_try_save(char const *path, PSP::Mesh const *mesh, PSP::Material const *
         goto err_sdk;
     }
 
+
     build_mesh(scene, mesh, material);
     save_scene(sdkManager, ioSettings, scene, path);
     ret = true;
@@ -274,4 +328,8 @@ err_sdk:
     sdkManager->Destroy();
 err_ret:
     return ret;
+}
+
+bool fbx_try_save(char const *path, Mesh_Export_Mesh const &mesh, Mesh_Export_Material const &material) {
+    return false;
 }
