@@ -41,7 +41,7 @@ void VM_Main::switchToSession(Session *session) {
 	emit currentSessionChanged(session);
 }
 
-void VM_Main::addSoftbodySimulation(sb::Config const &cfg) {
+void VM_Main::addSoftbodySimulation(Trigen_Parameters const &cfg) {
 	if (_currentSession != nullptr) {
 		_currentSession->createPlant(cfg);
 	}

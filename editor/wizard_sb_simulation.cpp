@@ -42,28 +42,34 @@ Wizard_SB_Simulation::Wizard_SB_Simulation(QWidget *parent, Qt::WindowFlags flag
 	setPage(Page_Intro, new Wizard_Page_Intro(this));
 	setPage(Page_Type, new Wizard_Page_Type(this));
 
+    _sbConfig.flags = 0;
+
 	auto pagePlant = new Wizard_Page_Plant(this);
-	connectSpinBox(pagePlant->ui()->sbOriginX, &_sbExtPlant.seed_position.x);
-	connectSpinBox(pagePlant->ui()->sbOriginY, &_sbExtPlant.seed_position.y);
-	connectSpinBox(pagePlant->ui()->sbOriginZ, &_sbExtPlant.seed_position.z);
-	connectSpinBox(pagePlant->ui()->sbParticleCountLimit, &_sbExtPlant.particle_count_limit);
-	connectSpinBox(pagePlant->ui()->sbStiffness, &_sbExtPlant.stiffness);
-	connectSpinBox(pagePlant->ui()->sbDensity, &_sbExtPlant.density);
-	connectSpinBox(pagePlant->ui()->sbPhotoRespStr, &_sbExtPlant.phototropism_response_strength);
-	connectSpinBox(pagePlant->ui()->sbAgingRate, &_sbExtPlant.aging_rate);
-	connectSpinBox(pagePlant->ui()->sbBranchProb, &_sbExtPlant.branching_probability);
-	connectSpinBox(pagePlant->ui()->sbBranchVar, &_sbExtPlant.branch_angle_variance);
-	connectSpinBox(pagePlant->ui()->sbSurfAdaptStr, &_sbExtPlant.surface_adaption_strength);
-	connectSpinBox(pagePlant->ui()->sbSurfAttachStr, &_sbExtPlant.attachment_strength);
+	connectSpinBox(pagePlant->ui()->sbOriginX, &_sbConfig.seed_position[0]);
+	connectSpinBox(pagePlant->ui()->sbOriginY, &_sbConfig.seed_position[1]);
+	connectSpinBox(pagePlant->ui()->sbOriginZ, &_sbConfig.seed_position[2]);
+	connectSpinBox(pagePlant->ui()->sbParticleCountLimit, &_sbConfig.particle_count_limit);
+	connectSpinBox(pagePlant->ui()->sbStiffness, &_sbConfig.stiffness);
+	connectSpinBox(pagePlant->ui()->sbDensity, &_sbConfig.density);
+	connectSpinBox(pagePlant->ui()->sbPhotoRespStr, &_sbConfig.phototropism_response_strength);
+	connectSpinBox(pagePlant->ui()->sbAgingRate, &_sbConfig.aging_rate);
+	connectSpinBox(pagePlant->ui()->sbBranchProb, &_sbConfig.branching_probability);
+	connectSpinBox(pagePlant->ui()->sbBranchVar, &_sbConfig.branch_angle_variance);
+	connectSpinBox(pagePlant->ui()->sbSurfAdaptStr, &_sbConfig.surface_adaption_strength);
+	connectSpinBox(pagePlant->ui()->sbSurfAttachStr, &_sbConfig.attachment_strength);
 	setPage(Page_Config_Plant, pagePlant);
 
 	// setPage(Page_Config_Cloth, new Wizard_Page_Cloth(this));
 	
 	auto pageCompute = new Wizard_Page_Compute(this);
-	connectRadioButtonToEnumField(pageCompute->ui()->btnNone, &_sbConfig.compute_preference, sb::Compute_Preference::None);
-	connectRadioButtonToEnumField(pageCompute->ui()->btnCUDA, &_sbConfig.compute_preference, sb::Compute_Preference::GPU_Proprietary);
-	connectRadioButtonToEnumField(pageCompute->ui()->btnOpenCL, &_sbConfig.compute_preference, sb::Compute_Preference::GPU_OpenCL);
-	connectRadioButtonToEnumField(pageCompute->ui()->btnCPU, &_sbConfig.compute_preference, sb::Compute_Preference::Reference);
+    _sbConfig.flags |= (pageCompute->ui()->chkPreferCPU->isChecked() ? Trigen_F_PreferCPU : 0);
+    connect(pageCompute->ui()->chkPreferCPU, &QCheckBox::stateChanged, [&](int state) {
+		if (state == 0) {
+            _sbConfig.flags |= Trigen_F_PreferCPU;
+		} else {
+            _sbConfig.flags &= ~(Trigen_F_PreferCPU);
+		}
+    });
 	setPage(Page_Compute, pageCompute);
 
 	setPage(Page_Outro, new Wizard_Page_Outro(this));
@@ -74,14 +80,6 @@ Wizard_SB_Simulation::Wizard_SB_Simulation(QWidget *parent, Qt::WindowFlags flag
 
 void Wizard_SB_Simulation::accept() {
 	if (field(fieldSrcFromScratch).toBool()) {
-		if (field(fieldExtensionPlant).toBool()) {
-			_sbConfig.ext = sb::Extension::Plant_Simulation;
-			_sbConfig.extra.plant_sim = &_sbExtPlant;
-		} else if (field(fieldExtensionCloth).toBool()) {
-			_sbConfig.ext = sb::Extension::Debug_Cloth;
-			_sbConfig.extra.cloth_sim = &_sbExtCloth;
-		}
-
 		QDialog::accept();
 	} else {
 		assert(0);

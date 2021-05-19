@@ -28,36 +28,12 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QRadioButton" name="btnNone">
+       <widget class="QCheckBox" name="chkPreferCPU">
         <property name="text">
-         <string>&amp;No preference</string>
-        </property>
-        <property name="shortcut">
-         <string>Alt+N</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="btnCPU">
-        <property name="text">
-         <string>CPU</string>
+         <string>Prefer CPU</string>
         </property>
         <property name="checked">
          <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="btnOpenCL">
-        <property name="text">
-         <string>OpenCL</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="btnCUDA">
-        <property name="text">
-         <string>CUDA</string>
         </property>
        </widget>
       </item>

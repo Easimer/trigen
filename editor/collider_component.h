@@ -6,13 +6,13 @@
 #pragma once
 
 #include <memory>
-#include <softbody.h>
+#include <trigen.hpp>
 
 #include "world.h"
 #include "mesh_collider.h"
 
 struct Collider_Component {
 	std::unique_ptr<IMesh_Collider> mesh_collider;
-	std::unordered_map<Entity_Handle, sb::ISoftbody_Simulation::Collider_Handle> sb_handles;
+	std::unordered_map<Entity_Handle, trigen::Collider> sb_handles;
 };
 

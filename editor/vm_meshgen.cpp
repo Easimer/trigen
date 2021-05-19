@@ -109,11 +109,39 @@ Unwrapped_Mesh convertMesh(PSP::Mesh const &mesh) {
     return ret;
 }
 
+Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
+    Unwrapped_Mesh ret;
+
+    std::transform(
+        (glm::vec3 *)mesh.positions, (glm::vec3 *)(mesh.positions + mesh.position_count * 3),
+        std::back_inserter(ret.positions),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
+    std::transform(
+        (glm::vec3 *)mesh.normals, (glm::vec3 *)(mesh.normals + mesh.normal_count),
+        std::back_inserter(ret.normals),
+        [&](auto p) -> std::array<float, 3> {
+            return { p.x, p.y, p.z };
+        });
+    std::transform(
+        (size_t *)mesh.vertex_indices, (size_t *)(mesh.vertex_indices + mesh.triangle_count * 3),
+        std::back_inserter(ret.elements),
+        [&](auto p) { return (unsigned)p; });
+
+    std::transform(
+        (glm::vec2*)mesh.uvs, (glm::vec2*)(mesh.uvs + mesh.triangle_count * 3 * 2),
+        std::back_inserter(ret.uv),
+        [&](auto p) -> glm::vec2 {
+            return { p.x, p.y };
+        });
+
+    return ret;
+}
+
 VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     : _world(world)
     , _ent(ent) {
-    _meshgenParams.subdivisions = 2;
-    _metaballRadius = 1;
 }
 
 bool VM_Meshgen::checkEntity() const {
@@ -134,20 +162,20 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         renderTransform.scale = transform.scale;
     }
 
-    if (_outputMaterial.base.buffer != nullptr && _texOutBase == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBase, _outputMaterial.base.buffer, _outputMaterial.base.width, _outputMaterial.base.height, gfx::Texture_Format::RGB888);
+    if (_texOutBase.image != nullptr && _texOutBaseHandle == nullptr) {
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBaseHandle, _texOutBase.image, _texOutBase.width, _texOutBase.height, gfx::Texture_Format::RGB888);
     }
 
-    if (_outputMaterial.normal.buffer != nullptr && _texOutNormal == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutNormal, _outputMaterial.normal.buffer, _outputMaterial.normal.width, _outputMaterial.normal.height, gfx::Texture_Format::RGB888);
+    if (_texOutNormal.image != nullptr && _texOutNormalHandle == nullptr) {
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutNormalHandle, _texOutNormal.image, _texOutNormal.width, _texOutNormal.height, gfx::Texture_Format::RGB888);
     }
 
     if (_unwrappedMesh.has_value()) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
-            if (_texOutBase != nullptr && _texOutNormal != nullptr) {
-                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBase, _texOutNormal, renderTransform);
-                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBase, renderTransform);
+            if (_texOutBaseHandle != nullptr && _texOutNormalHandle != nullptr) {
+                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, _texOutNormalHandle, renderTransform);
+                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, renderTransform);
             } else {
                 gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
             }
@@ -155,26 +183,12 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
         }
 
-    } else if (_basicMesh.has_value()) {
-        if (_basicMesh->renderer_handle != nullptr) {
-            // Render basic mesh
-            gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _basicMesh->renderer_handle, renderTransform);
-        } else {
-            gfx::allocate_command_and_initialize<Upload_Model_Command<Basic_Mesh>>(rq, &_basicMesh->renderer_handle, &*_basicMesh);
-        }
     }
 
-    if (_pspMesh.has_value()) {
-
+    if (_unwrappedMesh.has_value()) {
         if (_renderNormals) {
             std::vector<glm::vec3> lines;
-            // DEBUG: for each vertex, draw the normal
-            for (size_t i = 0; i < _pspMesh->position.size(); i++) {
-                auto start = _pspMesh->position[i];
-                auto end = start + _pspMesh->normal[i];
-                lines.push_back(start);
-                lines.push_back(end);
-            }
+            // TODO: for each vertex, draw the normal
             gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
         }
     }
@@ -203,15 +217,42 @@ void VM_Meshgen::cleanupModels(gfx::Render_Queue *rq) {
 }
 
 void VM_Meshgen::numberOfSubdivionsChanged(int subdivisions) {
-    _meshgenParams.subdivisions = subdivisions;
+    if (!checkEntity()) {
+        return;
+    }
+
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Mesh_SetSubdivisions(*session, subdivisions);
 
     regenerateMesh();
 }
 
 void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
-    _metaballRadius = metaballRadius;
+    if (!checkEntity()) {
+        return;
+    }
+
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Metaballs_SetRadius(*session, metaballRadius);
 
     regenerateMetaballs();
+}
+
+static Trigen_Texture_Kind MapTextureKindToTrigenTextureKind(Texture_Kind kind) {
+    switch (kind) {
+    case Texture_Kind::Base:
+        return Trigen_Texture_BaseColor;
+    case Texture_Kind::Normal:
+        return Trigen_Texture_NormalMap;
+    case Texture_Kind::Height:
+        return Trigen_Texture_HeightMap;
+    case Texture_Kind::Roughness:
+        return Trigen_Texture_RoughnessMap;
+    case Texture_Kind::AO:
+        return Trigen_Texture_AmbientOcclusionMap;
+    }
+
+    std::abort();
 }
 
 void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
@@ -250,9 +291,12 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
 
     if (tex != nullptr) {
         tex->data = std::move(data);
-        tex->info.buffer = tex->data.get();
+        tex->info.image = tex->data.get();
         tex->info.width = width;
         tex->info.height = height;
+
+        auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+        Trigen_Painting_SetInputTexture(session->handle(), MapTextureKindToTrigenTextureKind(kind), &tex->info);
 
         repaintMesh();
     } else {
@@ -261,23 +305,13 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
 }
 
 void VM_Meshgen::resolutionChanged(int resolution) {
-    _paintParams.out_width = resolution;
-    _paintParams.out_height = resolution;
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Painting_SetOutputResolution(session->handle(), resolution, resolution);
 
     repaintMesh();
 }
 
 void VM_Meshgen::onExportClicked() {
-    if (!_pspMesh) {
-        emit exportError("Meshgen isn't done yet!");
-        return;
-    }
-
-    if (!_painter || !_painter->is_painting_done()) {
-        emit exportError("Painting isn't done yet!");
-        return;
-    }
-
     emit showExportFileDialog();
 }
 
@@ -287,161 +321,80 @@ void VM_Meshgen::onExportPathAvailable(QString const &path) {
         return;
     }
 
-    assert(_pspMesh.has_value());
-    if (!_pspMesh.has_value()) {
+    assert(_unwrappedMesh.has_value());
+    if (!_unwrappedMesh.has_value()) {
         emit exportError("Generated mesh has disappeared between validation and saving. Programmer error?");
     }
 
     auto const pathu8 = path.toUtf8();
 
-    if (fbx_try_save(pathu8.constData(), &_pspMesh.value(), &_outputMaterial)) {
+    PSP::Material outputMaterial;
+
+    auto convertTrigenTextureToPSPTexture = [&](PSP::Texture &pt, Trigen_Texture const &tt) {
+        pt.buffer = tt.image;
+        pt.width = tt.width;
+        pt.height = tt.height;
+    };
+
+    convertTrigenTextureToPSPTexture(outputMaterial.base, _texOutBase);
+    convertTrigenTextureToPSPTexture(outputMaterial.normal, _texOutNormal);
+    convertTrigenTextureToPSPTexture(outputMaterial.height, _texOutHeight);
+    convertTrigenTextureToPSPTexture(outputMaterial.roughness, _texOutRoughness);
+    convertTrigenTextureToPSPTexture(outputMaterial.ao, _texOutAo);
+
+    /*
+    if (fbx_try_save(pathu8.constData(), &_unwrappedMesh.value(), &outputMaterial)) {
         emit exported();
     } else {
         emit exportError("Couldn't save FBX file!");
     }
+    */
 }
 
 void VM_Meshgen::regenerateMetaballs() {
     assert(checkEntity());
 
-    _metaballs.clear();
-
     if (!checkEntity()) {
         return;
     }
 
-    auto &simulation = _world->getMapForComponent<Plant_Component>().at(_ent)._sim;
-
-    // Gather particles and connections
-    std::unordered_map<sb::index_t, sb::Particle> particles;
-    std::set<std::pair<sb::index_t, sb::index_t>> connections;
-
-    for (auto iter = simulation->get_particles(); !iter->ended(); iter->step()) {
-        auto p = iter->get();
-        particles[p.id] = p;
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    if (Trigen_Metaballs_Regenerate(*session) == Trigen_OK) {
+        regenerateMesh();
     }
-
-    for (auto iter = simulation->get_connections(); !iter->ended(); iter->step()) {
-        auto c = iter->get();
-        if (c.parent < c.child) {
-            connections.insert({ c.parent, c.child });
-        } else {
-            connections.insert({ c.child, c.parent });
-        }
-    }
-
-    // Generate metaballs
-    for (auto &conn : connections) {
-        auto p0 = particles[conn.first].position;
-        auto p1 = particles[conn.second].position;
-        auto s0 = particles[conn.first].size;
-        auto s1 = particles[conn.second].size;
-        auto dir = p1 - p0;
-        auto dirLen = length(p1 - p0);
-        auto sizDir = s1 - s0;
-        auto steps = int((dirLen + 1) * 16.0f);
-
-        for (int s = 0; s < steps; s++) {
-            auto t = s / (float)steps;
-            auto p = p0 + t * dir;
-            auto size = s0 + t * sizDir;
-            float radius = 8.0f;
-            for (int i = 0; i < 3; i++) {
-                radius = glm::max(size[i] / 2, radius);
-            }
-            _metaballs.push_back({ p, radius / 8 });
-        }
-    }
-
-    regenerateMesh();
 }
 
 void VM_Meshgen::regenerateMesh() {
-    auto mesh = marching_cubes::generate(_metaballs, _meshgenParams);
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    
+    if (Trigen_Mesh_Regenerate(*session) == Trigen_OK) {
+        Trigen_Mesh mesh;
+        Trigen_Mesh_GetMesh(*session, &mesh);
+        _unwrappedMesh = convertMesh(mesh);
+        Trigen_Mesh_FreeMesh(&mesh);
 
-    _basicMesh = convertMesh(mesh);
-
-    PSP::Mesh pspMesh;
-    pspMesh.position = std::move(mesh.positions);
-    pspMesh.normal = std::move(mesh.normal);
-    std::transform(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(pspMesh.elements), [&](unsigned idx) { return (size_t)idx; });
-
-    _pspMesh.emplace(std::move(pspMesh));
-
-    regenerateUVs();
+        regenerateUVs();
+    }
 }
 
 void VM_Meshgen::regenerateUVs() {
-    if (!_pspMesh.has_value()) {
-        return;
-    }
-
-    _pspMesh->uv.clear();
-    PSP::unwrap(_pspMesh.value());
-
-    _unwrappedMesh = convertMesh(*_pspMesh);
-
+    // TODO: remove me
     repaintMesh();
 }
 
 void VM_Meshgen::repaintMesh() {
-    if (!_pspMesh.has_value()) {
-        return;
-    }
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Painting_Regenerate(*session);
 
-    PSP::Texture texBlack = {};
-    uint8_t const blackPixel[3] = { 0, 0, 0 };
+    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_BaseColor, &_texOutBase);
+    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_NormalMap, &_texOutNormal);
+    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_HeightMap, &_texOutHeight);
+    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_RoughnessMap, &_texOutRoughness);
+    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
 
-    texBlack.buffer = blackPixel;
-    texBlack.width = 1;
-    texBlack.height = 1;
-
-    PSP::Texture texNormal = {};
-    uint8_t const normalPixel[3] = { 128, 128, 255 };
-
-    texNormal.buffer = normalPixel;
-    texNormal.width = 1;
-    texNormal.height = 1;
-
-    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target, PSP::Texture const &placeholder) {
-        if (input.data == nullptr) {
-            target = placeholder;
-        } else {
-            target = input.info;
-        }
-    };
-
-    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texBlack);
-    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texNormal);
-
-    assert(_pspMesh->uv.size() == _pspMesh->elements.size());
-
-    putBlackTextureIfEmpty(_texBase, _inputMaterial.base);
-    putNormalTextureIfEmpty(_texNormal, _inputMaterial.normal);
-    putBlackTextureIfEmpty(_texHeight, _inputMaterial.height);
-    putBlackTextureIfEmpty(_texRoughness, _inputMaterial.roughness);
-    putBlackTextureIfEmpty(_texAo, _inputMaterial.ao);
-
-    _paintParams.material = &_inputMaterial;
-    _paintParams.mesh = &_pspMesh.value();
-
-    if (_texOutBase != nullptr) {
-        _texturesDestroying.push_back(_texOutBase);
-    }
-    _texOutBase = nullptr;
-
-    if (_texOutNormal != nullptr) {
-        _texturesDestroying.push_back(_texOutNormal);
-    }
-    _texOutNormal = nullptr;
-
-    _outputMaterial = {};
-    _painter = PSP::make_painter(_paintParams);
-
-    _painter->step_painting(0);
-
-    if (_painter->is_painting_done()) {
-        _painter->result(&_outputMaterial);
-    }
+    _texturesDestroying.push_back(_texOutNormalHandle);
+    _texOutNormalHandle = nullptr;
+    _texturesDestroying.push_back(_texOutBaseHandle);
+    _texOutBaseHandle = nullptr;
 }
 

@@ -10,14 +10,14 @@
 #include <QDoubleSpinBox>
 #include <QSpinBox>
 #include <QRadioButton>
-#include <softbody.h>
+#include <trigen.hpp>
 
 class Wizard_SB_Simulation : public QWizard {
 	Q_OBJECT;
 public:
 	Wizard_SB_Simulation(QWidget *parent = nullptr, Qt::WindowFlags flags = 0);
 
-	sb::Config const &config() {
+	Trigen_Parameters const &config() {
 		return _sbConfig;
 	}
 
@@ -32,7 +32,7 @@ private:
 	QMetaObject::Connection connectRadioButtonToEnumField(QRadioButton *btn, T *field, T value);
 
 private:
-	sb::Config _sbConfig = {};
+	Trigen_Parameters _sbConfig = {};
 	sb::Plant_Simulation_Extension_Extra _sbExtPlant = {};
 	sb::Debug_Cloth_Extension_Extra _sbExtCloth = {};
 };

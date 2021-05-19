@@ -97,7 +97,13 @@ Trigen_Status TRIGEN_API Trigen_CreateSession(Trigen_Session *session, Trigen_Pa
         return Trigen_InvalidConfiguration;
     }
 
+    s->metaballRadius = 8;
+    s->_meshgenParams.subdivisions = 8;
+    s->_paintParams.out_width = 512;
+    s->_paintParams.out_height = 512;
+
     *session = s;
+    printf("[trigen] created session %p\n", s);
     return Trigen_OK;
 }
 
@@ -263,6 +269,10 @@ Trigen_Status TRIGEN_API Trigen_Mesh_Regenerate(Trigen_Session session) {
         return Trigen_InvalidArguments;
     }
 
+    if (session->_metaballs.size() == 0) {
+        return Trigen_NotReady;
+    }
+
     auto mesh = marching_cubes::generate(session->_metaballs, session->_meshgenParams);
 
     PSP::Mesh pspMesh;
@@ -279,9 +289,9 @@ Trigen_Status TRIGEN_API Trigen_Mesh_Regenerate(Trigen_Session session) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh *mesh) {
-    assert(session && mesh);
-    if (session == nullptr || mesh == nullptr) {
+Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh *outMesh) {
+    assert(session && outMesh);
+    if (session == nullptr || outMesh == nullptr) {
         return Trigen_InvalidArguments;
     }
 
@@ -289,7 +299,40 @@ Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh
         return Trigen_NotReady;
     }
 
-    mesh->position = (float*)session->_pspMesh->position.data();
+    auto &mesh = session->_pspMesh.value();
+
+    outMesh->position_count = mesh.position.size();
+    outMesh->normal_count = mesh.normal.size();
+    outMesh->triangle_count = mesh.elements.size() / 3;
+
+    outMesh->positions = new float[mesh.position.size() * 3];
+    outMesh->normals = new float[mesh.normal.size() * 3];
+    outMesh->uvs = new float[mesh.uv.size() * 2];
+    outMesh->vertex_indices = new uint64_t[mesh.elements.size() * 3];
+    // PSP::Mesh has no normal indices
+    outMesh->normal_indices = outMesh->vertex_indices;
+
+    memcpy((void*)outMesh->positions, mesh.position.data(), outMesh->position_count * sizeof(glm::vec3));
+    memcpy((void*)outMesh->normals, mesh.normal.data(), outMesh->normal_count * sizeof(glm::vec3));
+    memcpy((void*)outMesh->uvs, mesh.uv.data(), mesh.uv.size() * sizeof(glm::vec2));
+
+    static_assert(sizeof(uint64_t) == sizeof(size_t), "size_t was not 8 bytes! Fix this memcpy:");
+    memcpy((void *)outMesh->vertex_indices, mesh.elements.data(), mesh.elements.size() * sizeof(uint64_t));
+
+    return Trigen_OK;
+}
+
+Trigen_Status TRIGEN_API Trigen_Mesh_FreeMesh(Trigen_Mesh *mesh) {
+    if (mesh != nullptr) {
+        delete[] mesh->vertex_indices;
+        // PSP::Mesh has no normal indices
+        // delete[] mesh->normal_indices;
+        delete[] mesh->positions;
+        delete[] mesh->normals;
+        delete[] mesh->uvs;
+
+        memset(mesh, 0, sizeof(*mesh));
+    }
 
     return Trigen_OK;
 }
@@ -361,6 +404,10 @@ Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
         return Trigen_InvalidArguments;
     }
 
+    if (!session->_pspMesh.has_value()) {
+        return Trigen_NotReady;
+    }
+
     PSP::Texture texBlack = {};
     uint8_t const blackPixel[3] = { 0, 0, 0 };
 
@@ -386,7 +433,7 @@ Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
     auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texBlack);
     auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texNormal);
 
-    assert(_pspMesh->uv.size() == _pspMesh->elements.size());
+    assert(session->_pspMesh->uv.size() == session->_pspMesh->elements.size());
 
     putBlackTextureIfEmpty(session->_texBase, session->_inputMaterial.base);
     putNormalTextureIfEmpty(session->_texNormal, session->_inputMaterial.normal);
@@ -483,6 +530,56 @@ Trigen_Status TRIGEN_API Trigen_GetErrorMessage(char const **message, Trigen_Sta
     default:
         *message = "Unknown error code";
         return Trigen_InvalidArguments;
+    }
+
+    return Trigen_OK;
+}
+
+Trigen_Status TRIGEN_API Trigen_GetBranches(TRIGEN_IN Trigen_Session session, TRIGEN_INOUT size_t *count, TRIGEN_IN float *buffer) {
+    if (session == nullptr || count == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    size_t numBranches = 0;
+    auto iter = session->simulation->get_connections();
+
+    // Count the number of branches
+    while (!iter->ended()) {
+        numBranches++;
+        iter->step();
+    }
+
+    if (*count >= numBranches && buffer != nullptr) {
+        // Buffer's pointer is not null and it has enough space
+
+        iter = session->simulation->get_connections();
+
+        // Copy branch endpoint positions
+        while (!iter->ended()) {
+            auto c = iter->get();
+            for (int i = 0; i < 3; i++) {
+                buffer[0 + i] = c.parent_position[i];
+                buffer[3 + i] = c.child_position[i];
+            }
+
+            buffer += 6;
+            iter->step();
+        }
+
+        return Trigen_OK;
+    } else {
+        if (*count == 0) {
+            *count = numBranches;
+            return Trigen_OK;
+        } else {
+            if (buffer == nullptr) {
+                // Count is non-zero, but buffer is null
+                return Trigen_InvalidArguments;
+            } else {
+                // Buffer is non-null, but count is less than numBranches
+                return Trigen_NotEnoughSpace;
+            }
+        }
     }
 
     return Trigen_OK;

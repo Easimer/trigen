@@ -187,11 +187,6 @@ class Wizard_Page_Compute : public QWizardPage {
 public:
 	Wizard_Page_Compute(QWidget *parent = nullptr) : QWizardPage(parent) {
 		_ui.setupUi(this);
-
-		registerField(fieldComputeNone, _ui.btnNone);
-		registerField(fieldComputeCPU, _ui.btnCPU);
-		registerField(fieldComputeOpenCL, _ui.btnOpenCL);
-		registerField(fieldComputeCUDA, _ui.btnCUDA);
 	}
 
 	Ui::Wizard_SB_Compute_Config *ui() {

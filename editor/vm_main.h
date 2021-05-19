@@ -9,7 +9,7 @@
 #include <QObject>
 
 #include "session.h"
-#include <softbody.h>
+#include <trigen.hpp>
 #include <r_renderer.h>
 #include "entity_list.h"
 
@@ -22,7 +22,7 @@ public:
 	void closeSession(Session *session);
 	void switchToSession(Session *session);
 
-	void addSoftbodySimulation(sb::Config const &cfg);
+	void addSoftbodySimulation(Trigen_Parameters const &cfg);
 	void addColliderFromPath(char const *path);
 	void onTick(float deltaTime);
 	void setGizmoMode(Session_Gizmo_Mode mode);

@@ -6,12 +6,11 @@
 #pragma once
 
 #include <memory>
-#include <softbody.h>
+#include <trigen.hpp>
 
 struct Plant_Component {
-	Plant_Component(sb::Config const &cfg) {
-		_sim = sb::create_simulation(cfg);
+	Plant_Component(trigen::Session *session) : session(session) {
 	}
 
-	sb::Unique_Ptr<sb::ISoftbody_Simulation> _sim;
+	trigen::Session *session;
 };

@@ -16,6 +16,8 @@
 #include <r_queue.h>
 #include <r_cmd/softbody.h>
 
+#include <trigen.hpp>
+
 enum class Session_Gizmo_Mode {
     Translation,
     Rotation,
@@ -28,7 +30,7 @@ public:
     Session(char const *name);
 
     std::string name() const { return _name; }
-    void createPlant(sb::Config const &cfg);
+    void createPlant(Trigen_Parameters const &cfg);
     bool isRunning() const { return _isRunning; }
 	void addColliderFromPath(char const *path);
     QWorld const *world() const { return &_world; }
@@ -44,6 +46,7 @@ public slots:
     void setGizmoMode(Session_Gizmo_Mode mode);
 
 signals:
+    void plantCreationAvailabilityChanged(bool isPlantCreationAvailable);
 	void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
 
 private:
@@ -58,4 +61,6 @@ private:
     glm::mat4 _matView;
     glm::mat4 _matProj;
     Session_Gizmo_Mode _gizmoMode = Session_Gizmo_Mode::Translation;
+
+    std::optional<trigen::Session> _session;
 };

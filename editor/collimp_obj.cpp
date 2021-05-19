@@ -33,13 +33,11 @@ public:
 
     ~Mesh_Collider_OBJ() override = default;
 private:
-    sb::ISoftbody_Simulation::Collider_Handle uploadToSimulation(sb::ISoftbody_Simulation *sim) override {
-        sb::ISoftbody_Simulation::Collider_Handle handle;
-        sb::Mesh_Collider descriptor = {};
+    std::optional<trigen::Collider> uploadToSimulation(trigen::Session &session) override {
+        Trigen_Collider_Mesh descriptor = {};
 
         auto &indices = _modelData->shapes[_shapeIndex].mesh.indices;
         auto N = indices.size() / 3;
-        descriptor.transform = glm::mat4(1.0f);
         descriptor.triangle_count = N;
 
         descriptor.vertex_indices = _meshData.vertex_indices.data();
@@ -51,12 +49,16 @@ private:
         descriptor.normal_count = _modelData->attrib.normals.size();
         descriptor.normals = (float *)_modelData->attrib.normals.data();
 
+        Trigen_Transform transform;
+        memset(&transform, 0, sizeof(transform));
+        transform.scale[0] = transform.scale[1] = transform.scale[2] = 1;
+        transform.orientation[0] = 1.0f;
 
-        if (!sim->add_collider(handle, &descriptor)) {
-            std::abort();
+        try {
+            return trigen::Collider::make(session, descriptor, transform);
+        } catch(trigen::Exception const &) {
+            return std::nullopt;
         }
-
-        return handle;
     }
 
     gfx::Model_ID uploadToRenderer(gfx::IRenderer *renderer) override {

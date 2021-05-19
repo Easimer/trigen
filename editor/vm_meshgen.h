@@ -42,7 +42,7 @@ struct Unwrapped_Mesh : public Basic_Mesh {
 
 struct Input_Texture {
     std::unique_ptr<uint8_t[]> data;
-    PSP::Texture info;
+    Trigen_Texture info;
 };
 
 class VM_Meshgen : public QObject {
@@ -113,13 +113,6 @@ private:
     QWorld const *_world;
     Entity_Handle _ent;
 
-    std::vector<marching_cubes::metaball> _metaballs;
-
-    marching_cubes::params _meshgenParams;
-    float _metaballRadius;
-    PSP::Parameters _paintParams;
-    std::optional<PSP::Mesh> _pspMesh;
-    std::optional<Basic_Mesh> _basicMesh;
     std::optional<Unwrapped_Mesh> _unwrappedMesh;
 
     PSP::Material _inputMaterial;
@@ -129,11 +122,14 @@ private:
     Input_Texture _texRoughness;
     Input_Texture _texAo;
 
-    PSP::Material _outputMaterial;
-    gfx::Texture_ID _texOutBase = nullptr;
-    gfx::Texture_ID _texOutNormal = nullptr;
+    Trigen_Texture _texOutBase;
+    Trigen_Texture _texOutNormal;
+    Trigen_Texture _texOutHeight;
+    Trigen_Texture _texOutRoughness;
+    Trigen_Texture _texOutAo;
 
-    std::unique_ptr<PSP::IPainter> _painter;
+    gfx::Texture_ID _texOutBaseHandle = nullptr;
+    gfx::Texture_ID _texOutNormalHandle = nullptr;
 
     std::vector<gfx::Model_ID> _modelsDestroying;
     std::vector<gfx::Texture_ID> _texturesDestroying;

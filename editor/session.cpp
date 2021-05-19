@@ -19,7 +19,38 @@
 #include <imgui.h>
 #include <ImGuizmo.h>
 
+#include <trigen.h>
+
 namespace fs = std::filesystem;
+
+class Visualize_Branches : public gfx::IRender_Command {
+public:
+    Visualize_Branches(trigen::Session *session)
+        : _session(session) {
+	}
+
+private:
+    trigen::Session *_session;
+    void execute(gfx::IRenderer *renderer) override {
+        Trigen_Status rc;
+		std::vector<glm::vec3> lines;
+
+		size_t count = 0;
+        rc = Trigen_GetBranches(_session->handle(), &count, nullptr);
+		if (rc != Trigen_OK) {
+            return;
+		}
+
+		lines.resize(count * 2);
+
+        rc = Trigen_GetBranches(*_session, &count, (float *)lines.data());
+		if (rc != Trigen_OK) {
+            return;
+		}
+
+        renderer->draw_lines(lines.data(), lines.size() / 2, {0, 0, 0}, {.35, 0, 0}, {1, 0, 0});
+    }
+};
 
 Session::Session(char const *name) :
 	_name(name),
@@ -29,9 +60,11 @@ Session::Session(char const *name) :
     _matProj(1.0f) {
 }
 
-void Session::createPlant(sb::Config const &cfg) {
+void Session::createPlant(Trigen_Parameters const &cfg) {
+    _session.emplace(trigen::Session::make(cfg));
+    printf("trigen::Session ptr is at %p\n", &_session.value());
 	auto ent = _world.createEntity();
-	_world.attachComponent<Plant_Component>(ent, cfg);
+	_world.attachComponent<Plant_Component>(ent, &_session.value());
 }
 
 void Session::addColliderFromPath(char const *path) {
@@ -97,8 +130,10 @@ void Session::onTick(float deltaTime) {
         // Check whether all colliders are added to all plant sims
 		for (auto &plantEnt : plants) {
 			if (colliderEnt.second.sb_handles.count(plantEnt.first) == 0) {
-				auto collHandle = colliderEnt.second.mesh_collider->uploadToSimulation(plantEnt.second._sim.get());
-                colliderEnt.second.sb_handles.emplace(std::make_pair(plantEnt.first, collHandle));
+                auto collHandle = colliderEnt.second.mesh_collider->uploadToSimulation(*plantEnt.second.session);
+                if (collHandle.has_value()) {
+                    colliderEnt.second.sb_handles.emplace(std::make_pair(plantEnt.first, std::move(collHandle.value())));
+                }
 			}
 		}
 
@@ -111,12 +146,19 @@ void Session::onTick(float deltaTime) {
 		if (transforms.count(colliderEnt.first) != 0) {
 			auto &transform = transforms[colliderEnt.first];
 			if (transform.manipulated) {
-				// If it was manipulated, we notify all the simulations about this change
-				for (auto &plantEnt : plants) {
-					auto handle = colliderEnt.second.sb_handles[plantEnt.first];
-					auto matTransform = glm::translate(transform.position) * glm::mat4(transform.rotation) * glm::scale(transform.scale);
-					plantEnt.second._sim->update_transform(handle, matTransform);
-				}
+                Trigen_Transform tt;
+                for (int i = 0; i < 3; i++) {
+                    tt.position[i] = transform.position[i];
+                    tt.scale[i] = transform.scale[i];
+                }
+                for (int i = 0; i < 4; i++) {
+                    tt.orientation[i] = transform.rotation[i];
+                }
+
+				// If it was manipulated, we notify all the plants about this change
+				for (auto &kv : colliderEnt.second.sb_handles) {
+                    kv.second.update(tt);
+                }
 			}
 			transform.manipulated = false;
 		}
@@ -136,7 +178,7 @@ void Session::onTick(float deltaTime) {
 
 	for (auto &kv : plants) {
 		if (_isRunning) {
-			kv.second._sim->step(deltaTime);
+            kv.second.session->grow(deltaTime);
 		}
 	}
 
@@ -179,7 +221,7 @@ void Session::onRender(gfx::Render_Queue *rq) {
 	gfx::allocate_command_and_initialize<Render_Grid>(rq);
 
 	for (auto &kv : plants) {
-		gfx::allocate_command_and_initialize<Visualize_Connections>(rq, kv.second._sim.get());
+		gfx::allocate_command_and_initialize<Visualize_Branches>(rq, kv.second.session);
 	}
 
 	using Mesh_Render = std::variant<Mesh_Render_Component *, Untextured_Mesh_Render_Component *>;
