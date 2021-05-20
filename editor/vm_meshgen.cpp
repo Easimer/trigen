@@ -77,7 +77,7 @@ Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
             return { p.x, p.y, p.z };
         });
     std::transform(
-        (glm::vec3 *)mesh.normals, (glm::vec3 *)(mesh.normals + mesh.normal_count),
+        (glm::vec3 *)mesh.normals, (glm::vec3 *)(mesh.normals + mesh.normal_count * 3),
         std::back_inserter(ret.normals),
         [&](auto p) -> std::array<float, 3> {
             return { p.x, p.y, p.z };
