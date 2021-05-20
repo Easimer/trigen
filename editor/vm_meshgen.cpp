@@ -8,6 +8,8 @@
 
 #include <set>
 
+#include <QtDebug>
+
 #include <mesh_export.h>
 #include <r_cmd/general.h>
 
@@ -64,50 +66,6 @@ public:
 private:
     std::vector<glm::vec3> _lines;
 };
-
-static Basic_Mesh convertMesh(marching_cubes::mesh const &mesh) {
-    Basic_Mesh ret;
-
-    std::transform(
-        mesh.positions.begin(), mesh.positions.end(),
-        std::back_inserter(ret.positions),
-        [&](auto p) -> std::array<float, 3> {
-            return { p.x, p.y, p.z };
-        });
-    std::transform(
-        mesh.normal.begin(), mesh.normal.end(),
-        std::back_inserter(ret.normals),
-        [&](auto p) -> std::array<float, 3> {
-            return { p.x, p.y, p.z };
-        });
-    ret.elements = mesh.indices;
-    return ret;
-}
-
-Unwrapped_Mesh convertMesh(PSP::Mesh const &mesh) {
-    Unwrapped_Mesh ret;
-
-    std::transform(
-        mesh.position.begin(), mesh.position.end(),
-        std::back_inserter(ret.positions),
-        [&](auto p) -> std::array<float, 3> {
-            return { p.x, p.y, p.z };
-        });
-    std::transform(
-        mesh.normal.begin(), mesh.normal.end(),
-        std::back_inserter(ret.normals),
-        [&](auto p) -> std::array<float, 3> {
-            return { p.x, p.y, p.z };
-        });
-    std::transform(
-        mesh.elements.begin(), mesh.elements.end(),
-        std::back_inserter(ret.elements),
-        [&](auto p) { return (unsigned)p; });
-
-    ret.uv = mesh.uv;
-
-    return ret;
-}
 
 Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
     Unwrapped_Mesh ret;
@@ -194,12 +152,12 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
     }
 }
 
-void VM_Meshgen::foreachInputTexture(std::function<void(Texture_Kind, char const *, Input_Texture &)> const &callback) {
-    callback(Texture_Kind::Base, "Base color", _texBase);
-    callback(Texture_Kind::Normal, "Normal map", _texNormal);
-    callback(Texture_Kind::Height, "Height map", _texHeight);
-    callback(Texture_Kind::Roughness, "Roughness map", _texRoughness);
-    callback(Texture_Kind::AO, "AO", _texAo);
+void VM_Meshgen::foreachInputTexture(std::function<void(Trigen_Texture_Kind, char const *, Input_Texture &)> const &callback) {
+    callback(Trigen_Texture_BaseColor, "Base color", _texBase);
+    callback(Trigen_Texture_NormalMap, "Normal map", _texNormal);
+    callback(Trigen_Texture_HeightMap, "Height map", _texHeight);
+    callback(Trigen_Texture_RoughnessMap, "Roughness map", _texRoughness);
+    callback(Trigen_Texture_AmbientOcclusionMap, "AO", _texAo);
 }
 
 void VM_Meshgen::destroyModel(gfx::Model_ID handle) {
@@ -238,24 +196,7 @@ void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     regenerateMetaballs();
 }
 
-static Trigen_Texture_Kind MapTextureKindToTrigenTextureKind(Texture_Kind kind) {
-    switch (kind) {
-    case Texture_Kind::Base:
-        return Trigen_Texture_BaseColor;
-    case Texture_Kind::Normal:
-        return Trigen_Texture_NormalMap;
-    case Texture_Kind::Height:
-        return Trigen_Texture_HeightMap;
-    case Texture_Kind::Roughness:
-        return Trigen_Texture_RoughnessMap;
-    case Texture_Kind::AO:
-        return Trigen_Texture_AmbientOcclusionMap;
-    }
-
-    std::abort();
-}
-
-void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
+void VM_Meshgen::loadTextureFromPath(Trigen_Texture_Kind kind, char const *path) {
     int channels, width, height;
     std::unique_ptr<uint8_t[]> data;
     stbi_uc *buffer;
@@ -272,19 +213,19 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
     Input_Texture *tex = nullptr;
 
     switch (kind) {
-    case Texture_Kind::Base:
+    case Trigen_Texture_BaseColor:
         tex = &_texBase;
         break;
-    case Texture_Kind::Normal:
+    case Trigen_Texture_NormalMap:
         tex = &_texNormal;
         break;
-    case Texture_Kind::Height:
+    case Trigen_Texture_HeightMap:
         tex = &_texHeight;
         break;
-    case Texture_Kind::Roughness:
+    case Trigen_Texture_RoughnessMap:
         tex = &_texRoughness;
         break;
-    case Texture_Kind::AO:
+    case Trigen_Texture_AmbientOcclusionMap:
         tex = &_texAo;
         break;
     }
@@ -296,7 +237,7 @@ void VM_Meshgen::loadTextureFromPath(Texture_Kind kind, char const *path) {
         tex->info.height = height;
 
         auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-        Trigen_Painting_SetInputTexture(session->handle(), MapTextureKindToTrigenTextureKind(kind), &tex->info);
+        Trigen_Painting_SetInputTexture(session->handle(), kind, &tex->info);
 
         repaintMesh();
     } else {
@@ -337,17 +278,13 @@ void VM_Meshgen::onExportPathAvailable(QString const &path) {
         &_texOutAo,
     };
 
-    Trigen_Mesh mesh;
+    auto mesh = trigen::Mesh::make(*session);
 
-    Trigen_Mesh_GetMesh(*session, &mesh);
-
-    if (fbx_try_save(pathu8.constData(), mesh, outputMaterial)) {
+    if (fbx_try_save(pathu8.constData(), *mesh, outputMaterial)) {
         emit exported();
     } else {
         emit exportError("Couldn't save FBX file!");
     }
-
-    Trigen_Mesh_FreeMesh(&mesh);
 }
 
 void VM_Meshgen::regenerateMetaballs() {
@@ -367,10 +304,8 @@ void VM_Meshgen::regenerateMesh() {
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
     
     if (Trigen_Mesh_Regenerate(*session) == Trigen_OK) {
-        Trigen_Mesh mesh;
-        Trigen_Mesh_GetMesh(*session, &mesh);
-        _unwrappedMesh = convertMesh(mesh);
-        Trigen_Mesh_FreeMesh(&mesh);
+        auto mesh = trigen::Mesh::make(*session);
+        _unwrappedMesh = convertMesh(*mesh);
 
         regenerateUVs();
     }
@@ -381,15 +316,29 @@ void VM_Meshgen::regenerateUVs() {
     repaintMesh();
 }
 
-void VM_Meshgen::repaintMesh() {
-    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    Trigen_Painting_Regenerate(*session);
+static void clear(Trigen_Texture &tex) {
+    tex.image = nullptr;
+    tex.width = tex.height = 0;
+}
 
-    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_BaseColor, &_texOutBase);
-    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_NormalMap, &_texOutNormal);
-    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_HeightMap, &_texOutHeight);
-    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_RoughnessMap, &_texOutRoughness);
-    Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
+void VM_Meshgen::repaintMesh() {
+    Trigen_Status rc;
+
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    if ((rc = Trigen_Painting_Regenerate(*session)) == Trigen_OK) {
+        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_BaseColor, &_texOutBase);
+        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_NormalMap, &_texOutNormal);
+        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_HeightMap, &_texOutHeight);
+        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_RoughnessMap, &_texOutRoughness);
+        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
+    } else {
+        qWarning() << "Trigen_Painting_Regenerate has failed with rc=" << rc << '\n';
+        clear(_texOutBase);
+        clear(_texOutNormal);
+        clear(_texOutHeight);
+        clear(_texOutRoughness);
+        clear(_texOutAo);
+    }
 
     _texturesDestroying.push_back(_texOutNormalHandle);
     _texOutNormalHandle = nullptr;

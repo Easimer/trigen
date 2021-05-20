@@ -85,7 +85,7 @@ public:
         _ui.buttonBox->addButton(btnExport, QDialogButtonBox::ActionRole);
         connect(_ui.buttonBox, &QDialogButtonBox::rejected, this, &QDialog::rejected);
 
-        _vm.foreachInputTexture([&](Texture_Kind kind, char const *name, Input_Texture &tex) {
+        _vm.foreachInputTexture([&](Trigen_Texture_Kind kind, char const *name, Input_Texture &tex) {
             auto texWidget = new QTextureWidget(this);
             _ui.layoutTextures->addRow(name, texWidget);
             connect(texWidget, &QTextureWidget::pathChanged, [&, kind](QString const &path) {
@@ -110,7 +110,7 @@ public:
     }
 
 protected slots:
-    void pathToTextureChanged(Texture_Kind kind, QString const &path) {
+    void pathToTextureChanged(Trigen_Texture_Kind kind, QString const &path) {
         auto pathUtf8 = path.toUtf8();
         _vm.loadTextureFromPath(kind, pathUtf8.constData());
     }
