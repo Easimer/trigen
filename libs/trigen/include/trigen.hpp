@@ -40,6 +40,7 @@ public:
         return Session(handle);
     }
 
+    [[deprecated]]
     operator Trigen_Session() const noexcept {
         return _handle;
     }
@@ -116,6 +117,40 @@ protected:
 
 private:
     Trigen_Collider _handle;
+};
+
+class Mesh {
+public:
+    static Mesh make(Session &session) {
+        Trigen_Mesh mesh;
+        Trigen_Status rc;
+        if ((rc = Trigen_Mesh_GetMesh(session, &mesh)) != Trigen_OK) {
+            throw Exception(rc);
+        }
+
+        return Mesh(mesh);
+    }
+
+    Trigen_Mesh const &operator->() const noexcept {
+        return _mesh;
+    }
+
+    Trigen_Mesh const &operator*() const noexcept {
+        return _mesh;
+    }
+
+    ~Mesh() {
+        if (Trigen_Mesh_FreeMesh(&_mesh) != Trigen_OK) {
+            std::abort();
+        }
+    }
+
+protected:
+    Mesh(Trigen_Mesh &mesh) : _mesh(mesh) {
+    }
+
+private:
+    Trigen_Mesh _mesh;
 };
 
 }
