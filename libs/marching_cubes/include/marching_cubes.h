@@ -13,6 +13,7 @@ namespace marching_cubes {
     struct metaball {
         glm::vec3 position;
         float radius;
+        float scale;
     };
 
     struct mesh {

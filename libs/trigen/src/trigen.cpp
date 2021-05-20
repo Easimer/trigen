@@ -241,11 +241,11 @@ Trigen_Status TRIGEN_API Trigen_Metaballs_Regenerate(Trigen_Session session) {
             auto t = s / (float)steps;
             auto p = p0 + t * dir;
             auto size = s0 + t * sizDir;
-            float radius = session->metaballRadius;
+            float radius = 0;
             for (int i = 0; i < 3; i++) {
                 radius = glm::max(size[i] / 2, radius);
             }
-            session->_metaballs.push_back({ p, radius / 8 });
+            session->_metaballs.push_back({ p, radius / 8, session->metaballRadius });
         }
     }
 

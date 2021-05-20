@@ -82,21 +82,23 @@ mesh marching_cubes::generate(std::vector<metaball> const &metaballs, params con
     float icz = sz / (float)params.subdivisions;
 
     for (auto it = grid_iterator(params.subdivisions); !it.over(); ++it) {
-        float min_dist = FLT_MAX;
         auto pos = glm::vec3(it.x * icx, it.y * icy, it.z * icz) + bMin;
+
+        float sum = 0;
+
         for (auto &mb : metaballs) {
-            float dist = length(pos - mb.position) - mb.radius;
-            if (dist < min_dist) {
-                min_dist = dist;
+            float dist = length(pos - mb.position);
+            if (dist < mb.radius) {
+                sum += mb.scale * glm::pow(1 - glm::pow(dist / mb.radius, 2), 4);
             }
         }
 
-        G.set_grid_value(it.x, it.y, it.z, min_dist);
+        G.set_grid_value(it.x, it.y, it.z, sum);
     }
 
     MC33 M;
     M.set_grid3d(&G);
-    auto surf = M.calculate_isosurface(0.0f);
+    auto surf = M.calculate_isosurface(0.5f);
     auto vN = surf->get_num_vertices();
     for (unsigned i = 0; i < vN; i++) {
         auto pos = surf->getVertex(i);
