@@ -184,7 +184,7 @@ Trigen_Status TRIGEN_API Trigen_Grow(Trigen_Session session, float time) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Metaballs_SetRadius(Trigen_Session session, float radius) {
+Trigen_Status TRIGEN_API Trigen_Metaballs_SetScale(Trigen_Session session, float radius) {
     assert(session);
     assert(radius > 0.0f);
 

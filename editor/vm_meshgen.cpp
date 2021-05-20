@@ -191,7 +191,7 @@ void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     }
 
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    Trigen_Metaballs_SetRadius(*session, metaballRadius);
+    Trigen_Metaballs_SetScale(*session, metaballRadius);
 
     regenerateMetaballs();
 }

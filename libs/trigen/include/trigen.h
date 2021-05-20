@@ -152,23 +152,67 @@ typedef enum Trigen_Texture_Kind_t {
 extern "C" {
 #endif
 
+/*
+ * \brief Creates a new Trigen session.
+ * 
+ * \param [out] session Pointer to the place where the session handle will be stored;
+ * can't be NULL.
+ * \param [in] params Pointer to the simulation parameters; can't be NULL.
+ */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
     TRIGEN_OUT Trigen_Session *session,
     TRIGEN_IN Trigen_Parameters const *params);
 
+/*
+ * \brief Destroys a Trigen session, freeing most resources in use.
+ *
+ * \note
+ * Meshes created by \ref Trigen_Mesh_GetMesh won't be freed by a call to this!
+ *
+ * \param [in] session Session handle
+ * 
+ */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_DestroySession(TRIGEN_IN Trigen_Session session);
 
+/*
+ * \brief Creates a collider with a specific mesh and a specific transform.
+ *
+ * \param [out] collider Pointer to the place where the collider handle will
+ * be stored; can't be NULL.
+ * \param [in] session Session handler
+ * \param [in] mesh Pointer to the mesh descriptor
+ * \param [in] transform Pointer to the initial transform of the collider
+ */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateCollider(
     TRIGEN_OUT Trigen_Collider *collider,
     TRIGEN_IN Trigen_Session session,
     TRIGEN_IN Trigen_Collider_Mesh const *mesh,
     TRIGEN_IN Trigen_Transform const *transform);
 
+/*
+ * \brief Sets the transform of a specific collider.
+ *
+ * \param [in] collider Collider handle
+ * \param [in] transform New transform
+ */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_UpdateCollider(Trigen_Collider collider, Trigen_Transform const *transform);
 
+/*
+ * \brief Grows the plant in the function of the elapsed time.
+ *
+ * \param [in] session Session handle
+ * \param [in] time Elapsed time (in seconds); must be a number but can't be
+ * negative
+ */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Grow(Trigen_Session session, float time);
 
-TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_SetRadius(Trigen_Session session, float radius);
+/*
+ * \brief Sets the metaball scale factor.
+ *
+ * \param [in] session Session handle
+ * \param [in] scale Scale factor
+ */
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_SetScale(Trigen_Session session, float scale);
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_Regenerate(Trigen_Session session);
 
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_SetSubdivisions(Trigen_Session session, int subdivisions);
