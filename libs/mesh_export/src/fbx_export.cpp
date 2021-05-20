@@ -208,7 +208,7 @@ static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &mater
     vtxcol_element->SetMappingMode(FbxGeometryElement::eByControlPoint);
     vtxcol_element->SetReferenceMode(FbxGeometryElement::eDirect);
 
-    // Create material array
+    // Create inMaterial array
     auto mat_element = meshNode->CreateElementMaterial();
     mat_element->SetMappingMode(FbxGeometryElement::eAllSame);
     mat_element->SetReferenceMode(FbxGeometryElement::eIndexToDirect);
@@ -260,7 +260,7 @@ static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &mater
 
     node->AddMaterial(surf.material());
 
-    // Fill material array
+    // Fill inMaterial array
     mat_element->GetIndexArray().Add(0);
 
     auto rootNode = scene->GetRootNode();
@@ -397,6 +397,96 @@ bool fbx_try_save(char const *path, PSP::Mesh const *inMesh, PSP::Material const
     return fbx_try_save(path, &mesh, material);
 }
 
-bool fbx_try_save(char const *path, Mesh_Export_Mesh const &mesh, Mesh_Export_Material const &material) {
-    return false;
+class TrigenMesh : public IMesh {
+public:
+    TrigenMesh(Trigen_Mesh const *mesh)
+        : _mesh(mesh) {
+    }
+
+    int numControlPoints() const override {
+        return _mesh->position_count;
+    }
+
+    FbxVector4 position(int idxControlPoint) const override {
+        auto pos = _mesh->positions + idxControlPoint * 3;
+        return FbxVector4(pos[0], pos[1], pos[2]);
+    }
+    
+    int numTriangles() const override {
+        return _mesh->triangle_count;
+    }
+
+    std::tuple<int, int, int> vertexIndices(int idxTriangle) const override {
+        auto [off0, off1, off2] = uvIndices(idxTriangle);
+        return { _mesh->vertex_indices[off0], _mesh->vertex_indices[off1], _mesh->vertex_indices[off2] };
+    }
+
+    std::tuple<int, int, int> uvIndices(int idxTriangle) const override {
+        return { idxTriangle * 3 + 0,  idxTriangle * 3 + 1, idxTriangle * 3 + 2 };
+    }
+
+
+    FbxVector4 normal(int idxControlPoint) const override {
+        auto idx = _mesh->normal_indices[idxControlPoint];
+        auto normal = _mesh->normals + idx * 3;
+        return FbxVector4(normal[0], normal[1], normal[2]);
+    }
+
+    FbxColor vertexColor(int idx) const override {
+        return FbxColor(0, 0, 0);
+    }
+
+    int numUVs() const override {
+        return _mesh->triangle_count * 3;
+    }
+
+    FbxVector2 uv(int idx) const override {
+        auto uv = _mesh->uvs + idx * 2;
+        return FbxVector2(uv[0], uv[1]);
+    }
+
+private:
+    Trigen_Mesh const *_mesh;
+};
+
+class TrigenTexture : public ITexture {
+public:
+    TrigenTexture(Trigen_Texture const *tex)
+        : _tex(tex) {
+    }
+    ~TrigenTexture() override = default;
+
+    void const *buffer() const override {
+        return _tex->image;
+    }
+
+    int width() const override {
+        return _tex->width;
+    }
+
+    int height() const override {
+        return _tex->height;
+    }
+
+private:
+    Trigen_Texture const *_tex;
+};
+
+bool fbx_try_save(char const *path, Trigen_Mesh const &inMesh, Trigen_Material const &inMaterial) {
+    TrigenMesh mesh(&inMesh);
+    TrigenTexture texBase(inMaterial.base);
+    TrigenTexture texNormal(inMaterial.normal);
+    TrigenTexture texHeight(inMaterial.height);
+    TrigenTexture texRoughness(inMaterial.roughness);
+    TrigenTexture texAo(inMaterial.ao);
+
+    Material material = {
+        &texBase,
+        &texNormal,
+        &texHeight,
+        &texRoughness,
+        &texAo,
+    };
+
+    return fbx_try_save(path, &mesh, material);
 }

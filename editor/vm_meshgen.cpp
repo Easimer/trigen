@@ -328,27 +328,26 @@ void VM_Meshgen::onExportPathAvailable(QString const &path) {
 
     auto const pathu8 = path.toUtf8();
 
-    PSP::Material outputMaterial;
-
-    auto convertTrigenTextureToPSPTexture = [&](PSP::Texture &pt, Trigen_Texture const &tt) {
-        pt.buffer = tt.image;
-        pt.width = tt.width;
-        pt.height = tt.height;
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Material outputMaterial = {
+        &_texOutBase,
+        &_texOutNormal,
+        &_texOutHeight,
+        &_texOutRoughness,
+        &_texOutAo,
     };
 
-    convertTrigenTextureToPSPTexture(outputMaterial.base, _texOutBase);
-    convertTrigenTextureToPSPTexture(outputMaterial.normal, _texOutNormal);
-    convertTrigenTextureToPSPTexture(outputMaterial.height, _texOutHeight);
-    convertTrigenTextureToPSPTexture(outputMaterial.roughness, _texOutRoughness);
-    convertTrigenTextureToPSPTexture(outputMaterial.ao, _texOutAo);
+    Trigen_Mesh mesh;
 
-    /*
-    if (fbx_try_save(pathu8.constData(), &_unwrappedMesh.value(), &outputMaterial)) {
+    Trigen_Mesh_GetMesh(*session, &mesh);
+
+    if (fbx_try_save(pathu8.constData(), mesh, outputMaterial)) {
         emit exported();
     } else {
         emit exportError("Couldn't save FBX file!");
     }
-    */
+
+    Trigen_Mesh_FreeMesh(&mesh);
 }
 
 void VM_Meshgen::regenerateMetaballs() {

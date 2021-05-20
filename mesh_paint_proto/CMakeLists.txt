@@ -29,7 +29,8 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	softbody_ext
 	marching_cubes
 	stb
-        mesh_export
+	mesh_export
+	trigen
 	Boost::thread
 	RCmd::Base
 	RCmd::Softbody
