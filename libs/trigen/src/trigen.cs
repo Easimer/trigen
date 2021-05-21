@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Net.Easimer.Trigen
@@ -50,8 +49,6 @@ namespace Net.Easimer.Trigen
             {
                 throw new Exception(status);
             }
-
-            Debug.Assert(handle != IntPtr.Zero);
 
             return new Session(handle);
         }
