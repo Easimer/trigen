@@ -4,6 +4,7 @@
 //
 
 #include "imgui_impl_qt.h"
+#include <imgui.h>
 #include <QOpenGLContext>
 #include <QMouseEvent>
 #include <QKeyEvent>

@@ -6,7 +6,6 @@
 #pragma once
 
 #include <memory>
-#include "imgui.h"
 #include <QOpenGLWidget>
 #include <r_renderer.h>
 
