@@ -3,7 +3,7 @@
 // Purpose: FILE* based serializer for `softbody`
 //
 
-#include "softbody.h"
+#include <softbody.h>
 #include <memory>
 #include <cstdio>
 #include <softbody/file_serializer.h>

@@ -4,5 +4,6 @@ set(SRC
 )
 
 add_library(softbody_ext STATIC ${SRC})
+target_link_libraries(softbody_ext PRIVATE softbody)
 target_include_directories(softbody_ext PUBLIC include/)
 set_target_properties(softbody_ext PROPERTIES FOLDER "Libs")
