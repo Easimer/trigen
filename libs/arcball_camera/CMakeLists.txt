@@ -5,4 +5,5 @@ set(SRC
 
 add_library(arcball_camera STATIC ${SRC})
 target_include_directories(arcball_camera PUBLIC include/)
+target_link_libraries(arcball_camera PUBLIC glm)
 set_target_properties(arcball_camera PROPERTIES FOLDER "Libs")

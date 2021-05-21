@@ -12,7 +12,7 @@ set(SRC_PSP
 option(PSP_ENABLE_TRACY "Enable Tracy in the psp library")
 
 add_library(psp STATIC ${SRC_PSP})
-target_link_libraries(psp intersect Boost::boost Boost::thread tracy_client)
+target_link_libraries(psp PUBLIC glm PRIVATE intersect Boost::boost Boost::thread tracy_client)
 target_precompile_headers(psp PRIVATE src/stdafx.h)
 target_include_directories(psp PUBLIC include/)
 set_target_properties(psp PROPERTIES FOLDER "Libs")

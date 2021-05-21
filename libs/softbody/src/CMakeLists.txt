@@ -32,6 +32,8 @@ add_library(softbody STATIC
     f_serialization.cpp
     f_serialization.h
 
+    ../include/softbody.h
+
     ../../../public/raymarching.h
 
     shape_matching.cl.cpp
@@ -45,7 +47,12 @@ if(${SOFTBODY_ENABLE_TRACY})
     target_compile_definitions(softbody PRIVATE TRACY_ENABLE=1)
 endif()
 
-target_link_libraries(softbody PRIVATE ${OpenCL_LIBRARIES} ${TRACY_LIBRARIES} intersect)
+target_link_libraries(softbody
+    PUBLIC
+        glm
+    PRIVATE
+        ${OpenCL_LIBRARIES} ${TRACY_LIBRARIES} intersect
+)
 target_include_directories(softbody PRIVATE ${OpenCL_INCLUDE_DIRS})
 
 if(${BUILD_TESTING})

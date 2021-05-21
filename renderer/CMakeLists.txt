@@ -26,7 +26,13 @@ set(SRC
 )
 
 add_library(renderer STATIC ${SRC} ${SRC_SHADERS})
-target_link_libraries(renderer glad ${SDL2_LIBRARIES} imgui ${TRACY_LIBRARIES})
+target_link_libraries(renderer
+	PUBLIC
+		glm
+	PRIVATE
+		glad ${SDL2_LIBRARIES} imgui ${TRACY_LIBRARIES}
+)
+
 target_include_directories(renderer PRIVATE ${SDL2_INCLUDE_DIRS} ${TRACY_INCLUDE_DIRS})
 if(${RENDERER_ENABLE_TRACY})
     target_compile_definitions(renderer PRIVATE TRACY_ENABLE=1)

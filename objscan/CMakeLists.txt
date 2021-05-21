@@ -13,6 +13,7 @@ set(SRC
 add_library(objscan STATIC ${SRC})
 target_link_libraries(objscan PUBLIC Threads::Threads intersect)
 target_precompile_headers(objscan PRIVATE stdafx.h)
+target_link_libraries(objscan PUBLIC glm)
 set_target_properties(objscan PROPERTIES FOLDER "Libs")
 
 add_executable(objscan-test test.cpp)

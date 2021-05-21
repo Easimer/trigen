@@ -12,7 +12,7 @@ set(SRC
 )
 
 add_library(renderer_qt STATIC ${SRC})
-target_link_libraries(renderer_qt PRIVATE Qt5::Widgets renderer arcball_camera)
+target_link_libraries(renderer_qt PRIVATE Qt5::Widgets renderer arcball_camera ${TRACY_LIBRARIES})
 target_link_libraries(renderer_qt PUBLIC imgui)
 target_include_directories(renderer_qt PUBLIC include/)
 #target_precompile_headers(renderer_qt PRIVATE "src/stdafx.h")
