@@ -25,16 +25,11 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include <KHR/khrplatform.h>
-#include <glad/glad.h>
-
 #include "common.h"
 
 #else
 
 #include <assert.h>
 #include <stdio.h>
-#include <KHR/khrplatform.h>
-#include <glad/glad.h>
 
 #endif /* __cplusplus */
