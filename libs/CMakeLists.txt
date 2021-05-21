@@ -8,6 +8,7 @@ add_subdirectory(intersect)
 add_subdirectory(marching_cubes)
 add_subdirectory(mesh_export)
 add_subdirectory(render_commands)
+add_subdirectory(softbody)
 
 add_subdirectory(renderer_qt)
 add_subdirectory(trigen)

@@ -32,7 +32,7 @@ add_library(softbody STATIC
     f_serialization.cpp
     f_serialization.h
 
-    ../../public/raymarching.h
+    ../../../public/raymarching.h
 
     shape_matching.cl.cpp
 )
@@ -84,8 +84,6 @@ if(${SOFTBODY_ENABLE_CUDA})
     target_link_libraries(softbody PRIVATE
 		CUDA::cudart_static CUDA::nvrtc CUDA::cuda_driver CUDA::nvToolsExt rt_intersect
     )
-
-    option(SOFTBODY_CUDA_MEMTRACK "CUDA memtrack" OFF)
 
     if(${SOFTBODY_CUDA_MEMTRACK})
         target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_MEMTRACK=1)

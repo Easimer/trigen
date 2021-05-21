@@ -75,7 +75,6 @@ add_subdirectory(embed)
 add_subdirectory(libs)
 add_subdirectory(renderer)
 add_subdirectory(objscan)
-add_subdirectory(softbody)
 
 add_subdirectory(softbody_crosscheck)
 
