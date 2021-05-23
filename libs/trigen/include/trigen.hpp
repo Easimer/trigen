@@ -9,8 +9,9 @@
 
 #include <trigen.h>
 
-#include <optional>
+#include <cstdlib>
 #include <exception>
+#include <optional>
 
 namespace trigen {
 

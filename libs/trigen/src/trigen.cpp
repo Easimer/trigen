@@ -466,11 +466,6 @@ Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session
         return Trigen_InvalidArguments;
     }
 
-    if (session->_outputMaterial.base.buffer == nullptr) {
-        return Trigen_NotReady;
-    }
-
-    session->_outputMaterial.ao.buffer;
     PSP::Texture *tex = nullptr;
     switch (kind) {
     case Trigen_Texture_BaseColor:
@@ -491,6 +486,10 @@ Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session
     default:
         assert(0);
         break;
+    }
+
+    if (tex->buffer == nullptr) {
+        return Trigen_NotReady;
     }
 
     texture->width = tex->width;
