@@ -33,8 +33,8 @@ macro(tri_dllimportexport target)
 	else()
 		target_compile_definitions(${target}
 			PUBLIC
-				TRIGEN_DLLEXPORT=__attribute__((dllexport))
-				TRIGEN_DLLIMPORT=__attribute__((dllimport))
+				TRIGEN_DLLEXPORT=__attribute__\(\(dllexport\)\)
+				TRIGEN_DLLIMPORT=__attribute__\(\(dllimport\)\)
 		)
 		set_target_properties(${target} PROPERTIES CXX_VISIBILITY_PRESET hidden)
 	endif()
