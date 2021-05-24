@@ -54,7 +54,8 @@ class Dialog_Meshgen : public Base_Dialog_Meshgen {
 public:
     Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
         : Base_Dialog_Meshgen(parent)
-        , _vm(world, entity) {
+        , _vm(world, entity)
+        , _ui{} {
         setAttribute(Qt::WA_DeleteOnClose);
         _ui.setupUi(this);
 

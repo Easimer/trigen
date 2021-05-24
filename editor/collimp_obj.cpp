@@ -91,7 +91,7 @@ private:
     }
 
     gfx::Transform transform() const override {
-        gfx::Transform ret;
+        gfx::Transform ret = {};
         ret.position = { 0, 0, 0 };
         ret.rotation = { 1, 0, 0, 0 };
         ret.scale = { 1, 1, 1 };

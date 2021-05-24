@@ -100,7 +100,12 @@ Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
 
 VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     : _world(world)
-    , _ent(ent) {
+    , _ent(ent)
+    , _texOutBase{}
+    , _texOutNormal{}
+    , _texOutHeight{}
+    , _texOutRoughness{}
+    , _texOutAo{} {
 }
 
 bool VM_Meshgen::checkEntity() const {
