@@ -15,8 +15,6 @@
 
 #include "world_qt.h"
 
-#include <marching_cubes.h>
-#include <psp/psp.h>
 #include <r_queue.h>
 #include <r_renderer.h>
 
@@ -107,7 +105,6 @@ private:
 
     std::optional<Unwrapped_Mesh> _unwrappedMesh;
 
-    PSP::Material _inputMaterial;
     Input_Texture _texBase;
     Input_Texture _texNormal;
     Input_Texture _texHeight;

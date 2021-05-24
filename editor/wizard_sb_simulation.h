@@ -33,6 +33,4 @@ private:
 
 private:
 	Trigen_Parameters _sbConfig = {};
-	sb::Plant_Simulation_Extension_Extra _sbExtPlant = {};
-	sb::Debug_Cloth_Extension_Extra _sbExtCloth = {};
 };

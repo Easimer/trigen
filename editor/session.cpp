@@ -14,7 +14,6 @@
 #include <variant>
 
 #include <r_cmd/general.h>
-#include <r_cmd/softbody.h>
 
 #include <imgui.h>
 #include <ImGuizmo.h>
@@ -54,7 +53,6 @@ private:
 
 Session::Session(char const *name) :
 	_name(name),
-	_renderParams{},
 	_world(),
     _matView(1.0f),
     _matProj(1.0f) {

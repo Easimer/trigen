@@ -23,5 +23,5 @@
 
 #include <glviewport.h>
 
-#include <softbody.h>
+#include <trigen.hpp>
 #include <arcball_camera.h>

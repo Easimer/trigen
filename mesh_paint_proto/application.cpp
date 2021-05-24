@@ -13,6 +13,7 @@
 #include <imgui.h>
 
 #include <arcball_camera.h>
+#define MESH_EXPORT_PSP
 #include <mesh_export.h>
 
 #define EXPORT_PATH_SIZ (256)

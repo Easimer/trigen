@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <softbody.h>
 #include <QRadioButton>
 #include <QButtonGroup>
 #include <QLayout>

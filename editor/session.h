@@ -12,9 +12,7 @@
 
 #include "world_qt.h"
 
-#include <softbody.h>
 #include <r_queue.h>
-#include <r_cmd/softbody.h>
 
 #include <trigen.hpp>
 
@@ -51,7 +49,6 @@ signals:
 
 private:
     std::string _name;
-    Softbody_Render_Parameters _renderParams;
     QWorld _world;
     bool _isRunning = false;
     std::optional<Entity_Handle> _selectedEntity;

@@ -15,9 +15,6 @@
 #include <QMessageBox>
 #include <QPushButton>
 
-#include <marching_cubes.h>
-#include <psp/psp.h>
-
 #include <ui_dlg_meshgen.h>
 
 class QTextureWidget : public QWidget {
