@@ -56,7 +56,7 @@ target_link_libraries(editor
     Qt5::Widgets Qt5::Svg
     FbxSdk::FbxSdk 
     RCmd::Base
-	arcball_camera renderer_qt
+    arcball_camera renderer_qt
     mesh_export trigen uv_inspect
     stb
 )
