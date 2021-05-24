@@ -42,7 +42,7 @@ private:
 
 		lines.resize(count * 2);
 
-        rc = Trigen_GetBranches(*_session, &count, (float *)lines.data());
+        rc = Trigen_GetBranches(_session->handle(), &count, (float *)lines.data());
 		if (rc != Trigen_OK) {
             return;
 		}

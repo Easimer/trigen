@@ -186,7 +186,7 @@ void VM_Meshgen::numberOfSubdivionsChanged(int subdivisions) {
     }
 
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    Trigen_Mesh_SetSubdivisions(*session, subdivisions);
+    Trigen_Mesh_SetSubdivisions(session->handle(), subdivisions);
 
     regenerateMesh();
 }
@@ -197,7 +197,7 @@ void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     }
 
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    Trigen_Metaballs_SetScale(*session, metaballRadius);
+    Trigen_Metaballs_SetScale(session->handle(), metaballRadius);
 
     regenerateMetaballs();
 }
@@ -307,7 +307,7 @@ void VM_Meshgen::regenerateMetaballs() {
     }
 
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    if (Trigen_Metaballs_Regenerate(*session) == Trigen_OK) {
+    if (Trigen_Metaballs_Regenerate(session->handle()) == Trigen_OK) {
         regenerateMesh();
     }
 }
@@ -315,7 +315,7 @@ void VM_Meshgen::regenerateMetaballs() {
 void VM_Meshgen::regenerateMesh() {
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
     
-    if (Trigen_Mesh_Regenerate(*session) == Trigen_OK) {
+    if (Trigen_Mesh_Regenerate(session->handle()) == Trigen_OK) {
         auto mesh = trigen::Mesh::make(*session);
         _unwrappedMesh = convertMesh(*mesh);
 
@@ -337,12 +337,12 @@ void VM_Meshgen::repaintMesh() {
     Trigen_Status rc;
 
     auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    if ((rc = Trigen_Painting_Regenerate(*session)) == Trigen_OK) {
-        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_BaseColor, &_texOutBase);
-        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_NormalMap, &_texOutNormal);
-        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_HeightMap, &_texOutHeight);
-        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_RoughnessMap, &_texOutRoughness);
-        Trigen_Painting_GetOutputTexture(*session, Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
+    if ((rc = Trigen_Painting_Regenerate(session->handle())) == Trigen_OK) {
+        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_BaseColor, &_texOutBase);
+        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_NormalMap, &_texOutNormal);
+        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_HeightMap, &_texOutHeight);
+        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_RoughnessMap, &_texOutRoughness);
+        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
     } else {
         qWarning() << "Trigen_Painting_Regenerate has failed with rc=" << rc << '\n';
         clear(_texOutBase);

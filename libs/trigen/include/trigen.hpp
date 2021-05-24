@@ -41,11 +41,6 @@ public:
         return Session(handle);
     }
 
-    [[deprecated]]
-    operator Trigen_Session() const noexcept {
-        return _handle;
-    }
-
     Trigen_Session handle() const noexcept {
         return _handle;
     }
@@ -96,7 +91,7 @@ public:
     static Collider make(Session &session, Trigen_Collider_Mesh const &mesh, Trigen_Transform const &transform) {
         Trigen_Collider handle = nullptr;
         Trigen_Status rc;
-        if ((rc = Trigen_CreateCollider(&handle, session, &mesh, &transform)) != Trigen_OK) {
+        if ((rc = Trigen_CreateCollider(&handle, session.handle(), &mesh, &transform)) != Trigen_OK) {
             throw Exception(rc);
         }
 
@@ -125,7 +120,7 @@ public:
     static Mesh make(Session &session) {
         Trigen_Mesh mesh;
         Trigen_Status rc;
-        if ((rc = Trigen_Mesh_GetMesh(session, &mesh)) != Trigen_OK) {
+        if ((rc = Trigen_Mesh_GetMesh(session.handle(), &mesh)) != Trigen_OK) {
             throw Exception(rc);
         }
 
