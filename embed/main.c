@@ -11,6 +11,7 @@
 #include <stdlib.h>
 
 #define BINARY_FILE_ROW_WIDTH (20)
+#define SOURCE_FILE_SIZE_LIMIT (32768)
 
 typedef void (*transcriber_fun_t)(FILE *dst, FILE *src);
 
@@ -231,6 +232,7 @@ static int embed_input_file(FILE *dst, char const *path) {
     char const *cur = path + path_len;
     FILE *src;
     transcriber_fun_t transcribe = NULL;
+    long srcLen;
 
     // Get the pointer to the file name in the path string by finding the first
     // slash character from the end of the string
@@ -252,6 +254,14 @@ static int embed_input_file(FILE *dst, char const *path) {
 
     if(src == NULL) {
         fprintf(stderr, "[!] open-ro-fail file: '%s' reason: '%s'\n", path, strerror(errno));
+        ret = -1;
+        goto end;
+    }
+
+    fseek(src, 0, SEEK_END);
+    srcLen = ftell(src);
+    if (srcLen > SOURCE_FILE_SIZE_LIMIT) {
+        fprintf(stderr, "[!] precheck-fail file: '%s' reason: large is bigger than the size limit (%d bytes > %d bytes)\n", path, srcLen, SOURCE_FILE_SIZE_LIMIT);
         ret = -1;
         goto end;
     }
