@@ -167,6 +167,7 @@ static int is_text_file(FILE *file) {
     // Not an actual signature but the name of the first section in
     // a compiled material blob.
     char const *sig_matc = "SREV_TAM";
+    char const *sig_opentype = "\x00\x01\x00\x00";
 
     fseek(file, 0, SEEK_SET);
     unsigned char header[8];
@@ -176,6 +177,9 @@ static int is_text_file(FILE *file) {
         goto end_binary;
     } else if (memcmp(header, sig_matc, 8) == 0) {
         fprintf(stderr, "[+] filament-material-file-detected\n");
+        goto end_binary;
+    } else if (memcmp(header, sig_opentype, 4) == 0) {
+        fprintf(stderr, "[+] opentype-font-detected\n");
         goto end_binary;
     }
 
