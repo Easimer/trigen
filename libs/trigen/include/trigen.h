@@ -17,8 +17,8 @@
 
 #define TRIGEN_API TRIGEN_EXPORT __cdecl
 
-#if _WIN32 && defined(_In_) && defined(_Out_) && defined(_Inout_) && defined(_Post_Invalid)
-#define TRIGEN_IN _In_
+#if _WIN32 && defined(_In_) && defined(_Out_) && defined(_Inout_) && defined(_Post_invalid_)
+#define TRIGEN_IN _In_ _Pre_notnull_
 #define TRIGEN_OUT _Out_
 #define TRIGEN_INOUT _Inout_
 
