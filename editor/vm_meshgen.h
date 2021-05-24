@@ -9,9 +9,9 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
-#include <functional>
 
 #include "world_qt.h"
 
@@ -50,6 +50,7 @@ public slots:
     void metaballRadiusChanged(float metaballRadius);
     void loadTextureFromPath(Trigen_Texture_Kind kind, char const *path);
     void resolutionChanged(int resolution);
+    void inspectUV();
 
     /**
      * Call this from the view when the user wants to export the generated

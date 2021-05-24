@@ -57,7 +57,7 @@ target_link_libraries(editor
     FbxSdk::FbxSdk 
     RCmd::Base
 	arcball_camera renderer_qt
-    mesh_export trigen
+    mesh_export trigen uv_inspect
     stb
 )
 target_precompile_headers(editor PRIVATE "stdafx.h")

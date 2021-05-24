@@ -10,6 +10,7 @@
 
 #include <QtDebug>
 
+#include <uv_inspect.hpp>
 #include <mesh_export.h>
 #include <r_cmd/general.h>
 
@@ -250,6 +251,12 @@ void VM_Meshgen::resolutionChanged(int resolution) {
     Trigen_Painting_SetOutputResolution(session->handle(), resolution, resolution);
 
     repaintMesh();
+}
+
+void VM_Meshgen::inspectUV() {
+    if (_unwrappedMesh.has_value()) {
+        uv_inspector::inspect(_unwrappedMesh->uv.data(), _unwrappedMesh->uv.size());
+    }
 }
 
 void VM_Meshgen::onExportClicked() {

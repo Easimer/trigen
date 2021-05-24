@@ -98,6 +98,8 @@ public:
         _vm.resolutionChanged(_ui.sbResolution->value());
         _vm.numberOfSubdivionsChanged(_ui.sbNumSubdivisions->value());
         _vm.metaballRadiusChanged(_ui.sbMetaballRadius->value());
+
+        connect(_ui.actionInspectUV, &QAction::triggered, &_vm, &VM_Meshgen::inspectUV);
     }
 
     ~Dialog_Meshgen() override = default;
