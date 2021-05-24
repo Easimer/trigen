@@ -15,6 +15,31 @@ macro(tri_builddir target)
 	set_target_properties(${target} PROPERTIES LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_BINARY_DIR}/RelWithDebInfo/bin")
 endmacro()
 
+# =======================================================
+# Purpose: Defines the TRIGEN_DLLEXPORT and TRIGEN_DLLIMPORT macros that
+# expand to 
+# - __declspec(dllexport) and __declspec(dllimport) on MSVC
+# - __attribute__((dllexport)) and __attribute__((dllimport)) everywhere else
+# and on every platform except MSVC it adds `-fvisibility=hidden` to the
+# target's flags property.
+# =======================================================
+macro(tri_dllimportexport target)
+	if(MSVC)
+		target_compile_definitions(${target}
+			PUBLIC	
+				TRIGEN_DLLEXPORT=__declspec\(dllexport\)
+				TRIGEN_DLLIMPORT=__declspec\(dllimport\)
+		)
+	else()
+		target_compile_definitions(${target}
+			PUBLIC
+				TRIGEN_DLLEXPORT=__attribute__((dllexport))
+				TRIGEN_DLLIMPORT=__attribute__((dllimport))
+		)
+		set_target_properties(${target} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+	endif()
+endmacro()
+
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
