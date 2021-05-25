@@ -265,6 +265,7 @@ static int embed_input_file(FILE *dst, char const *path) {
         ret = -1;
         goto end;
     }
+    fseek(src, 0, SEEK_SET);
 
     if (is_text_file(src)) {
         transcribe = transcribe_text_file;
