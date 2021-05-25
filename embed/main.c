@@ -24,6 +24,11 @@
 
 typedef void (*transcriber_fun_t)(FILE *dst, FILE *src);
 
+typedef enum {
+    FT_TEXT,
+    FT_BINARY,
+} filetype_t;
+
 // Converts a byte to a C hex literal (\xFF) and writes it to the output stream
 static void emit_hex(FILE* dst, uint8_t ch) {
     char esc[2] = { '\\', 'x' };
@@ -146,8 +151,8 @@ static void generate_variable_name(FILE* dst, char const* filename) {
     }
 }
 
-// Tries to decide whether an input file is a text file or not.
-static bool is_text_file(FILE *file) {
+// Tries to decide the type of the input file.
+static filetype_t determine_file_type(FILE *file) {
     // Nothing fancy; simply checks the file signature.
     bool ret = true;
     long orig_pos = ftell(file);
@@ -255,10 +260,14 @@ static bool embed_input_file(FILE *dst, char const *path) {
     }
     fseek(src, 0, SEEK_SET);
 
-    if (is_text_file(src)) {
+    filetype_t type = determine_file_type(src);
+    switch (type) {
+    case FT_TEXT:
         transcribe = transcribe_text_file;
-    } else {
+        break;
+    case FT_BINARY:
         transcribe = transcribe_binary_file;
+        break;
     }
 
     generate_variables_for_input_file(dst, src, filename, transcribe);
