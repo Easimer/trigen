@@ -13,6 +13,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "utils.h"
+
 #define BINARY_FILE_ROW_WIDTH (20)
 #define SOURCE_FILE_SIZE_LIMIT (32768)
 
@@ -22,32 +24,10 @@
 
 typedef void (*transcriber_fun_t)(FILE *dst, FILE *src);
 
-// Decides whether a given character is printable.
-static bool is_printable(char c) {
-    if(c >= ' ' && c <= '~')
-        return true;
-
-    if (c == '\t')
-        return true;
-
-    return false;
-}
-
-// Decides whether we need to escape this character.
-static bool need_to_escape(char c) {
-    switch(c) {
-        case '"':
-        case '\\':
-            return true;
-        default:
-            return false;
-    }
-}
-
 // Converts a byte to a C hex literal (\xFF) and writes it to the output stream
-static void emit_hex(FILE* dst, unsigned char ch) {
+static void emit_hex(FILE* dst, uint8_t ch) {
     char esc[2] = { '\\', 'x' };
-    char digit, c;
+    uint8_t digit, c;
 
     fwrite(esc, 1, 2, dst);
 
@@ -105,8 +85,8 @@ static void transcribe_text_file(FILE* dst, FILE* src) {
     uint64_t character_count = 0;
 
     while(!feof(src)) {
-        char ch;
-        int res;
+        uint8_t ch;
+        size_t res;
 
         res = fread(&ch, 1, 1, src);
 
@@ -148,11 +128,6 @@ static void transcribe_text_file(FILE* dst, FILE* src) {
 
 
     fprintf(stderr, L_INFO "%" PRIu64 " characters copied\n", character_count);
-}
-
-// Decides whether a given character could be part of a C variable name.
-static bool can_be_part_of_variable_name(char ch) {
-    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
 }
 
 // Converts variable name from filename and writes it to `dst`.
