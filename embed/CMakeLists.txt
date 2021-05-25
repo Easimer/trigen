@@ -4,6 +4,7 @@ set(SRC
 )
 
 add_executable(embed ${SRC})
+target_compile_features(embed PRIVATE c_std_11)
 target_precompile_headers(embed PRIVATE "stdafx.h")
 
 macro(embed_file storage_file)
