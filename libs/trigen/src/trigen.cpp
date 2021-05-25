@@ -38,7 +38,7 @@ struct Trigen_Session_t {
     std::vector<marching_cubes::metaball> _metaballs;
 
     marching_cubes::params _meshgenParams;
-    float metaballRadius;
+    float metaballScale;
     PSP::Parameters _paintParams;
     std::optional<PSP::Mesh> _pspMesh;
 
@@ -56,7 +56,9 @@ struct Trigen_Session_t {
 
 extern "C" {
 
-Trigen_Status TRIGEN_API Trigen_CreateSession(Trigen_Session *session, Trigen_Parameters const *params) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
+    TRIGEN_HANDLE_ACQUIRE Trigen_Session *session,
+    TRIGEN_IN Trigen_Parameters const *params) {
     assert(session && params);
     if (session == nullptr || params == nullptr) {
         return Trigen_InvalidArguments;
@@ -97,17 +99,17 @@ Trigen_Status TRIGEN_API Trigen_CreateSession(Trigen_Session *session, Trigen_Pa
         return Trigen_InvalidConfiguration;
     }
 
-    s->metaballRadius = 8;
+    s->metaballScale = 8;
     s->_meshgenParams.subdivisions = 8;
     s->_paintParams.out_width = 512;
     s->_paintParams.out_height = 512;
 
     *session = s;
-    printf("[trigen] created session %p\n", s);
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_DestroySession(Trigen_Session session) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_DestroySession(
+    TRIGEN_HANDLE_RELEASE Trigen_Session session) {
     assert(session);
     if (session == nullptr) {
         return Trigen_InvalidArguments;
@@ -117,11 +119,17 @@ Trigen_Status TRIGEN_API Trigen_DestroySession(Trigen_Session session) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_CreateCollider(Trigen_Collider *collider, Trigen_Session session, Trigen_Collider_Mesh const *mesh, Trigen_Transform const *transform) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateCollider(
+    TRIGEN_HANDLE_ACQUIRE Trigen_Collider *collider,
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_IN Trigen_Collider_Mesh const *mesh,
+    TRIGEN_IN Trigen_Transform const *transform) {
     assert(collider && session && mesh && transform);
     if (collider == nullptr || session == nullptr || mesh == nullptr || transform == nullptr) {
         return Trigen_InvalidArguments;
     }
+
+    *collider = nullptr;
 
     assert(mesh->normals && mesh->positions && mesh->vertex_indices && mesh->normal_indices);
     if (mesh->normals == nullptr || mesh->positions == nullptr || mesh->vertex_indices == nullptr || mesh->normal_indices == nullptr) {
@@ -152,7 +160,9 @@ Trigen_Status TRIGEN_API Trigen_CreateCollider(Trigen_Collider *collider, Trigen
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_UpdateCollider(Trigen_Collider collider, Trigen_Transform const *transform) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_UpdateCollider(
+    TRIGEN_HANDLE Trigen_Collider collider,
+    TRIGEN_IN Trigen_Transform const *transform) {
     assert(collider && transform);
     if (collider == nullptr || transform == nullptr) {
         return Trigen_InvalidArguments;
@@ -174,7 +184,9 @@ Trigen_Status TRIGEN_API Trigen_UpdateCollider(Trigen_Collider collider, Trigen_
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Grow(Trigen_Session session, float time) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Grow(
+    TRIGEN_HANDLE Trigen_Session session,
+    tg_f32 time) {
     if (session == nullptr || time < 0 || std::isnan(time) || !std::isfinite(time)) {
         return Trigen_InvalidArguments;
     }
@@ -184,20 +196,23 @@ Trigen_Status TRIGEN_API Trigen_Grow(Trigen_Session session, float time) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Metaballs_SetScale(Trigen_Session session, float radius) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_SetScale(
+    TRIGEN_HANDLE Trigen_Session session,
+    tg_f32 scale) {
     assert(session);
     assert(radius > 0.0f);
 
-    if (session == nullptr || radius < 0.0f) {
+    if (session == nullptr || scale < 0.0f) {
         return Trigen_InvalidArguments;
     }
 
-    session->metaballRadius = radius;
+    session->metaballScale = scale;
 
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Metaballs_Regenerate(Trigen_Session session) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_Regenerate(
+    TRIGEN_HANDLE Trigen_Session session) {
     assert(session);
 
     if (session == nullptr) {
@@ -245,14 +260,16 @@ Trigen_Status TRIGEN_API Trigen_Metaballs_Regenerate(Trigen_Session session) {
             for (int i = 0; i < 3; i++) {
                 radius = glm::max(size[i] / 2, radius);
             }
-            session->_metaballs.push_back({ p, radius / 8, session->metaballRadius });
+            session->_metaballs.push_back({ p, radius / 8, session->metaballScale });
         }
     }
 
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Mesh_SetSubdivisions(Trigen_Session session, int subdivisions) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_SetSubdivisions(
+    TRIGEN_HANDLE Trigen_Session session,
+    tg_u32 subdivisions) {
     assert(session);
     assert(subdivisions >= 1);
     if (session == nullptr || subdivisions < 1) {
@@ -263,7 +280,8 @@ Trigen_Status TRIGEN_API Trigen_Mesh_SetSubdivisions(Trigen_Session session, int
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Mesh_Regenerate(Trigen_Session session) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_Regenerate(
+    TRIGEN_HANDLE Trigen_Session session) {
     assert(session);
     if (session == nullptr) {
         return Trigen_InvalidArguments;
@@ -289,7 +307,9 @@ Trigen_Status TRIGEN_API Trigen_Mesh_Regenerate(Trigen_Session session) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh *outMesh) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_GetMesh(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_IN Trigen_Mesh *outMesh) {
     assert(session && outMesh);
     if (session == nullptr || outMesh == nullptr) {
         return Trigen_InvalidArguments;
@@ -322,7 +342,8 @@ Trigen_Status TRIGEN_API Trigen_Mesh_GetMesh(Trigen_Session session, Trigen_Mesh
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Mesh_FreeMesh(Trigen_Mesh *mesh) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_FreeMesh(
+    TRIGEN_FREED TRIGEN_INOUT Trigen_Mesh *mesh) {
     if (mesh != nullptr) {
         delete[] mesh->vertex_indices;
         // PSP::Mesh has no normal indices
@@ -337,7 +358,10 @@ Trigen_Status TRIGEN_API Trigen_Mesh_FreeMesh(Trigen_Mesh *mesh) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Painting_SetInputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture const *texture) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetInputTexture(
+    TRIGEN_HANDLE Trigen_Session session,
+    Trigen_Texture_Kind kind,
+    TRIGEN_IN Trigen_Texture const *texture) {
     assert(session);
     assert(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max);
     assert(texture);
@@ -386,9 +410,12 @@ Trigen_Status TRIGEN_API Trigen_Painting_SetInputTexture(Trigen_Session session,
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Painting_SetOutputResolution(Trigen_Session session, int width, int height) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetOutputResolution(
+    TRIGEN_HANDLE Trigen_Session session,
+    tg_u32 width,
+    tg_u32 height) {
     assert(session);
-    if (session == nullptr) {
+    if (session == nullptr || width == 0 || height == 0) {
         return Trigen_InvalidArguments;
     }
 
@@ -398,7 +425,8 @@ Trigen_Status TRIGEN_API Trigen_Painting_SetOutputResolution(Trigen_Session sess
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
+    TRIGEN_HANDLE Trigen_Session session) {
     assert(session);
     if (session == nullptr) {
         return Trigen_InvalidArguments;
@@ -456,7 +484,10 @@ Trigen_Status TRIGEN_API Trigen_Painting_Regenerate(Trigen_Session session) {
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session, Trigen_Texture_Kind kind, Trigen_Texture *texture) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_GetOutputTexture(
+    TRIGEN_HANDLE Trigen_Session session,
+    Trigen_Texture_Kind kind,
+    TRIGEN_INOUT Trigen_Texture *texture) {
     assert(session);
     assert(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max);
     assert(texture);
@@ -485,7 +516,7 @@ Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session
         break;
     default:
         assert(0);
-        break;
+        return Trigen_InvalidArguments;
     }
 
     if (tex->buffer == nullptr) {
@@ -499,7 +530,9 @@ Trigen_Status TRIGEN_API Trigen_Painting_GetOutputTexture(Trigen_Session session
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_GetErrorMessage(char const **message, Trigen_Status rc) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetErrorMessage(
+    TRIGEN_OUT char const **message,
+    Trigen_Status rc) {
     if (message == nullptr) {
         return Trigen_InvalidArguments;
     }
@@ -534,7 +567,10 @@ Trigen_Status TRIGEN_API Trigen_GetErrorMessage(char const **message, Trigen_Sta
     return Trigen_OK;
 }
 
-Trigen_Status TRIGEN_API Trigen_GetBranches(TRIGEN_IN Trigen_Session session, TRIGEN_INOUT size_t *count, TRIGEN_IN float *buffer) {
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetBranches(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_INOUT tg_usize *count,
+    TRIGEN_IN tg_f32 *buffer) {
     if (session == nullptr || count == nullptr) {
         return Trigen_InvalidArguments;
     }

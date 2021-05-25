@@ -78,6 +78,11 @@ typedef enum Trigen_Status_t {
 #endif
 #endif
 
+typedef uint32_t tg_u32;
+typedef uint64_t tg_u64;
+typedef float tg_f32;
+typedef size_t tg_usize;
+
 enum Trigen_Flags {
     /** No flags */
     Trigen_F_None                   = 0,
@@ -88,90 +93,90 @@ enum Trigen_Flags {
 };
 
 typedef struct Trigen_Parameters_t {
-    unsigned int flags;
+    tg_u32 flags;
 
-    float seed_position[3];
+    tg_f32 seed_position[3];
 
-    float density;
-    float attachment_strength;
-    float surface_adaption_strength;
-    float stiffness;
-    float aging_rate;
-    float phototropism_response_strength;
-    float branching_probability;
-    float branch_angle_variance;
+    tg_f32 density;
+    tg_f32 attachment_strength;
+    tg_f32 surface_adaption_strength;
+    tg_f32 stiffness;
+    tg_f32 aging_rate;
+    tg_f32 phototropism_response_strength;
+    tg_f32 branching_probability;
+    tg_f32 branch_angle_variance;
 
-    unsigned particle_count_limit;
+    tg_u32 particle_count_limit;
 } Trigen_Parameters;
 
 typedef struct Trigen_Collider_Mesh_t {
     // Number of triangles in this mesh.
     // The number of elements in the index buffer should be three
     // times this number.
-    size_t triangle_count;
+    tg_usize triangle_count;
 
     // Pointer to the vertex index buffer.
-    uint64_t const *vertex_indices;
+    tg_u64 const *vertex_indices;
     // Pointer to the normal index buffer.
-    uint64_t const *normal_indices;
+    tg_u64 const *normal_indices;
 
     // Number of elements in the position buffer.
     // This should be at least `max(vertex_indices)+1`.
-    size_t position_count;
+    tg_usize position_count;
     // Pointer to the position vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
-    float const *positions;
+    tg_f32 const *positions;
 
     // Number of elements in the normal buffer.
     // This should be at least `max(normal_indices)+1`.
-    size_t normal_count;
+    tg_usize normal_count;
     // Pointer to the normal vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
-    float const *normals;
+    tg_f32 const *normals;
 } Trigen_Collider_Mesh;
 
 typedef struct Trigen_Mesh_t {
     // Number of triangles in this mesh.
     // The number of elements in the index buffer should be three
     // times this number.
-    size_t triangle_count;
+    tg_usize triangle_count;
 
     // Pointer to the vertex index buffer.
-    uint64_t const *vertex_indices;
+    tg_u64 const *vertex_indices;
     // Pointer to the normal index buffer.
-    uint64_t const *normal_indices;
+    tg_u64 const *normal_indices;
 
     // Number of elements in the position buffer.
     // This should be at least `max(vertex_indices)+1`.
-    size_t position_count;
+    tg_usize position_count;
     // Pointer to the position vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
-    float const *positions;
+    tg_f32 const *positions;
     // Pointer to the UV buffer.
     // Assumed to be in the following format: UV UV UV
-    float const *uvs;
+    tg_f32 const *uvs;
 
     // Number of elements in the normal buffer.
     // This should be at least `max(normal_indices)+1`.
-    size_t normal_count;
+    tg_usize normal_count;
     // Pointer to the normal vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
-    float const *normals;
+    tg_f32 const *normals;
 } Trigen_Mesh;
 
 typedef struct Trigen_Transform_t {
-    float position[3];
-    float orientation[4];
-    float scale[3];
+    tg_f32 position[3];
+    tg_f32 orientation[4];
+    tg_f32 scale[3];
 } Trigen_Transform;
 
 typedef struct Trigen_Texture_t {
     /** Pointer to the RGB image data; without any padding */
     void const *image;
     /** Image width */
-    int width;
+    tg_u32 width;
     /** Image height */
-    int height;
+    tg_u32 height;
 } Trigen_Texture;
 
 typedef enum Trigen_Texture_Kind_t {
@@ -244,7 +249,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_UpdateCollider(
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Grow(
     TRIGEN_HANDLE Trigen_Session session,
-    float time);
+    tg_f32 time);
 
 /**
  * \brief Sets the metaball scale factor.
@@ -254,7 +259,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Grow(
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_SetScale(
     TRIGEN_HANDLE Trigen_Session session,
-    float scale);
+    tg_f32 scale);
 
 /**
  * \brief Regenerates the metaballs.
@@ -274,7 +279,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_Regenerate(
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_SetSubdivisions(
     TRIGEN_HANDLE Trigen_Session session,
-    int subdivisions);
+    tg_u32 subdivisions);
 
 /**
  * \brief Regenerates the mesh.
@@ -325,13 +330,13 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetInputTexture(
  * \brief Sets the resolution of the output textures.
  * 
  * \param [in] session Session handle
- * \param [in] width Texture width
- * \param [in] height Texture height
+ * \param [in] width Texture width (non-zero)
+ * \param [in] height Texture height (non-zero)
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetOutputResolution(
     TRIGEN_HANDLE Trigen_Session session,
-    int width,
-    int height);
+    tg_u32 width,
+    tg_u32 height);
 
 /**
  * \brief Regenerates the texture paint of the plant.
@@ -350,12 +355,12 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
  * 
  * \param [in] session Session handle
  * \param [in] kind Texture slot identifier
- * \param [out] texture Where to store the texture info
+ * \param [inout] texture Where to store the texture info
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_GetOutputTexture(
     TRIGEN_HANDLE Trigen_Session session,
     Trigen_Texture_Kind kind,
-    TRIGEN_OUT Trigen_Texture *texture);
+    TRIGEN_INOUT Trigen_Texture *texture);
 
 /**
  * \brief Translates a status code to a human-readable error message.
@@ -392,8 +397,8 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetErrorMessage(
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetBranches(
     TRIGEN_HANDLE Trigen_Session session,
-    TRIGEN_INOUT size_t *count,
-    TRIGEN_IN float *buffer);
+    TRIGEN_INOUT tg_usize *count,
+    TRIGEN_IN tg_f32 *buffer);
 
 #ifdef __cplusplus
 }
