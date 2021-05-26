@@ -100,7 +100,7 @@ protected:
                 dampening_forces[i] = f_d_i;
             }
 
-            Vec4 force_sum;
+            auto force_sum = Vec4();
             for (index_t i = 0; i < N; i++) {
                 force_sum += dampening_forces[i];
             }
