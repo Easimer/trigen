@@ -129,7 +129,6 @@ enum class Collider_Handle_Kind {
 
 
 static sb::ISoftbody_Simulation::Collider_Handle make_collider_handle(Collider_Handle_Kind kind, size_t index) {
-    sb::ISoftbody_Simulation::Collider_Handle ret = 0;
     static_assert(sizeof(ret) == 8, "Size of a collider handle was not 8 bytes.");
     assert((index & 0xF000'0000'0000'0000) == 0);
     assert((int)kind < 256);
@@ -140,7 +139,7 @@ static sb::ISoftbody_Simulation::Collider_Handle make_collider_handle(Collider_H
 
 static void decode_collider_handle(sb::ISoftbody_Simulation::Collider_Handle handle, Collider_Handle_Kind &kind, size_t &index) {
     auto kindNibble = (handle >> 60) & 0x0F;
-    assert(kindNibble >= 0 && kindNibble < (int)Collider_Handle_Kind::Max);
+    assert(kindNibble < (int)Collider_Handle_Kind::Max);
     kind = (Collider_Handle_Kind)kindNibble;
     index = (handle & 0x0FFF'FFFF'FFFF'FFFF);
 }

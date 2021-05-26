@@ -252,8 +252,6 @@ __global__ void k_calculate_centers_of_masses(
     auto adj_base = adjacency + id;
     unsigned const neighbor_count = adj_base[0];
     for(unsigned bank = 1; bank < adjacency_stride + 1; bank++) {
-        float4 ntemp[4];
-
         // Step to the next bank
         adj_base += adjacency_stride;
 

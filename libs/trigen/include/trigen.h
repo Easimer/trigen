@@ -15,7 +15,14 @@
 #define TRIGEN_EXPORT
 #endif
 
+#if defined(_WIN32)
 #define TRIGEN_API TRIGEN_EXPORT __cdecl
+#elif defined(__clang__)
+#define TRIGEN_API TRIGEN_EXPORT
+#elif defined(__GNUC__)
+#define TRIGEN_API TRIGEN_EXPORT
+#else
+#endif
 
 #if _WIN32 && defined(_In_) && defined(_Out_) && defined(_Inout_) && defined(_Post_invalid_)
 #define TRIGEN_IN _In_ _Pre_notnull_

@@ -200,7 +200,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_SetScale(
     TRIGEN_HANDLE Trigen_Session session,
     tg_f32 scale) {
     assert(session);
-    assert(radius > 0.0f);
+    assert(scale > 0.0f);
 
     if (session == nullptr || scale < 0.0f) {
         return Trigen_InvalidArguments;

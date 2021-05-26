@@ -113,8 +113,8 @@ protected:
     }
 
     Vec4 get_predicted_center_of_mass(System_State &s) {
-        float total_mass = 0;
-        Vec4 cm;
+        auto total_mass = 0.f;
+        auto cm = Vec4();
 
         auto const N = particle_count(s);
 
@@ -265,8 +265,6 @@ protected:
                 auto idx = i;
                 // Bind pose position relative to the center of mass
                 auto pos_bind = s.bind_pose[idx] - com0;
-                // Current position relative to the center of mass
-                auto d = s.predicted_position[idx] - com_cur;
                 // Rotate the bind pose position relative to the CoM
                 auto pos_bind_rot = R * pos_bind;
                 // Our goal position
@@ -367,7 +365,6 @@ protected:
                 // cuz rn this may create multiple collision constraints for a
                 // particle
                 for (auto j = 0ull; j < coll.triangle_count; j++) {
-                    auto base = j * 3;
                     glm::vec3 xp;
                     float t;
                     // TODO(danielm): these matrix vector products could be cached
