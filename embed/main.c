@@ -16,7 +16,7 @@
 #include "utils.h"
 
 #define BINARY_FILE_ROW_WIDTH (20)
-#define SOURCE_FILE_SIZE_LIMIT (32768)
+#define SOURCE_FILE_SIZE_LIMIT (65536)
 
 #define L_INFO "[I] "
 #define L_WARN "[W] "
@@ -154,7 +154,7 @@ static void generate_variable_name(FILE* dst, char const* filename) {
 // Tries to decide the type of the input file.
 static filetype_t determine_file_type(FILE *file) {
     // Nothing fancy; simply checks the file signature.
-    bool ret = true;
+    bool ret = FT_TEXT;
     long orig_pos = ftell(file);
 
     char const *sig_png = "\x89PNG";
@@ -181,7 +181,7 @@ static filetype_t determine_file_type(FILE *file) {
     goto end;
 
 end_binary:
-    ret = false;
+    ret = FT_BINARY;
 end:
     fseek(file, orig_pos, SEEK_SET);
     return ret;
