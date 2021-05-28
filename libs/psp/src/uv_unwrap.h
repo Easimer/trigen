@@ -13,6 +13,7 @@ using Triangle_ID = size_t;
 
 struct Chart {
     int direction;
+    bool is_degenerate;
     std::vector<Triangle_ID> triangles;
 };
 

@@ -30,9 +30,20 @@ static glm::vec3 const dirvec[6] = { {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0
 static glm::vec3 const projector_vec[6] = { {0, 1, 1}, {0, 1, 1}, {1, 0, 1}, {1, 0, 1}, {1, 1, 0}, {1, 1, 0} };
 static glm::ivec2 const selector_vec[6] = { {1, 2}, {1, 2}, {0, 2}, {0, 2}, {0, 1}, {0, 1} };
 
-static int get_triangle_direction(PSP::Mesh const &mesh, Triangle_ID tid) {
-
+/**
+ * \brief Determines the direction of the triangle.
+ * Returns a value from 0 to 5 (inclusive) that is an index into dirvec,
+ * projector_vec and selector_vec.
+ *
+ * If the triangle is not really parallel with any of the six planes then the
+ * function returns nothing.
+ *
+ * \param mesh Mesh
+ * \param tid Triangle index
+ */
+static std::optional<int> get_triangle_direction(PSP::Mesh const &mesh, Triangle_ID tid) {
     glm::vec3 tri_normal(0, 0, 0);
+
     for (int j = 0; j < 3; j++) {
         auto v = mesh.elements[tid * 3 + j];
         tri_normal += mesh.normal[v];
@@ -48,6 +59,10 @@ static int get_triangle_direction(PSP::Mesh const &mesh, Triangle_ID tid) {
             min_i = i;
             min_diff = d;
         }
+    }
+
+    if (min_diff > 0.95f) {
+        return std::nullopt;
     }
 
     return min_i;
@@ -76,6 +91,7 @@ static bool check_duplicate_vertices(PSP::Mesh const &mesh, std::vector<Chart> c
 static std::vector<Chart> find_charts(PSP::Mesh const &mesh) {
     std::vector<Chart> charts;
     std::unordered_set<size_t> triangles;
+    std::vector<size_t> degenerate_triangles;
 
     auto vertex_count = mesh.elements.size();
     auto triangle_count = vertex_count / 3;
@@ -92,7 +108,27 @@ static std::vector<Chart> find_charts(PSP::Mesh const &mesh) {
         triangles.erase(init_tri_it);
         // Determine direction
         auto const dir = get_triangle_direction(mesh, init_tri);
-        chart.direction = dir;
+
+        // :AtlasGenDegenerateTriangleHandling
+        // Detected a "degenerate" triangle, move it aside
+        // Degenerate here means not that the triangle itself is degenerate,
+        // but that if it was projected onto a plane it would become (almost)
+        // colinear.
+        //
+        // So, degenerate triangles don't get projected the normal way; its
+        // vertices are simply assigned the UV coordinates (0,0), (1,0) and
+        // (0,1) (ofc these texcoords are local to the segment).
+        //
+        // This is far from ideal but these kind of triangles are rare,
+        // especially since we started using actual metaballs during meshgen
+        // instead of simple spheres.
+        if (!dir.has_value()) {
+            degenerate_triangles.emplace_back(init_tri);
+            continue;
+        }
+
+        chart.is_degenerate = false;
+        chart.direction = dir.value();
         // Add it to the queue
         tri_queue.push_back(init_tri);
 
@@ -147,6 +183,12 @@ static std::vector<Chart> find_charts(PSP::Mesh const &mesh) {
         }
 
         charts.push_back(std::move(chart));
+    }
+
+    while (!degenerate_triangles.empty()) {
+        auto tri = degenerate_triangles.back();
+        degenerate_triangles.pop_back();
+        charts.emplace_back(Chart { 0, true, { tri } });
     }
 
     assert(check_duplicate_vertices(mesh, charts));
@@ -253,6 +295,17 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
         glm::vec2 max(FLT_MIN, FLT_MIN);
 
         assert(chart.direction < sizeof(projector_vec) / sizeof(projector_vec[0]));
+
+        // Handle degenerate triangles
+        if (chart.is_degenerate) {
+            assert(chart.triangles.size() == 1);
+            auto tri = chart.triangles[0];
+            auto baseVtxIdx = tri * 3;
+            uv_tmp[baseVtxIdx + 0] = glm::vec2(0, 0);
+            uv_tmp[baseVtxIdx + 1] = glm::vec2(1, 0);
+            uv_tmp[baseVtxIdx + 2] = glm::vec2(0, 1);
+            continue;
+        }
 
         // Project the vertices in the current chart to a plane.
         // This plane's normal is the vector pointing in the direction of the chart.
