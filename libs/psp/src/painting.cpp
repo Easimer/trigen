@@ -87,14 +87,11 @@ static boost::gil::rgb8_pixel_t sample_image(boost::gil::rgb8_view_t const &view
     auto x = ptrdiff_t(uv.x * view.width());
     // TODO(danielm): check whether we need to flip Y here:
     auto y = ptrdiff_t(uv.y * view.height());
-    return view(x, y);
-}
-
-static boost::gil::rgb8_pixel_t& sample_image_ref(boost::gil::rgb8_view_t &view, glm::vec2 uv) {
-    auto x = ptrdiff_t(uv.x * view.width());
-    // TODO(danielm): check whether we need to flip Y here:
-    auto y = ptrdiff_t(uv.y * view.height());
-    return view(x, y);
+    if (x < view.width() && y < view.height()) {
+        return view(x, y);
+    } else {
+        return { 0, 0, 0 };
+    }
 }
 
 static float coplanarity_test(glm::vec3 const &v0, glm::vec3 const &v1, glm::vec3 const &v2, glm::vec3 const &p) {
@@ -336,11 +333,11 @@ public:
 
             // Copy pixels
             for (auto &iwr : image_write_requests) {
-                view_out_base(iwr.output_pix_coord) = sample_image_ref(_view_base, iwr.input_uv_coord);
-                view_out_normal(iwr.output_pix_coord) = sample_image_ref(_view_normal, iwr.input_uv_coord);
-                view_out_height(iwr.output_pix_coord) = sample_image_ref(_view_height, iwr.input_uv_coord);
-                view_out_roughness(iwr.output_pix_coord) = sample_image_ref(_view_roughness, iwr.input_uv_coord);
-                view_out_ao(iwr.output_pix_coord) = sample_image_ref(_view_ao, iwr.input_uv_coord);
+                view_out_base(iwr.output_pix_coord) = sample_image(_view_base, iwr.input_uv_coord);
+                view_out_normal(iwr.output_pix_coord) = sample_image(_view_normal, iwr.input_uv_coord);
+                view_out_height(iwr.output_pix_coord) = sample_image(_view_height, iwr.input_uv_coord);
+                view_out_roughness(iwr.output_pix_coord) = sample_image(_view_roughness, iwr.input_uv_coord);
+                view_out_ao(iwr.output_pix_coord) = sample_image(_view_ao, iwr.input_uv_coord);
             }
         };
 
