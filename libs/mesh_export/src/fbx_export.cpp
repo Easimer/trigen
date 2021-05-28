@@ -179,6 +179,18 @@ static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, 
     return texture;
 }
 
+static bool get_winding_order(IMesh const *mesh, int i0, int i1, int i2) {
+    auto faceNormal = mesh->normal(i0) + mesh->normal(i1) + mesh->normal(i2);
+    faceNormal.Normalize();
+
+    auto v0 = mesh->position(i2) - mesh->position(i0);
+    auto v1 = mesh->position(i2) - mesh->position(i1);
+    auto c = v0.CrossProduct(v1);
+    c.Normalize();
+
+    return abs(1 - (c.DotProduct(faceNormal))) < 0.001f;
+}
+
 static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &material) {
     auto meshNode = FbxMesh::Create(scene, "mesh");
 
@@ -235,12 +247,19 @@ static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &mater
         auto [i0, i1, i2] = mesh->vertexIndices(t);
 
         meshNode->BeginPolygon();
+        if (get_winding_order(mesh, i0, i1, i2)) {
+            meshNode->AddPolygon(i1, off1);
+            meshNode->AddPolygon(i0, off0);
+        } else {
+            meshNode->AddPolygon(i0, off0);
+            meshNode->AddPolygon(i1, off1);
+        }
         meshNode->AddPolygon(i2, off2);
-        meshNode->AddPolygon(i1, off1);
-        meshNode->AddPolygon(i0, off0);
         meshNode->EndPolygon();
     }
     meshNode->BuildMeshEdgeArray();
+
+    meshNode->GenerateTangentsData(UV_ELEMENT_NAME);
 
     auto node = FbxNode::Create(scene, "plant");
     node->SetNodeAttribute(meshNode);
