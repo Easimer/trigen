@@ -402,7 +402,7 @@ std::unique_ptr<ISession> make_session(char const *path_simulation_image) {
             for (int i = 0; i < 3; i++) {
                 radius = glm::max(size[i] / 2, radius);
             }
-            metaballs.push_back({ p, radius / 8 });
+            metaballs.push_back({ p, radius / 8, 1 });
         }
     }
 
