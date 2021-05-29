@@ -33,9 +33,16 @@ target_link_libraries(renderer
 		glad SDL::SDL2 imgui ${TRACY_LIBRARIES}
 )
 
-target_include_directories(renderer PRIVATE ${SDL2_INCLUDE_DIRS} ${TRACY_INCLUDE_DIRS})
+target_include_directories(renderer PRIVATE ${TRACY_INCLUDE_DIRS})
 if(${RENDERER_ENABLE_TRACY})
     target_compile_definitions(renderer PRIVATE TRACY_ENABLE=1)
 endif()
 set_target_properties(renderer PROPERTIES FOLDER "Libs")
 target_precompile_headers(renderer PRIVATE stdafx.h)
+
+add_custom_command(
+    TARGET renderer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:SDL::SDL2>
+        ${CMAKE_BINARY_DIR}
+)

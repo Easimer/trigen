@@ -72,3 +72,5 @@ add_custom_command(
         $<TARGET_FILE:Qt5::Svg>
         ${CMAKE_BINARY_DIR}
 )
+
+install(TARGETS editor)

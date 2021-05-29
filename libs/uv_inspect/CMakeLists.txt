@@ -32,3 +32,5 @@ target_compile_definitions(uv_inspect
 
 tri_dllimportexport(uv_inspect)
 tri_builddir(uv_inspect)
+
+install(TARGETS uv_inspect)

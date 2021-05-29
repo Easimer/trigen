@@ -14,7 +14,11 @@ target_link_libraries(trigen PRIVATE marching_cubes psp softbody)
 set_target_properties(trigen PROPERTIES FOLDER "Libs")
 tri_builddir(trigen)
 
+install(TARGETS trigen)
+
 if(${TRIGEN_BUILD_CSHARP_BINDING})
     add_library(trigen-net SHARED ${SRC_CSHARP})
 	set_target_properties(trigen-net PROPERTIES FOLDER "Libs")
+	install(TARGETS trigen-net)
 endif()
+

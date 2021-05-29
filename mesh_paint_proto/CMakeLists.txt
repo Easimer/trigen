@@ -37,3 +37,12 @@ target_link_libraries(mesh_paint_proto PRIVATE
 )
 target_precompile_headers(mesh_paint_proto PRIVATE "stdafx.h")
 tri_builddir(mesh_paint_proto)
+
+install(TARGETS mesh_paint_proto)
+
+add_custom_command(
+    TARGET mesh_paint_proto POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:${SDL2_LIBRARIES}>
+        ${CMAKE_BINARY_DIR}
+)
