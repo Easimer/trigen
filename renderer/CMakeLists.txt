@@ -30,7 +30,7 @@ target_link_libraries(renderer
 	PUBLIC
 		glm
 	PRIVATE
-		glad ${SDL2_LIBRARIES} imgui ${TRACY_LIBRARIES}
+		glad SDL::SDL2 imgui ${TRACY_LIBRARIES}
 )
 
 target_include_directories(renderer PRIVATE ${SDL2_INCLUDE_DIRS} ${TRACY_INCLUDE_DIRS})
