@@ -16,6 +16,8 @@ set_target_properties(tracy_client PROPERTIES FOLDER "Libs")
 set(TRACY_LIBRARIES tracy_client)
 set(TRACY_INCLUDE_DIR ${TRACY_SRC_DIR})
 
+add_library(Tracy::Client ALIAS tracy_client)
+
 include(FindPackageHandleStandardArgs)
 
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Tracy REQUIRED_VARS TRACY_LIBRARIES)
