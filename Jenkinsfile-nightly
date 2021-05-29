@@ -39,8 +39,10 @@ pipeline {
             }
         }
         stage('conan install') {
-            dir('build') {
-                sh "conan install .."
+            steps {
+				dir('build') {
+					sh "conan install .."
+				}
             }
         }
         stage('Configure') {
