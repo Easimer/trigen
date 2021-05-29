@@ -7,3 +7,4 @@
 
 #include <fbxsdk.h>
 #include <psp/psp.h>
+#include <uuid.h>

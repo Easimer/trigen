@@ -9,7 +9,14 @@ set(SRC
 )
 
 add_library(mesh_export STATIC ${SRC})
-target_link_libraries(mesh_export PRIVATE psp trigen stb FbxSdk::FbxSdk)
+target_link_libraries(mesh_export
+    PRIVATE
+        psp
+        trigen
+        stb
+        FbxSdk::FbxSdk
+        CONAN_PKG::stduuid
+)
 target_include_directories(mesh_export PUBLIC include/)
 target_precompile_headers(mesh_export PRIVATE "src/stdafx.h")
 set_target_properties(mesh_export PROPERTIES FOLDER "Libs")

@@ -14,6 +14,8 @@
 #include <stb_image_write.h>
 #include <glm/geometric.hpp>
 
+#include <uuid.h>
+
 // Forces exporter to use Wavefront OBJ as output format
 // #define DEBUG_EXPORT_OBJ (0)
 // Forces exporter to output ASCII FBX
@@ -144,27 +146,29 @@ private:
     PSP::Mesh const *_mesh;
 };
 
-static bool write_texture(ITexture const *tex, char const *kind, std::string &path) {
+static bool write_texture(ITexture const *tex, std::string const &name, std::string &path) {
     auto tmpdir_path = std::filesystem::temp_directory_path();
-    auto filename = std::filesystem::path("trigen_" + std::string(kind) + ".png");
+    auto filename = std::filesystem::path("trigen_" + std::string(name) + ".png");
     path = (tmpdir_path / filename).string();
 
     if (stbi_write_png(path.c_str(), tex->width(), tex->height(), 3, tex->buffer(), tex->width() * 3) > 0) {
         return true;
     }
 
-    fprintf(stderr, "failed to write texture '%s' to file '%s'\n", kind, path.c_str());
+    fprintf(stderr, "failed to write texture '%s' to file '%s'\n", name.c_str(), path.c_str());
 
     return false;
 }
 
-static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, char const *kind) {
+static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, std::string const &uuid, char const *kind) {
+    auto const name = std::string(kind) + '.' + uuid;
     std::string path;
-    if (!write_texture(tex, kind, path)) {
+
+    if (!write_texture(tex, name, path)) {
         return nullptr;
     }
 
-    auto texture = FbxFileTexture::Create(container, kind);
+    auto texture = FbxFileTexture::Create(container, name.c_str());
     texture->SetFileName(path.c_str());
     texture->SetTextureUse(FbxTexture::eStandard);
     texture->SetMappingType(FbxTexture::eUV);
@@ -178,8 +182,8 @@ static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, 
     return texture;
 }
 
-static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, char const *kind, FbxProperty &tex_prop) {
-    auto texture = create_texture(container, tex, kind);
+static FbxFileTexture *create_texture(FbxScene *container, ITexture const *tex, std::string const &uuid, char const *kind, FbxProperty &tex_prop) {
+    auto texture = create_texture(container, tex, uuid, kind);
     tex_prop.ConnectSrcObject(texture);
     return texture;
 }
@@ -255,7 +259,10 @@ static void make_texcoords_attribute_array_indirect(IMesh const *mesh, FbxLayerE
 }
 
 static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &material) {
-    auto meshNode = FbxMesh::Create(scene, "mesh");
+    auto const uuid = uuids::to_string(uuids::uuid_system_generator {}());
+
+    auto const meshName = uuid + ".mesh";
+    auto meshNode = FbxMesh::Create(scene, meshName.c_str());
 
     auto num_control_points = mesh->numControlPoints();
 
@@ -323,22 +330,24 @@ static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &mater
 
     meshNode->GenerateTangentsData(UV_ELEMENT_NAME);
 
-    auto node = FbxNode::Create(scene, "plant");
+    auto const nodeName = uuid + ".node";
+    auto node = FbxNode::Create(scene, nodeName.c_str());
     node->SetNodeAttribute(meshNode);
     node->SetShadingMode(FbxNode::eTextureShading);
 
     auto implementation = fbx_standard_surface_create_implementation(scene);
     auto bindingTable = fbx_standard_surface_create_binding_table(implementation);
 
-    auto surf = FbxArnoldStandardSurface(scene, "plant_material");
+    auto surfName = uuid + ".surf";
+    auto surf = FbxArnoldStandardSurface(scene, surfName.c_str());
     surf.material()->AddImplementation(implementation);
     surf.material()->SetDefaultImplementation(implementation);
 
-    create_texture(scene, material.base, "base_color", surf.get_baseColor());
-    create_texture(scene, material.normal, "normal", surf.get_normalCamera());
-    create_texture(scene, material.roughness, "roughness", surf.get_diffuseRoughness());
-    create_texture(scene, material.ao, "ao");
-    create_texture(scene, material.height, "height");
+    create_texture(scene, material.base, uuid, "base_color", surf.get_baseColor());
+    create_texture(scene, material.normal, uuid, "normal", surf.get_normalCamera());
+    create_texture(scene, material.roughness, uuid, "roughness", surf.get_specularRoughness());
+    create_texture(scene, material.ao, uuid, "ao");
+    create_texture(scene, material.height, uuid, "height");
 
     node->AddMaterial(surf.material());
 
