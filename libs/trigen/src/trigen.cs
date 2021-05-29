@@ -8,9 +8,32 @@ namespace Net.Easimer.Trigen
         OK = 0,
     }
 
+    [Flags]
+    public enum Flags
+    {
+        None = 0,
+        PreferCPU = 1 << 0,
+        UseGeneralTexturingAPI = 1 << 1,
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct Parameters
     {
+        public uint flags;
+
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 3)]
+        public float[] seed_position;
+
+        public float density;
+        public float attachment_strength;
+        public float surface_adaption_strength;
+        public float stiffness;
+        public float aging_rate;
+        public float phototropism_response_strength;
+        public float branching_probability;
+        public float branch_angle_variance;
+
+        public uint particle_count_limit;
     }
 
     public class Exception : System.Exception
