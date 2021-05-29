@@ -43,6 +43,6 @@ install(TARGETS mesh_paint_proto)
 add_custom_command(
     TARGET mesh_paint_proto POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:${SDL2_LIBRARIES}>
+        $<TARGET_FILE:SDL::SDL2>
         ${CMAKE_BINARY_DIR}
 )
