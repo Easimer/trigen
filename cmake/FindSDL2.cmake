@@ -71,6 +71,10 @@
 # "SDL.h", not <SDL/SDL.h>. This is done for portability reasons
 # because not all systems place things in SDL/ (see FreeBSD).
 
+if(NOT TARGET SDL::SDL2)
+	add_library(SDL::SDL2 SHARED IMPORTED)
+endif()
+
 if(NOT SDL2_DIR)
   set(SDL2_DIR "" CACHE PATH "SDL2 directory")
 endif()
@@ -149,29 +153,22 @@ if(SDL2_LIBRARY_TEMP)
   endif()
 
   # For OS X, SDL uses Cocoa as a backend so it must link to Cocoa.
-  # CMake doesn't display the -framework Cocoa string in the UI even
-  # though it actually is there if I modify a pre-used variable.
-  # I think it has something to do with the CACHE STRING.
-  # So I use a temporary variable until the end so I can set the
-  # "real" variable in one-shot.
   if(APPLE)
-    set(SDL2_LIBRARY_TEMP ${SDL2_LIBRARY_TEMP} "-framework Cocoa")
+      target_link_libraries(SDL::SDL2 INTERFACE "-framework Cocoa")
   endif()
 
   # For threads, as mentioned Apple doesn't need this.
   # In fact, there seems to be a problem if I used the Threads package
   # and try using this line, so I'm just skipping it entirely for OS X.
   if(NOT APPLE)
-    set(SDL2_LIBRARY_TEMP ${SDL2_LIBRARY_TEMP} ${CMAKE_THREAD_LIBS_INIT})
+      target_link_libraries(SDL::SDL2 INTERFACE pthread)
   endif()
 
   # For MinGW library
   if(MINGW)
-    set(SDL2_LIBRARY_TEMP ${MINGW32_LIBRARY} ${SDL2_LIBRARY_TEMP})
+      target_link_libraries(SDL::SDL2 INTERFACE ${MINGW32_LIBRARY})
   endif()
-
-  # Set the final string here so the GUI reflects the final state.
-  set(SDL2_LIBRARY ${SDL2_LIBRARY_TEMP} CACHE STRING "Where the SDL Library can be found")
+  set(SDL2_LIBRARY "${SDL2_LIBRARY_TEMP}")
 endif()
 
 if(SDL2_INCLUDE_DIR AND EXISTS "${SDL2_INCLUDE_DIR}/SDL2_version.h")
@@ -199,21 +196,21 @@ else()
 	set(SDL2_LIBRARY_DLL ${SDL2_LIBRARY})
 endif()
 
-if(NOT TARGET SDL::SDL2)
-	add_library(SDL::SDL2 SHARED IMPORTED)
-endif()
-
 set_target_properties(SDL::SDL2 PROPERTIES
 	IMPORTED_LOCATION "${SDL2_LIBRARY_DLL}"
 	INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIR}"
-	INTERFACE_LINK_LIBRARIES "${SDL2_LIBRARY};${SDL2MAIN_LIBRARY}"
     IMPORTED_IMPLIB "${SDL2_LIBRARY}"
+)
+
+target_link_libraries(SDL::SDL2
+    INTERFACE
+        ${SDL2MAIN_LIBRARY}
 )
 
 install(FILES ${SDL2_LIBRARY_DLL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin/)
 
 include(FindPackageHandleStandardArgs)
 
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(SDL
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(SDL2
                                   REQUIRED_VARS SDL2_LIBRARY SDL2_INCLUDE_DIR
                                   VERSION_VAR SDL2_VERSION_STRING)
