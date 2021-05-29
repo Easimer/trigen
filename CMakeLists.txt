@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(trigen)
 
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup(TARGETS)
+
 # =======================================================
 # Purpose: Set the target's build directory
 # =======================================================
@@ -88,6 +91,8 @@ endmacro()
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(OpenCL REQUIRED)
+
+set(Boost_INSTALL_DIR ${CONAN_BOOST_ROOT})
 find_package(Boost REQUIRED COMPONENTS system thread)
 
 find_package(Tracy)
