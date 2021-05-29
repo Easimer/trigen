@@ -6,6 +6,7 @@ set(SRC
 
 set(SRC_CSHARP
     src/trigen.cs
+    src/Properties/AssemblyInfo.cs
 )
 
 add_library(trigen SHARED ${SRC})
