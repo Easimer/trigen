@@ -46,7 +46,9 @@ If you're building the Qt testbed as well, then you'll need to install the libxm
 
 On Debian-based systems (Debian/Ubuntu) these packages are called `cmake libsdl2-dev libsdl2-ttf-dev ocl-icd-opencl-dev qtbase5-dev libxml2-dev zlib-dev libz-dev`.
 
-On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake SDL2-devel SDL2_ttf-devel SDL2-static ocl-icd-devel qt5-devel libxml2-devel zlib-devel`.
+On RPM-based systems (RHEL/CentOS/Fedora) these packages are called `cmake
+SDL2-devel SDL2_ttf-devel SDL2-static ocl-icd-devel qt5-qtbase-devel
+qt5-qtsvg-devel libxml2-devel zlib-devel boost-devel`.
 
 ## Generate build files
 
