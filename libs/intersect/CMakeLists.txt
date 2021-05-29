@@ -7,5 +7,5 @@ set(SRC
 
 add_library(intersect STATIC ${SRC})
 target_include_directories(intersect PUBLIC include/)
-target_link_libraries(intersect PUBLIC glm)
+target_link_libraries(intersect PUBLIC CONAN_PKG::glm)
 set_target_properties(intersect PROPERTIES FOLDER "Libs")

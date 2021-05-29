@@ -49,7 +49,7 @@ endif()
 
 target_link_libraries(softbody
     PUBLIC
-        glm
+        CONAN_PKG::glm
     PRIVATE
         ${OpenCL_LIBRARIES} ${TRACY_LIBRARIES} intersect
 )

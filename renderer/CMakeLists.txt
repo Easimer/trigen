@@ -28,7 +28,7 @@ set(SRC
 add_library(renderer STATIC ${SRC} ${SRC_SHADERS})
 target_link_libraries(renderer
 	PUBLIC
-		glm
+		CONAN_PKG::glm
 	PRIVATE
 		glad SDL::SDL2 imgui ${TRACY_LIBRARIES}
 )
