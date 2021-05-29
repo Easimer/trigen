@@ -161,7 +161,7 @@ if(SDL2_LIBRARY_TEMP)
   # In fact, there seems to be a problem if I used the Threads package
   # and try using this line, so I'm just skipping it entirely for OS X.
   if(NOT APPLE)
-      target_link_libraries(SDL::SDL2 INTERFACE pthread)
+      target_link_libraries(SDL::SDL2 INTERFACE Threads::Threads)
   endif()
 
   # For MinGW library
@@ -199,7 +199,7 @@ endif()
 set_target_properties(SDL::SDL2 PROPERTIES
 	IMPORTED_LOCATION "${SDL2_LIBRARY_DLL}"
 	INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIR}"
-    IMPORTED_IMPLIB "${SDL2_LIBRARY}"
+    IMPORTED_IMPLIB ${SDL2_LIBRARY}
 )
 
 target_link_libraries(SDL::SDL2
