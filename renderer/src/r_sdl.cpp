@@ -4,14 +4,14 @@
 //
 
 #include <cstdio>
-#include <trigen/sdl_helper.h>
+#include "sdl_helper.h"
 #include "r_sdl.h"
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl.h>
 
 #define GLRES_GLM
 #include <glm/gtc/type_ptr.hpp>
-#include <trigen/glres.h>
+#include "glres.h"
 #include <optional>
 #include <fstream>
 #include <sstream>

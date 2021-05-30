@@ -5,16 +5,14 @@
 
 #include "r_renderer.h"
 #include "r_queue.h"
-#include <trigen/sdl_helper.h>
 #include <imgui_impl_opengl3.h>
-#include <imgui_impl_sdl.h>
 
 #include <glm/vec3.hpp>
 #include <glm/gtx/transform.hpp>
 
 #define GLRES_GLM
 #include <glm/gtc/type_ptr.hpp>
-#include <trigen/glres.h>
+#include "glres.h"
 #include <optional>
 #include <fstream>
 #include <sstream>

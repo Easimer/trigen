@@ -12,8 +12,13 @@ set(SRC
 )
 
 add_library(renderer_qt STATIC ${SRC})
-target_link_libraries(renderer_qt PRIVATE Qt5::Widgets renderer arcball_camera ${TRACY_LIBRARIES})
-target_link_libraries(renderer_qt PUBLIC imgui)
+target_link_libraries(renderer_qt
+    PUBLIC
+        renderer imgui
+    PRIVATE
+        Qt5::Widgets arcball_camera Tracy::Client
+)
+
 target_include_directories(renderer_qt PUBLIC include/)
 #target_precompile_headers(renderer_qt PRIVATE "src/stdafx.h")
 set_target_properties(renderer_qt PROPERTIES FOLDER "Libs")

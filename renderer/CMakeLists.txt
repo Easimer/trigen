@@ -15,30 +15,32 @@ set(SRC_SHADER_SOURCES
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})
 
-set(SRC
-    ../public/r_renderer.h
-    ../public/r_queue.h
-    r_factory.cpp
-    r_gl.cpp
-    r_gl_shadercompiler.h
-    r_sdl.cpp
-	shaders.cpp
+add_library(renderer STATIC
+    include/r_renderer.h
+    include/r_queue.h
+    src/r_factory.cpp
+    src/r_gl.cpp
+    src/r_gl_shadercompiler.h
+    src/r_sdl.cpp
+    shaders.cpp
 )
-
-add_library(renderer STATIC ${SRC} ${SRC_SHADERS})
 target_link_libraries(renderer
 	PUBLIC
 		CONAN_PKG::glm
 	PRIVATE
-		glad SDL::SDL2 imgui ${TRACY_LIBRARIES}
+		glad SDL::SDL2 imgui Tracy::Client
 )
 
-target_include_directories(renderer PRIVATE ${TRACY_INCLUDE_DIRS})
+target_include_directories(renderer
+    PUBLIC
+        include/
+)
+
 if(${RENDERER_ENABLE_TRACY})
     target_compile_definitions(renderer PRIVATE TRACY_ENABLE=1)
 endif()
 set_target_properties(renderer PROPERTIES FOLDER "Libs")
-target_precompile_headers(renderer PRIVATE stdafx.h)
+target_precompile_headers(renderer PRIVATE src/stdafx.h)
 
 add_custom_command(
     TARGET renderer POST_BUILD

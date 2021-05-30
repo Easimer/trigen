@@ -8,7 +8,7 @@
 #include <optional>
 #include <vector>
 #include <string>
-#include <trigen/glres.h>
+#include "glres.h"
 
 struct Shader_Define {
     std::string key;

@@ -9,8 +9,8 @@
 #include <QOpenGLWidget>
 #include <functional>
 #include <memory>
-#include "r_renderer.h"
-#include "r_queue.h"
+#include <r_renderer.h>
+#include <r_queue.h>
 #include "arcball_camera.h"
 #include "imgui_impl_qt.h"
 
