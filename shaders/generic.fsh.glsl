@@ -30,17 +30,29 @@ void main() {
 #if TEXTURED
 #if LIT
 void main() {
+    // Sample textures
     vec3 baseColor = texture(texDiffuse, vUV).rgb;
     vec3 normal = texture(texNormal, vUV).rgb;
     normal = normalize(normal * 2.0 - 1.0);
 
-    vec3 lightDir   = normalize(tSunPosition - tFragPosition);
+    // Compute vectors used for lighting
+    vec3 lightDir   = normalize(-tSunPosition - tFragPosition);
     vec3 viewDir    = normalize(tViewPosition - tFragPosition);
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * vec3(1, 1, 1);
 
-    vFrag = vec4(diffuse * baseColor, 1);
+    // Ambient lighting
+    float ambientStrength = 0.1;
+    vec3 ambient = ambientStrength * tintColor.rgb;
+
+    // Specular lighting
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 4);
+    vec3 specular = spec * tintColor.rgb;
+
+    // Diffuse lighting
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = diff * tintColor.rgb;
+
+    vFrag = vec4((ambient + specular + diffuse) * baseColor, 1);
 }
 #else /* LIT */
 void main() {
