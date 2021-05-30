@@ -138,8 +138,8 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
             if (_texOutBaseHandle != nullptr && _texOutNormalHandle != nullptr) {
-                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, _texOutNormalHandle, renderTransform);
-                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, renderTransform);
+                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, _texOutNormalHandle, renderTransform);
+                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, renderTransform);
             } else {
                 gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
             }

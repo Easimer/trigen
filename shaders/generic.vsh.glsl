@@ -20,15 +20,22 @@ out vec3 vColor;
 #endif
 
 #if LIT
-uniform vec3 sunPosition;
-uniform mat3 matModel;
-out vec3 vSunDirection;
-out mat3 vTBNMatrix;
-out vec3 vNormal;
-
 VAO_LAYOUT(2) in vec3 aNormal;
 VAO_LAYOUT(3) in vec3 aTangent;
 VAO_LAYOUT(4) in vec3 aBitangent;
+
+// World position of the sun
+uniform vec3 sunPosition;
+uniform mat4 matModel;
+uniform vec3 viewPosition;
+
+// Tangent-space sun position
+out vec3 tSunPosition;
+// Tangent-space view position
+out vec3 tViewPosition;
+// Tangent-space fragment position
+out vec3 tFragPosition;
+
 #endif /* LIT */
 
 void main() {
@@ -38,13 +45,17 @@ void main() {
 
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
 #if TEXTURED
-    vUV =  vec2(aUV.x, 1 - aUV.y);
+    vUV = vec2(aUV.x, 1 - aUV.y);
 #if LIT
-    vec3 T = normalize(matModel * aTangent);
-    vec3 B = normalize(matModel * aBitangent);
-    vec3 N = normalize(matModel * aNormal);
-    vTBNMatrix = mat3(T, B, N);
-    vSunDirection = normalize(-sunPosition);
+    mat3 matModelRot = mat3(matModel);
+    vec3 T = normalize(matModelRot * aTangent);
+    vec3 B = normalize(matModelRot * aBitangent);
+    vec3 N = normalize(matModelRot * aNormal);
+    mat3 TBN = transpose(mat3(T, B, N));
+    
+    tSunPosition = TBN * sunPosition;
+    tViewPosition = TBN * viewPosition;
+    tFragPosition = TBN * vec3(matModel * vec4(aPosition.xyz, 1.0));
 #endif
 #endif
 }

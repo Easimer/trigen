@@ -11,8 +11,12 @@ uniform sampler2D texNormal;
 #endif
 
 #if LIT
-in vec3 vSunDirection;
-in mat3 vTBNMatrix;
+// Tangent-space sun position
+in vec3 tSunPosition;
+// Tangent-space view position
+in vec3 tViewPosition;
+// Tangent-space fragment position
+in vec3 tFragPosition;
 #endif /* LIT */
 
 uniform vec4 tintColor;
@@ -27,8 +31,16 @@ void main() {
 #if LIT
 void main() {
     vec3 baseColor = texture(texDiffuse, vUV).rgb;
-    vFrag = vec4(baseColor, 1);
-    // TODO(danielm): lighting
+    vec3 normal = texture(texNormal, vUV).rgb;
+    normal = normalize(normal * 2.0 - 1.0);
+
+    vec3 lightDir   = normalize(tSunPosition - tFragPosition);
+    vec3 viewDir    = normalize(tViewPosition - tFragPosition);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = diff * vec3(1, 1, 1);
+
+    vFrag = vec4(diffuse * baseColor, 1);
 }
 #else /* LIT */
 void main() {

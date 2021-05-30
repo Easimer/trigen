@@ -361,8 +361,9 @@ public:
             auto locTexNormal = gl::Uniform_Location<GLint>(program, "texNormal");
             auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
             auto locSunPosition = gl::Uniform_Location<Vec3>(program, "sunPosition");
-            auto locModelMatrix = gl::Uniform_Location<Mat3>(program, "matModel");
-            m_element_model_shader_textured_lit = { std::move(program), locMVP, locTexDiffuse, locTintColor, locModelMatrix, locTexNormal, locSunPosition };
+            auto locModelMatrix = gl::Uniform_Location<Mat4>(program, "matModel");
+            auto locViewPosition = gl::Uniform_Location<Vec3>(program, "viewPosition");
+            m_element_model_shader_textured_lit = { std::move(program), locMVP, locTexDiffuse, locTintColor, locModelMatrix, locTexNormal, locSunPosition, locViewPosition };
         });
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
@@ -795,21 +796,19 @@ public:
 
         auto num_vertices = model->element_count;
 
-        // Copy vertices
+        // Copy vertices and normals
         std::vector<std::array<float, 3>> vertices_buf;
+        std::vector<std::array<float, 3>> normals_buf;
         vertices_buf.resize(num_vertices);
+        normals_buf.resize(num_vertices);
         for (size_t i = 0; i < num_vertices; i++) {
             auto idx = model->elements[i];
             vertices_buf[i] = model->vertices[idx];
+            normals_buf[i] = model->normals[idx];
         }
 
-        // TODO(danielm): UV unwrapping generates a UV map where the texcoords
-        // are the same for 2 or more vertices of the same triangle. This
-        // breaks the algorithm below.
-
-        if (false && model->vertices != nullptr && model->uv != nullptr && model->normals != nullptr) {
+        if (model->vertices != nullptr && model->uv != nullptr && model->normals != nullptr) {
             // Precompute tangents and bitangents
-            std::vector<glm::vec3> normals(num_vertices);
             std::vector<glm::vec3> tangents(num_vertices);
             std::vector<glm::vec3> bitangents(num_vertices);
             auto num_triangles = model->element_count / 3;
@@ -817,56 +816,26 @@ public:
                 auto idx0 = model->elements[t * 3 + 0];
                 auto idx1 = model->elements[t * 3 + 1];
                 auto idx2 = model->elements[t * 3 + 2];
-                auto normal0 = vec3_cast(model->normals[idx0]);
-                auto normal1 = vec3_cast(model->normals[idx1]);
-                auto normal2 = vec3_cast(model->normals[idx2]);
-                auto uv0 = vec2_cast(model->uv[idx0]);
-                auto uv1 = vec2_cast(model->uv[idx1]);
-                auto uv2 = vec2_cast(model->uv[idx2]);
-                auto pos0 = vec3_cast(model->vertices[idx0]);
-                auto pos1 = vec3_cast(model->vertices[idx1]);
-                auto pos2 = vec3_cast(model->vertices[idx2]);
 
-                auto edge0 = pos1 - pos0;
-                auto edge1 = pos2 - pos0;
-                auto dUV0 = uv1 - uv0;
-                auto dUV1 = uv2 - uv0;
-                if (length(dUV0) < glm::epsilon<float>() || length(dUV1) < glm::epsilon<float>() || length(edge0) < glm::epsilon<float>() || length(edge1) < glm::epsilon<float>()) {
-                    // Degenerate triangle
-                    glm::vec3 tangent(1, 0, 0);
-                    glm::vec3 bitangent(0, 1, 0);
-                    glm::vec3 normal(0, 0, -1);
-                    normals[t * 3 + 0] = normal;
-                    normals[t * 3 + 1] = normal;
-                    normals[t * 3 + 2] = normal;
-                    tangents[t * 3 + 0] = tangent;
-                    tangents[t * 3 + 1] = tangent;
-                    tangents[t * 3 + 2] = tangent;
-                    bitangents[t * 3 + 0] = bitangent;
-                    bitangents[t * 3 + 1] = bitangent;
-                    bitangents[t * 3 + 2] = bitangent;
-                    continue;
-                }
+                auto p0 = vec3_cast(model->vertices[idx0]);
+                auto p1 = vec3_cast(model->vertices[idx1]);
+                auto p2 = vec3_cast(model->vertices[idx2]);
+                auto w0 = vec2_cast(model->uv[t * 3 + 0]);
+                auto w1 = vec2_cast(model->uv[t * 3 + 1]);
+                auto w2 = vec2_cast(model->uv[t * 3 + 2]);
 
-                auto f = 1.0f / (dUV0.x * dUV1.y - dUV1.x * dUV0.y);
+                auto e1 = p1 - p0;
+                auto e2 = p2 - p0;
+                auto x1 = w1.x - w0.x;
+                auto x2 = w2.x - w0.x;
+                auto y1 = w1.y - w0.y;
+                auto y2 = w2.y - w0.y;
 
-                glm::vec3 tangent;
-                tangent.x = f * (dUV1.y * edge0.x - dUV0.y * edge1.x);
-                tangent.y = f * (dUV1.y * edge0.y - dUV0.y * edge1.y);
-                tangent.z = f * (dUV1.y * edge0.z - dUV0.y * edge1.z);
-                tangent = normalize(tangent);
-                assert(length(tangent) < 9999);
+                auto r = 1.0f / (x1 * y2 - x2 * y1);
+                assert(std::isfinite(r) && !std::isnan(r));
+                auto tangent = normalize((e1 * y2 - e2 * y1) * r);
+                auto bitangent = normalize((e2 * x1 - e1 * x2) * r);
 
-                glm::vec3 bitangent;
-                bitangent.x = f * (dUV0.x * edge1.x - dUV1.x * edge0.x);
-                bitangent.y = f * (dUV0.x * edge1.y - dUV1.x * edge0.y);
-                bitangent.z = f * (dUV0.x * edge1.z - dUV1.x * edge0.z);
-                bitangent = normalize(bitangent);
-                assert(length(bitangent) < 9999);
-
-                normals[t * 3 + 0] = normalize(normal0);
-                normals[t * 3 + 1] = normalize(normal1);
-                normals[t * 3 + 2] = normalize(normal2);
                 tangents[t * 3 + 0] = tangent;
                 tangents[t * 3 + 1] = tangent;
                 tangents[t * 3 + 2] = tangent;
@@ -876,7 +845,7 @@ public:
             }
 
             glBindBuffer(GL_ARRAY_BUFFER, mdl.normals);
-            glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(glm::vec3), normals.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(model->normals[0]), normals_buf.data(), GL_STATIC_DRAW);
             glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
             glEnableVertexAttribArray(2);
 
@@ -1026,11 +995,14 @@ public:
                 mat4_cast(inverse(transform.rotation)) *
                 translate(-transform.position);
 
-            gl::SetUniformLocation(shader.locModelMatrix, glm::mat3(matModel));
+            gl::SetUniformLocation(shader.locModelMatrix, glm::mat4(matModel));
 
             gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
 
-            gl::SetUniformLocation(shader.locSunPosition, { 0, 0, 1 });
+            gl::SetUniformLocation(shader.locSunPosition, { 0, 0, 10 });
+
+            auto viewPos = glm::vec3(m_view[3]);
+            gl::SetUniformLocation(shader.locViewPosition, viewPos);
 
             auto texDiffuse = (Texture *)material.diffuse;
             glActiveTexture(GL_TEXTURE0 + 0);
@@ -1083,9 +1055,10 @@ private:
     };
 
     struct Textured_Element_Model_Shader_Lit : public Textured_Element_Model_Shader {
-        gl::Uniform_Location<Mat3> locModelMatrix;
+        gl::Uniform_Location<Mat4> locModelMatrix;
         gl::Uniform_Location<GLint> locTexNormal;
         gl::Uniform_Location<Vec3> locSunPosition;
+        gl::Uniform_Location<Vec3> locViewPosition;
     };
 
     std::optional<Line_Shader> m_line_shader;
