@@ -64,6 +64,8 @@ namespace gfx {
         virtual void set_camera(glm::mat4 const& view_matrix) = 0;
         virtual void get_camera(glm::mat4 &view_matrix, glm::mat4 &projection_matrix) = 0;
 
+        virtual void set_sun_position(glm::vec3 const &position) = 0;
+
         virtual void draw_points(size_t nCount, glm::vec3 const* pPoints, glm::vec3 const& vWorldPosition) = 0;
 
         virtual void draw_lines(

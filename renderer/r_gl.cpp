@@ -999,7 +999,7 @@ public:
 
             gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
 
-            gl::SetUniformLocation(shader.locSunPosition, { 0, 0, 10 });
+            gl::SetUniformLocation(shader.locSunPosition, _sun_position);
 
             auto viewPos = glm::vec3(m_view[3]);
             gl::SetUniformLocation(shader.locViewPosition, viewPos);
@@ -1020,6 +1020,10 @@ public:
         }
     }
 
+    void set_sun_position(glm::vec3 const &position) override {
+        _sun_position = position;
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
@@ -1029,6 +1033,8 @@ private:
     Array_Recycler<Element_Model> element_model_recycler;
 
     // std::optional<G_Buffer> g_buffer;
+
+    glm::vec3 _sun_position = { 0, 1000, 0 };
 
     struct Line_Shader {
         gl::Shader_Program program;

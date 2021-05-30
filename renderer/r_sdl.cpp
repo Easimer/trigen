@@ -227,12 +227,16 @@ public:
         return backend->draw_triangle_elements(params, model_handle, transform);
     }
 
-    virtual void draw_textured_triangle_elements(
+    void draw_textured_triangle_elements(
         gfx::Model_ID model,
         gfx::Material_Lit const &material,
         gfx::Transform const &transform) override {
         ZoneScoped;
         return backend->draw_textured_triangle_elements(model, material, transform);
+    }
+
+    void set_sun_position(glm::vec3 const &position) override {
+        backend->set_sun_position(position);
     }
 
 private:
