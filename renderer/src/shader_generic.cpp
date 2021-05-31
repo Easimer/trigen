@@ -3,8 +3,7 @@
 // Purpose: generic shader
 //
 
-#pragma once
-
+#include "stdafx.h"
 #include "shader_generic.h"
 #include "r_gl_shadercompiler.h"
 #include "shader_program_builder.h"
