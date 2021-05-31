@@ -158,6 +158,9 @@ namespace gl {
             loc = glGetUniformLocation(hProgram, pszName);
         }
 
+        Uniform_Location()
+            : loc(-1) { }
+
         explicit Uniform_Location(GLint loc) : loc(loc) {}
 
         operator GLint() const { return loc; }
