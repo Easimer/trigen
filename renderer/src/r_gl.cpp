@@ -22,6 +22,7 @@
 #include <list>
 
 #include "r_gl_shadercompiler.h"
+#include "shader_program_builder.h"
 
 #include <Tracy.hpp>
 
@@ -97,7 +98,7 @@ public:
             return std::nullopt;
         }
 
-        auto builder = gl::Shader_Program_Builder();
+        auto builder = gl::Shader_Program_Builder("G-buffer");
         auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
 
         if(!program) {
@@ -318,34 +319,34 @@ public:
         m_proj = glm::perspective(glm::radians(90.0f), 720.0f / 1280.0f, 0.01f, 8192.0f);
 
         std::optional<gl::Shader_Program> discard;
-        LoadShaderFromStrings(points_vsh_glsl, points_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Point cloud", points_vsh_glsl, points_fsh_glsl, {}, discard, [&](gl::Shader_Program &program) {
             auto const locView = gl::Uniform_Location<Mat4>(program, "matView");
             auto const locProj = gl::Uniform_Location<Mat4>(program, "matProj");
             auto const locModel = gl::Uniform_Location<Mat4>(program, "matModel");
             m_point_cloud_shader = { std::move(program), locView, locProj, locModel };
         });
 
-        LoadShaderFromStrings(lines_vsh_glsl, lines_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Lines", lines_vsh_glsl, lines_fsh_glsl, {}, discard, [&](gl::Shader_Program &program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locColor0 = gl::Uniform_Location<Vec3>(program, "vColor0");
             auto locColor1 = gl::Uniform_Location<Vec3>(program, "vColor1");
             m_line_shader = { std::move(program), locMVP, locColor0, locColor1 };
         });
-        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Generic", generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program &program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
             m_element_model_shader = { std::move(program), locMVP, locTintColor };
         });
 
         Shader_Define_List vtx_color_defines = { {"GENERIC_SHADER_WITH_VERTEX_COLORS", "1"} };
-        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Generic (vertex colors)", generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program &program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
             m_element_model_shader_with_vtx_color = { std::move(program), locMVP, locTintColor };
         });
 
         Shader_Define_List textured_defines = { {"TEXTURED", "1"} };
-        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, textured_defines, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Generic (textured, unlit)", generic_vsh_glsl, generic_fsh_glsl, textured_defines, discard, [&](gl::Shader_Program &program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
             auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
@@ -353,7 +354,7 @@ public:
         });
 
         Shader_Define_List textured_lit_defines = { { "TEXTURED", "1" }, { "LIT", "1" } };
-        LoadShaderFromStrings(generic_vsh_glsl, generic_fsh_glsl, textured_lit_defines, discard, [&](gl::Shader_Program& program) {
+        LoadShaderFromStrings("Generic, (textured, lit)", generic_vsh_glsl, generic_fsh_glsl, textured_lit_defines, discard, [&](gl::Shader_Program &program) {
             auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
             auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
             auto locTexNormal = gl::Uniform_Location<GLint>(program, "texNormal");
@@ -369,7 +370,7 @@ public:
             char buf[64];
             snprintf(buf, 63, "%d", 1 << order);
             defines[0].value = (char const*)buf;
-            LoadShaderFromStrings(ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto&){});
+            LoadShaderFromStrings("SDF ellipsoids", ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto &) {});
         }
 
         glEnable(GL_DEPTH_TEST);
@@ -388,19 +389,31 @@ public:
         ImGui_ImplOpenGL3_Shutdown();
     }
 
+    /**
+     * Create a shader program from in-memory source code and execute a
+     * callback on success.
+     * 
+     * \param name Name of the program (used for error messages)
+     * \param srcVertex Vertex shader source code
+     * \param srcFragment Fragment shader source code
+     * \param defines A list of macros to define in the source code
+     * \param out The shader program will be put here on success
+     * \param cbOnLinkSuccess Callback to execute on success
+     */
     void LoadShaderFromStrings(
-        char const* pszVertexSource,
-        char const* pszFragmentSource,
-        Shader_Define_List const& defines,
-        std::optional<gl::Shader_Program>& out,
-        std::function<void(gl::Shader_Program&)> const& on_link_success) {
-        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(pszVertexSource, defines);
-        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(pszFragmentSource, defines);
+        char const *name,
+        char const *srcVertex,
+        char const *srcFragment,
+        Shader_Define_List const &defines,
+        std::optional<gl::Shader_Program> &out,
+        std::function<void(gl::Shader_Program &)> const &cbOnLinkSuccess) {
+        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(srcVertex, defines);
+        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(srcFragment, defines);
         if (vsh && fsh) {
-            auto builder = gl::Shader_Program_Builder();
+            auto builder = gl::Shader_Program_Builder(name);
             auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
             if (program) {
-                on_link_success(program.value());
+                cbOnLinkSuccess(program.value());
                 out = std::move(program.value());
             }
         }

@@ -147,37 +147,6 @@ namespace gl {
     using Framebuffer = Managed_Resource<GLuint, Framebuffer_Allocator>;
     using Renderbuffer = Managed_Resource<GLuint, Renderbuffer_Allocator>;
 
-    class Shader_Program_Builder {
-    public:
-        Shader_Program_Builder& Attach(Vertex_Shader const& vsh) {
-            glAttachShader(program, vsh);
-            return *this;
-        }
-
-        Shader_Program_Builder& Attach(Fragment_Shader const& fsh) {
-            glAttachShader(program, fsh);
-            return *this;
-        }
-
-        Optional<Shader_Program> Link() {
-            glLinkProgram(program);
-            GLint bSuccess;
-            glGetProgramiv(program, GL_LINK_STATUS, &bSuccess);
-            if (bSuccess != 0) {
-                return { std::move(program) };
-            } else {
-                glGetProgramInfoLog(program, 256, NULL, errorMsg);
-            }
-
-            return {};
-        }
-
-        char const* Error() const { return errorMsg; }
-    private:
-        Shader_Program program;
-        char errorMsg[256] = { 0 };
-    };
-
     template<typename T>
     struct Uniform_Location {
     public:
