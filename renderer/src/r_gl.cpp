@@ -23,6 +23,7 @@
 
 #include "r_gl_shadercompiler.h"
 #include "shader_program_builder.h"
+#include "shader_generic.h"
 
 #include <Tracy.hpp>
 
@@ -187,38 +188,18 @@ public:
             auto locColor1 = gl::Uniform_Location<Vec3>(program, "vColor1");
             m_line_shader = { std::move(program), locMVP, locColor0, locColor1 };
         });
-        LoadShaderFromStrings("Generic", generic_vsh_glsl, generic_fsh_glsl, {}, discard, [&](gl::Shader_Program &program) {
-            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
-            m_element_model_shader = { std::move(program), locMVP, locTintColor };
-        });
+        
+        m_element_model_shader = Shader_Generic();
+        try_build(*m_element_model_shader);
 
-        Shader_Define_List vtx_color_defines = { {"GENERIC_SHADER_WITH_VERTEX_COLORS", "1"} };
-        LoadShaderFromStrings("Generic (vertex colors)", generic_vsh_glsl, generic_fsh_glsl, vtx_color_defines, discard, [&](gl::Shader_Program &program) {
-            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
-            m_element_model_shader_with_vtx_color = { std::move(program), locMVP, locTintColor };
-        });
+        m_element_model_shader_with_vtx_color = Shader_Generic_With_Vertex_Colors();
+        try_build(*m_element_model_shader_with_vtx_color);
 
-        Shader_Define_List textured_defines = { {"TEXTURED", "1"} };
-        LoadShaderFromStrings("Generic (textured, unlit)", generic_vsh_glsl, generic_fsh_glsl, textured_defines, discard, [&](gl::Shader_Program &program) {
-            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
-            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
-            m_element_model_shader_textured = { std::move(program), locMVP, locTexDiffuse, locTintColor };
-        });
+        m_element_model_shader_textured = Shader_Generic_Textured_Unlit();
+        try_build(*m_element_model_shader_textured);
 
-        Shader_Define_List textured_lit_defines = { { "TEXTURED", "1" }, { "LIT", "1" } };
-        LoadShaderFromStrings("Generic, (textured, lit)", generic_vsh_glsl, generic_fsh_glsl, textured_lit_defines, discard, [&](gl::Shader_Program &program) {
-            auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
-            auto locTexDiffuse = gl::Uniform_Location<GLint>(program, "texDiffuse");
-            auto locTexNormal = gl::Uniform_Location<GLint>(program, "texNormal");
-            auto locTintColor = gl::Uniform_Location<Vec4>(program, "tintColor");
-            auto locSunPosition = gl::Uniform_Location<Vec3>(program, "sunPosition");
-            auto locModelMatrix = gl::Uniform_Location<Mat4>(program, "matModel");
-            auto locViewPosition = gl::Uniform_Location<Vec3>(program, "viewPosition");
-            m_element_model_shader_textured_lit = { std::move(program), locMVP, locTexDiffuse, locTintColor, locModelMatrix, locTexNormal, locSunPosition, locViewPosition };
-        });
+        m_element_model_shader_textured_lit = Shader_Generic_Textured_Lit();
+        try_build(*m_element_model_shader_textured_lit);
 
         Shader_Define_List defines = { {"BATCH_SIZE", ""} };
         for (int order = 0; order < SDF_BATCH_SIZE_ORDER + 1; order++) {
@@ -244,6 +225,37 @@ public:
         ImGui_ImplOpenGL3_Shutdown();
     }
 
+    void try_build(Shader_Generic_Base &program) {
+        try {
+            program.build();
+        } catch (Shader_Compiler_Exception const &ex) {
+            printf("renderer: error while compiling shader program '%s':\n\tStage: ", program.name());
+            switch (ex.stageKind()) {
+            case GL_VERTEX_SHADER:
+                printf("vertex");
+                break;
+            case GL_FRAGMENT_SHADER:
+                printf("fragment");
+                break;
+            default:
+                printf("unknown");
+                break;
+            }
+            printf("\n\tWith defines:\n");
+            for (auto &def : program.defines()) {
+                printf("\t\t%s=%s\n", def.key.c_str(), def.value.c_str());
+            }
+            printf("\tMessage:\n%s\n", ex.errorMessage().c_str());
+        } catch (Shader_Linker_Exception const &ex) {
+            printf("renderer: error while linking shader program '%s':\n", program.name());
+            printf("\tWith defines:\n");
+            for (auto &def : program.defines()) {
+                printf("\t\t%s=%s\n", def.key.c_str(), def.value.c_str());
+            }
+            printf("\tMessage:\n%s\n", ex.errorMessage().c_str());
+        }
+    }
+
     /**
      * Create a shader program from in-memory source code and execute a
      * callback on success.
@@ -262,15 +274,43 @@ public:
         Shader_Define_List const &defines,
         std::optional<gl::Shader_Program> &out,
         std::function<void(gl::Shader_Program &)> const &cbOnLinkSuccess) {
-        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(srcVertex, defines);
-        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(srcFragment, defines);
-        if (vsh && fsh) {
+
+        try {
+            auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(srcVertex, defines);
+            auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(srcFragment, defines);
+
             auto builder = gl::Shader_Program_Builder(name);
-            auto program = builder.Attach(vsh.value()).Attach(fsh.value()).Link();
+            auto program = builder.Attach(vsh).Attach(fsh).Link();
             if (program) {
                 cbOnLinkSuccess(program.value());
                 out = std::move(program.value());
+            } else {
+                printf("Error linking shader '%s'\n", name);
+                printf("\tWith defines:\n");
+                for (auto &def : defines) {
+                    printf("\t\t#define %s (%s)", def.key.c_str(), def.value.c_str());
+                }
+
+                printf("\tMessage:\n%s\n", builder.Error());
             }
+        } catch (Shader_Compiler_Exception const &ex) {
+            printf("Error compiling shader '%s':\n", name);
+            switch (ex.stageKind()) {
+            case GL_VERTEX_SHADER:
+                printf("\tKind: Vertex\n");
+                break;
+            case GL_FRAGMENT_SHADER:
+                printf("\tKind: Fragment\n");
+                break;
+            default:
+                printf("\tKind: UNKNOWN\n");
+                break;
+            }
+            printf("\tWith defines:\n");
+            for (auto &def : defines) {
+                printf("\t\t#define %s (%s)", def.key.c_str(), def.value.c_str());
+            }
+            printf("\tMessage:\n%s\n", ex.errorMessage().c_str());
         }
     }
 
@@ -303,7 +343,7 @@ public:
             
             auto const matModel = glm::translate(vWorldPosition);
 
-            gl::SetUniformLocation(shader.locMatModel , matModel);
+            gl::SetUniformLocation(shader.locModelMatrix , matModel);
             gl::SetUniformLocation(shader.locMatView, m_view);
             gl::SetUniformLocation(shader.locMatProj, m_proj);
 
@@ -539,10 +579,10 @@ public:
             glEnableVertexAttribArray(0);
 
             auto& shader = *m_element_model_shader;
-            glUseProgram(shader.program);
+            glUseProgram(shader.program());
             auto matModel = glm::translate(vWorldPosition);
             auto matMVP = m_proj * m_view * matModel;
-            gl::SetUniformLocation(shader.locMVP, matMVP);
+            gl::SetUniformLocation(shader.locMVP(), matMVP);
 
             glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
 
@@ -578,10 +618,10 @@ public:
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, element_count * sizeof(unsigned), elements, GL_STREAM_DRAW);
 
             auto& shader = *m_element_model_shader_with_vtx_color;
-            glUseProgram(shader.program);
+            glUseProgram(shader.program());
             auto matModel = glm::translate(vWorldPosition);
             auto matMVP = m_proj * m_view * matModel;
-            gl::SetUniformLocation(shader.locMVP, matMVP);
+            gl::SetUniformLocation(shader.locMVP(), matMVP);
 
             glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
 
@@ -768,7 +808,7 @@ public:
             glBindVertexArray(model->vao);
 
             auto& shader = *m_element_model_shader_textured;
-            glUseProgram(shader.program);
+            glUseProgram(shader.program());
 
             auto matTransform =
                 glm::translate(transform.position) *
@@ -776,14 +816,14 @@ public:
                 glm::scale(transform.scale);
 
             auto matMVP = m_proj * m_view * matTransform;
-            gl::SetUniformLocation(shader.locMVP, matMVP);
+            gl::SetUniformLocation(shader.locMVP(), matMVP);
 
-            gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+            gl::SetUniformLocation(shader.locTintColor(), { 1, 1, 1, 1 });
 
             auto texDiffuse = (Texture *)material.diffuse;
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
-            gl::SetUniformLocation(shader.locTexDiffuse, 0);
+            gl::SetUniformLocation(shader.locTexDiffuse(), 0);
 
             glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
         } else {
@@ -813,7 +853,7 @@ public:
             glBindVertexArray(model->vao);
 
             auto& shader = *m_element_model_shader;
-            glUseProgram(shader.program);
+            glUseProgram(shader.program());
 
             auto matTransform =
                 glm::translate(transform.position) *
@@ -821,12 +861,12 @@ public:
                 glm::scale(transform.scale);
 
             auto matMVP = m_proj * m_view * matTransform;
-            gl::SetUniformLocation(shader.locMVP, matMVP);
+            gl::SetUniformLocation(shader.locMVP(), matMVP);
 
             if (params.tint_color.has_value()) {
-                gl::SetUniformLocation(shader.locTintColor, params.tint_color.value());
+                gl::SetUniformLocation(shader.locTintColor(), params.tint_color.value());
             } else {
-                gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+                gl::SetUniformLocation(shader.locTintColor(), { 1, 1, 1, 1 });
             }
 
             glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
@@ -848,37 +888,37 @@ public:
             glBindVertexArray(model->vao);
 
             auto& shader = *m_element_model_shader_textured_lit;
-            glUseProgram(shader.program);
+            glUseProgram(shader.program());
 
             auto matModel = glm::mat4_cast(transform.rotation) * glm::scale(transform.scale);
             auto matTransform = glm::translate(transform.position) * matModel;
 
             auto matMVP = m_proj * m_view * matTransform;
-            gl::SetUniformLocation(shader.locMVP, matMVP);
+            gl::SetUniformLocation(shader.locMVP(), matMVP);
 
             auto matNormal =
                 scale(1.0f / transform.scale) *
                 mat4_cast(inverse(transform.rotation)) *
                 translate(-transform.position);
 
-            gl::SetUniformLocation(shader.locModelMatrix, glm::mat4(matModel));
+            gl::SetUniformLocation(shader.locModelMatrix(), glm::mat4(matModel));
 
-            gl::SetUniformLocation(shader.locTintColor, { 1, 1, 1, 1 });
+            gl::SetUniformLocation(shader.locTintColor(), { 1, 1, 1, 1 });
 
-            gl::SetUniformLocation(shader.locSunPosition, _sun_position);
+            gl::SetUniformLocation(shader.locSunPosition(), _sun_position);
 
             auto viewPos = glm::vec3(m_view[3]);
-            gl::SetUniformLocation(shader.locViewPosition, viewPos);
+            gl::SetUniformLocation(shader.locViewPosition(), viewPos);
 
             auto texDiffuse = (Texture *)material.diffuse;
             glActiveTexture(GL_TEXTURE0 + 0);
             glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
-            gl::SetUniformLocation(shader.locTexDiffuse, 0);
+            gl::SetUniformLocation(shader.locTexDiffuse(), 0);
 
             auto texNormal = (Texture *)material.normal;
             glActiveTexture(GL_TEXTURE0 + 1);
             glBindTexture(GL_TEXTURE_2D, texNormal->texture);
-            gl::SetUniformLocation(shader.locTexNormal, 1);
+            gl::SetUniformLocation(shader.locTexNormal(), 1);
 
             glDrawArrays(GL_TRIANGLES, 0, model->num_vertices);
         } else {
@@ -908,35 +948,15 @@ private:
 
     struct Point_Cloud_Shader {
         gl::Shader_Program program;
-        gl::Uniform_Location<Mat4> locMatView, locMatProj, locMatModel;
-    };
-
-    struct Element_Model_Shader {
-        gl::Shader_Program program;
-        gl::Uniform_Location<Mat4> locMVP;
-        gl::Uniform_Location<Vec4> locTintColor;
-    };
-
-    struct Textured_Element_Model_Shader {
-        gl::Shader_Program program;
-        gl::Uniform_Location<Mat4> locMVP;
-        gl::Uniform_Location<GLint> locTexDiffuse;
-        gl::Uniform_Location<Vec4> locTintColor;
-    };
-
-    struct Textured_Element_Model_Shader_Lit : public Textured_Element_Model_Shader {
-        gl::Uniform_Location<Mat4> locModelMatrix;
-        gl::Uniform_Location<GLint> locTexNormal;
-        gl::Uniform_Location<Vec3> locSunPosition;
-        gl::Uniform_Location<Vec3> locViewPosition;
+        gl::Uniform_Location<Mat4> locMatView, locMatProj, locModelMatrix;
     };
 
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
-    std::optional<Element_Model_Shader> m_element_model_shader;
-    std::optional<Element_Model_Shader> m_element_model_shader_with_vtx_color;
-    std::optional<Textured_Element_Model_Shader> m_element_model_shader_textured;
-    std::optional<Textured_Element_Model_Shader_Lit> m_element_model_shader_textured_lit;
+    std::optional<Shader_Generic> m_element_model_shader;
+    std::optional<Shader_Generic_With_Vertex_Colors> m_element_model_shader_with_vtx_color;
+    std::optional<Shader_Generic_Textured_Unlit> m_element_model_shader_textured;
+    std::optional<Shader_Generic_Textured_Lit> m_element_model_shader_textured_lit;
 
     std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 

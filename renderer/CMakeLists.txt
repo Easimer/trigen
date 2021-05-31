@@ -20,10 +20,13 @@ add_library(renderer STATIC
     include/r_queue.h
     src/r_factory.cpp
     src/r_gl.cpp
+    src/r_gl_shadercompiler.cpp
     src/r_gl_shadercompiler.h
     src/r_sdl.cpp
 	src/shader_program_builder.cpp
 	src/shader_program_builder.h
+	src/shader_generic.cpp
+	src/shader_generic.h
     shaders.cpp
 )
 target_link_libraries(renderer

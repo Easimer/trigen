@@ -17,80 +17,39 @@ struct Shader_Define {
 
 using Shader_Define_List = std::vector<Shader_Define>;
 
+class Shader_Compiler_Exception {
+public:
+    Shader_Compiler_Exception(std::string errorMessage, GLenum stageKind)
+        : _errorMessage(std::move(errorMessage))
+        , _stageKind(stageKind) {
+    }
+
+    std::string const &errorMessage() const { return _errorMessage; }
+    GLenum stageKind() const { return _stageKind; }
+
+private:
+    std::string _errorMessage;
+    GLenum _stageKind;
+};
+
+void CompileShaderFromString(GLuint shader, char const *pszSource, Shader_Define_List const &defines, GLenum stageKind);
+
 template<typename Shader>
-bool CompileShaderFromString(Shader const& shader, char const* pszSource, char const* pszPath, Shader_Define_List const& defines) {
-    GLint bSuccess;
-    std::vector<std::string> defines_fmt;
-    std::vector<char const*> sources;
-
-    bool is_mesa_gpu = false;
-
-    // Detect open-source Intel drivers
-    char const* vendor = (char*)glGetString(GL_VENDOR);
-    is_mesa_gpu |= (strcmp(vendor, "Intel Open Source Technology Center") == 0);
-    is_mesa_gpu |= (strcmp(vendor, "VMware, Inc.") == 0);
-
-    char const* pszVersion = "#version 330 core\n";
-    char const* pszLineReset = "#line -1\n";
-
-    if (is_mesa_gpu) {
-        pszVersion = "#version 130\n";
-    }
-
-    sources.push_back(pszVersion);
-
-    if (is_mesa_gpu) {
-        sources.push_back("#define VAO_LAYOUT(i)\n");
-    }
-
-    for (auto& def : defines) {
-        char buf[64];
-        snprintf(buf, 63, "#define %s %s\n", def.key.c_str(), def.value.c_str());
-        defines_fmt.push_back(std::string((char const*)buf));
-        sources.push_back(defines_fmt.back().c_str());
-    }
-
-    if (!is_mesa_gpu) {
-        sources.push_back(pszLineReset);
-    }
-
-    sources.push_back(pszSource);
-
-    glShaderSource(shader, sources.size(), sources.data(), NULL);
-    glCompileShader(shader);
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &bSuccess);
-
-    if (bSuccess == 0) {
-        char pchMsgBuf[256];
-        glGetShaderInfoLog(shader, 256, NULL, pchMsgBuf);
-        if (defines.size() > 0) {
-            printf("Compilation of shader '%s', with defines:\n", pszPath);
-            for (auto& def : defines) {
-                printf("\t%s = %s\n", def.key.c_str(), def.value.c_str());
-            }
-            printf("has failed:\n%s\n", pchMsgBuf);
-        }
-        else {
-            printf("Compilation of shader '%s' has failed:\n%s\n", pszPath, pchMsgBuf);
-        }
-    }
-
-    return bSuccess != 0;
+void CompileShaderFromString(Shader const& shader, char const* pszSource, Shader_Define_List const& defines, GLenum stageKind) {
+    CompileShaderFromString((GLuint)shader, pszSource, defines, stageKind);
 }
 
 template<GLenum kType>
-std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource, Shader_Define_List const& defines) {
+gl::Shader<kType> FromStringLoadShader(char const* pszSource, Shader_Define_List const& defines) {
     gl::Shader<kType> shader;
 
-    if (!CompileShaderFromString(shader, pszSource, "<string>", defines)) {
-        return std::nullopt;
-    }
+    CompileShaderFromString(shader, pszSource, defines, kType);
 
-    return std::optional(std::move(shader));
+    return shader;
 }
 
 template<GLenum kType>
-std::optional<gl::Shader<kType>> FromStringLoadShader(char const* pszSource) {
+gl::Shader<kType> FromStringLoadShader(char const* pszSource) {
     Shader_Define_List x;
 
     return FromStringLoadShader<kType>(pszSource, x);

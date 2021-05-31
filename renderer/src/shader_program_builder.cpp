@@ -37,10 +37,10 @@ Optional<Shader_Program> Shader_Program_Builder::Link() {
     if (bSuccess != 0) {
         return { std::move(_program) };
     } else {
-        GLsizei lenMsg = 0;
-        glGetProgramInfoLog(_program, 0, &lenMsg, nullptr);
-        _errorMsg.resize(lenMsg + 1);
-        glGetProgramInfoLog(_program, lenMsg + 1, nullptr, _errorMsg.data());
+        GLsizei msgLen = 0;
+        glGetProgramiv(_program, GL_INFO_LOG_LENGTH, &msgLen);
+        _errorMsg.resize(msgLen);
+        glGetProgramInfoLog(_program, msgLen, NULL, _errorMsg.data());
     }
 
     return {};
