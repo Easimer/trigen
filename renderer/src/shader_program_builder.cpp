@@ -18,6 +18,9 @@ Shader_Program_Builder::Shader_Program_Builder(std::string const &name)
     : _program()
     , _name(name)
     , _errorMsg() {
+    if (glObjectLabel) {
+        glObjectLabel(GL_PROGRAM, _program, -1, name.c_str());
+    }
 }
 
 Shader_Program_Builder &Shader_Program_Builder::Attach(Vertex_Shader const &vsh) {

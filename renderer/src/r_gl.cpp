@@ -241,10 +241,12 @@ public:
     }
 
     void set_camera(Mat4 const& view_matrix) override {
+        ZoneScoped;
         m_view = view_matrix;
     }
 
     void get_camera(glm::mat4 &view_matrix, glm::mat4 &projection_matrix) override {
+        ZoneScoped;
         view_matrix = m_view;
         projection_matrix = m_proj;
     }
@@ -309,6 +311,7 @@ public:
     }
 
     double present() override {
+        ZoneScoped;
         TracyPlot("GL::line_recycler::count", line_recycler.count());
         TracyPlot("GL::point_recycler::count", point_recycler.count());
         TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
@@ -465,6 +468,7 @@ public:
     }
 
     bool upload_texture(gfx::Texture_ID *out_id, unsigned width, unsigned height, gfx::Texture_Format format, void const *image) override {
+        ZoneScoped;
         // Ptr to image data may be NULL only if the image is empty.
         if (image == nullptr && (width != 0 || height != 0)) {
             return false;
@@ -504,6 +508,7 @@ public:
     }
 
     void destroy_texture(gfx::Texture_ID id) override {
+        ZoneScoped;
         if (id == nullptr) {
             return;
         }
@@ -520,6 +525,7 @@ public:
     }
 
     bool create_model(gfx::Model_ID *out_id, gfx::Model_Descriptor const *model) override {
+        ZoneScoped;
         if (out_id == nullptr || model == nullptr) {
             return false;
         }
@@ -620,6 +626,7 @@ public:
     }
 
     void destroy_model(gfx::Model_ID id) override {
+        ZoneScoped;
         if (id == nullptr) {
             return;
         }
@@ -632,6 +639,7 @@ public:
         gfx::Material_Unlit const &material,
         gfx::Transform const &transform
     ) override {
+        ZoneScoped;
         if (model_handle == nullptr) {
             return;
         }
@@ -668,6 +676,7 @@ public:
         gfx::Model_ID model_handle,
         gfx::Transform const &transform
     ) override {
+        ZoneScoped;
         gfx::Render_Parameters rp;
         draw_triangle_elements(rp, model_handle, transform);
     }
@@ -677,6 +686,7 @@ public:
         gfx::Model_ID model_handle,
         gfx::Transform const &transform
     ) override {
+        ZoneScoped;
         if (model_handle == nullptr) {
             return;
         }
@@ -712,6 +722,7 @@ public:
         gfx::Model_ID model_handle,
         gfx::Material_Lit const &material,
         gfx::Transform const &transform) override {
+        ZoneScoped;
         if (model_handle == nullptr) {
             return;
         }

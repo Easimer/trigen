@@ -94,26 +94,23 @@ public:
     }
 
     void set_camera(glm::mat4 const& view_matrix) override {
-        ZoneScoped;
         backend->set_camera(view_matrix);
     }
 
     void get_camera(glm::mat4 &view_matrix, glm::mat4 &projection_matrix) override {
-        ZoneScoped;
         backend->get_camera(view_matrix, projection_matrix);
     }
 
     void draw_points(size_t nCount, glm::vec3 const* pPoints, glm::vec3 const& vWorldPosition) override {
-        ZoneScoped;
         backend->draw_points(nCount, pPoints, vWorldPosition);
     }
 
     void draw_lines(glm::vec3 const* pEndpoints, size_t nLineCount, glm::vec3 const& vWorldPosition, glm::vec3 const& vStartColor, glm::vec3 const& vEndColor) override {
-        ZoneScoped;
         backend->draw_lines(pEndpoints, nLineCount, vWorldPosition, vStartColor, vEndColor);
     }
 
     void change_resolution(unsigned* inout_width, unsigned* inout_height) override {
+        ZoneScoped;
         assert(inout_width != NULL);
         assert(inout_height != NULL);
 
@@ -167,32 +164,26 @@ public:
     }
 
     void draw_triangle_elements(size_t vertex_count, std::array<float, 3> const* vertices, size_t element_count, unsigned const* elements, glm::vec3 const& vWorldPosition) override {
-        ZoneScoped;
         backend->draw_triangle_elements(vertex_count, vertices, element_count, elements, vWorldPosition);
     }
 
     void draw_triangle_elements_with_vertex_color(size_t vertex_count, std::array<float, 3> const* vertices, glm::u8vec3 const* vertex_colors, size_t element_count, unsigned const* elements, glm::vec3 const& vWorldPosition) override {
-        ZoneScoped;
         backend->draw_triangle_elements_with_vertex_color(vertex_count, vertices, vertex_colors, element_count, elements, vWorldPosition);
     }
 
     bool upload_texture(gfx::Texture_ID *out_id, unsigned width, unsigned height, gfx::Texture_Format format, void const *image) override {
-        ZoneScoped;
         return backend->upload_texture(out_id, width, height, format, image);
     }
 
     void destroy_texture(gfx::Texture_ID id) override {
-        ZoneScoped;
         return backend->destroy_texture(id);
     }
 
     bool create_model(gfx::Model_ID *out_id, gfx::Model_Descriptor const *model) override {
-        ZoneScoped;
         return backend->create_model(out_id, model);
     }
 
     void destroy_model(gfx::Model_ID id) override {
-        ZoneScoped;
         return backend->destroy_model(id);
     }
 
@@ -201,7 +192,6 @@ public:
         gfx::Material_Unlit const &material,
         gfx::Transform const &transform
     ) override {
-        ZoneScoped;
         return backend->draw_textured_triangle_elements(model, material, transform);
     }
 
@@ -209,7 +199,6 @@ public:
         gfx::Model_ID model_handle,
         gfx::Transform const &transform
     ) override {
-        ZoneScoped;
         return backend->draw_triangle_elements(model_handle, transform);
     }
 
@@ -218,7 +207,6 @@ public:
         gfx::Model_ID model_handle,
         gfx::Transform const &transform
     ) override {
-        ZoneScoped;
         return backend->draw_triangle_elements(params, model_handle, transform);
     }
 
@@ -226,7 +214,6 @@ public:
         gfx::Model_ID model,
         gfx::Material_Lit const &material,
         gfx::Transform const &transform) override {
-        ZoneScoped;
         return backend->draw_textured_triangle_elements(model, material, transform);
     }
 
