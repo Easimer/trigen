@@ -1,8 +1,6 @@
 option(RENDERER_ENABLE_TRACY "Enable the Tracy profiler for the renderer")
 
 set(SRC_SHADER_SOURCES
-    ${CMAKE_SOURCE_DIR}/shaders/ellipsoid.vsh.glsl
-    ${CMAKE_SOURCE_DIR}/shaders/ellipsoid.fsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/generic.vsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/generic.fsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/lines.vsh.glsl

@@ -27,9 +27,6 @@
 
 #include <Tracy.hpp>
 
-#define SDF_BATCH_SIZE_ORDER (5)
-#define SDF_BATCH_SIZE (1 << SDF_BATCH_SIZE_ORDER)
-
 using Mat3 = glm::mat3;
 using Mat4 = glm::mat4;
 using Vec3 = glm::vec3;
@@ -37,10 +34,6 @@ using Vec4 = glm::vec4;
 using Quat = glm::quat;
 
 extern "C" {
-    extern char const* ellipsoid_vsh_glsl;
-    extern char const* ellipsoid_fsh_glsl;
-    extern char const* generic_vsh_glsl;
-    extern char const* generic_fsh_glsl;
     extern char const* lines_vsh_glsl;
     extern char const* lines_fsh_glsl;
     extern char const* points_vsh_glsl;
