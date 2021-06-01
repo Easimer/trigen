@@ -127,7 +127,7 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
     }
 
     if (_texOutBase.image != nullptr && _texOutBaseHandle == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBaseHandle, _texOutBase.image, _texOutBase.width, _texOutBase.height, gfx::Texture_Format::RGB888);
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBaseHandle, _texOutBase.image, _texOutBase.width, _texOutBase.height, gfx::Texture_Format::SRGB888);
     }
 
     if (_texOutNormal.image != nullptr && _texOutNormalHandle == nullptr) {
