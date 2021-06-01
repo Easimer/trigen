@@ -16,7 +16,9 @@ extern "C" {
     extern char const* deferred_fsh_glsl;
 }
 
-G_Buffer::G_Buffer() {
+G_Buffer::G_Buffer()
+    : _prevFBDraw(0)
+    , _prevFBRead(0) {
 }
 
 G_Buffer::G_Buffer(unsigned width, unsigned height) {
