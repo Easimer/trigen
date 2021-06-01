@@ -21,6 +21,7 @@
 #include <array>
 #include <list>
 
+#include "gbuffer.h"
 #include "gl_utils.h"
 #include "r_gl_shadercompiler.h"
 #include "shader_generic.h"
@@ -39,8 +40,6 @@ extern "C" {
     extern char const* lines_fsh_glsl;
     extern char const* points_vsh_glsl;
     extern char const* points_fsh_glsl;
-    extern char const* deferred_vsh_glsl;
-    extern char const* deferred_fsh_glsl;
 }
 
 struct Texture {
@@ -101,6 +100,8 @@ public:
         } else {
             printf("[ gfx ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
+
+        _gbuffer = G_Buffer(surf_width, surf_height);
 
         ImGui_ImplOpenGL3_Init("#version 130");
 
@@ -303,12 +304,16 @@ public:
         line_recycler.flip();
         point_recycler.flip();
         element_model_recycler.flip();
+
+        _gbuffer.activate();
     }
 
     double present() override {
         TracyPlot("GL::line_recycler::count", line_recycler.count());
         TracyPlot("GL::point_recycler::count", point_recycler.count());
         TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
+
+        _gbuffer.draw();
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -320,7 +325,7 @@ public:
         surf_width = *inout_width;
         surf_height = *inout_height;
 
-        // g_buffer = std::move(G_Buffer::make_gbuffer(surf_width, surf_height).value());
+        _gbuffer = G_Buffer(surf_width, surf_height);
     }
 
     void get_resolution(unsigned* out_width, unsigned* out_height) override {
@@ -761,6 +766,7 @@ public:
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
+    G_Buffer _gbuffer;
 
     Array_Recycler<Line> line_recycler;
     Array_Recycler<Point> point_recycler;

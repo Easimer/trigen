@@ -15,6 +15,8 @@ out vec2 vUV;
 
 uniform mat4 matMVP;
 
+out vec3 vPosition;
+
 #ifdef GENERIC_SHADER_WITH_VERTEX_COLORS
 out vec3 vColor;
 #endif
@@ -29,12 +31,7 @@ uniform vec3 sunPosition;
 uniform mat4 matModel;
 uniform vec3 viewPosition;
 
-// Tangent-space sun position
-out vec3 tSunPosition;
-// Tangent-space view position
-out vec3 tViewPosition;
-// Tangent-space fragment position
-out vec3 tFragPosition;
+out mat3 vTBN;
 
 #endif /* LIT */
 
@@ -44,6 +41,7 @@ void main() {
 #endif
 
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
+    vPosition = gl_Position.xyz;
 #if TEXTURED
     vUV = vec2(aUV.x, 1 - aUV.y);
 #if LIT
@@ -51,11 +49,7 @@ void main() {
     vec3 T = normalize(matModelRot * aTangent);
     vec3 B = normalize(matModelRot * aBitangent);
     vec3 N = normalize(matModelRot * aNormal);
-    mat3 TBN = transpose(mat3(T, B, N));
-    
-    tSunPosition = TBN * sunPosition;
-    tViewPosition = TBN * viewPosition;
-    tFragPosition = TBN * vec3(matModel * vec4(aPosition.xyz, 1.0));
+    vTBN = mat3(T, B, N);
 #endif
 #endif
 }

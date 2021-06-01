@@ -24,6 +24,12 @@ add_library(renderer STATIC
     src/shader_program_builder.h
     src/shader_generic.cpp
     src/shader_generic.h
+    src/gl_utils.h
+    src/gbuffer.cpp
+    src/gbuffer.h
+    src/gl.h
+    src/glres.h
+    src/sdl_helper.h
     shaders.cpp
 )
 target_link_libraries(renderer

@@ -3,14 +3,14 @@
 // Purpose: deferred rendering lighting pass
 //
 
-uniform sampler2D gPosition;
-uniform sampler2D gAlbedo;
-uniform sampler2D gSelfIllum;
+uniform sampler2D texBaseColor;
+uniform sampler2D texNormal;
+uniform sampler2D texPosition;
 
 in vec2 vUV;
 
 out vec4 vFrag;
 
 void main() {
-    vFrag = texture(gAlbedo, vUV);
+    vFrag = vec4(texture(texBaseColor, vUV).rgb, 1);
 }

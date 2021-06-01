@@ -1,4 +1,12 @@
-out vec4 vFrag;
+#ifndef VAO_LAYOUT
+#define VAO_LAYOUT(i) layout (location = i)
+#endif
+
+VAO_LAYOUT(0) out vec4 outBaseColor;
+VAO_LAYOUT(1) out vec4 outNormal;
+VAO_LAYOUT(2) out vec4 outPosition;
+
+in vec3 vPosition;
 
 #ifdef GENERIC_SHADER_WITH_VERTEX_COLORS
 in vec3 vColor;
@@ -11,19 +19,16 @@ uniform sampler2D texNormal;
 #endif
 
 #if LIT
-// Tangent-space sun position
-in vec3 tSunPosition;
-// Tangent-space view position
-in vec3 tViewPosition;
-// Tangent-space fragment position
-in vec3 tFragPosition;
+in mat3 vTBN;
 #endif /* LIT */
 
 uniform vec4 tintColor;
 
 #if GENERIC_SHADER_WITH_VERTEX_COLORS
 void main() {
-    vFrag = vec4(vColor, 1.0f) * tintColor;
+    outBaseColor = vec4(vColor, 1.0f) * tintColor;
+    outNormal = vec4(0, 0, 1, 1);
+    outPosition = vec4(vPosition, 1);
 }
 #else /* GENERIC_SHADER_WITH_VERTEX_COLORS */
 
@@ -31,37 +36,26 @@ void main() {
 #if LIT
 void main() {
     // Sample textures
-    vec3 baseColor = texture(texDiffuse, vUV).rgb;
     vec3 normal = texture(texNormal, vUV).rgb;
     normal = normalize(normal * 2.0 - 1.0);
+    normal = vTBN * normal;
 
-    // Compute vectors used for lighting
-    vec3 lightDir   = normalize(-tSunPosition - tFragPosition);
-    vec3 viewDir    = normalize(tViewPosition - tFragPosition);
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-
-    // Ambient lighting
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * tintColor.rgb;
-
-    // Specular lighting
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 4);
-    vec3 specular = spec * tintColor.rgb;
-
-    // Diffuse lighting
-    float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * tintColor.rgb;
-
-    vFrag = vec4((ambient + specular + diffuse) * baseColor, 1);
+    outBaseColor = texture(texDiffuse, vUV);
+    outNormal = vec4(normal, 1);
+    outPosition = vec4(vPosition, 1);
 }
 #else /* LIT */
 void main() {
-    vFrag = texture(texDiffuse, vUV) * tintColor;
+    outBaseColor = texture(texDiffuse, vUV) * tintColor;
+    outNormal = vec4(0, 0, 1, 1);
+    outPosition = vec4(vPosition, 1);
 }
 #endif /* LIT */
 #else /* TEXTURED */
 void main() {
-    vFrag = vec4(0.828125f, 0.828125f, 0.828125f, 1.0f) * tintColor;
+    outBaseColor = vec4(0.828125f, 0.828125f, 0.828125f, 1.0f) * tintColor;
+    outNormal = vec4(0, 0, 1, 1);
+    outPosition = vec4(vPosition, 1);
 }
 #endif /* TEXTURED */
 #endif /* GENERIC_SHADER_WITH_VERTEX_COLORS */
