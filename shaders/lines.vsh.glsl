@@ -9,9 +9,11 @@ uniform mat4 matMVP;
 
 out float t;
 out vec3 inPosition;
+out vec4 inNormal;
 
 void main() {
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);
     t = fT;
     inPosition = aPosition.xyz;
+    inNormal = matMVP * vec4(0, 0, 1, 1);
 }

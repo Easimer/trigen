@@ -4,6 +4,7 @@
 
 in float t;
 in vec3 inPosition;
+in vec4 inNormal;
 
 VAO_LAYOUT(0) out vec4 vBaseColor;
 VAO_LAYOUT(1) out vec4 vNormal;
@@ -17,5 +18,5 @@ void main() {
     vec3 color = (1 - t) * col0 + t * col1;
     vPosition = vec4(inPosition, 1.0);
     vBaseColor = vec4(color, 1.0);
-    vNormal = vec4(0, 0, 1, 1);
+    vNormal = inNormal;
 }

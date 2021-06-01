@@ -4,8 +4,10 @@
 //
 
 #include "stdafx.h"
+#define GLRES_GLM
 
 #include <glad/glad.h>
+#include <virtfs.hpp>
 
 #include "gbuffer.h"
 #include "r_gl_shadercompiler.h"
@@ -15,6 +17,9 @@ extern "C" {
     extern char const* deferred_vsh_glsl;
     extern char const* deferred_fsh_glsl;
 }
+
+VIRTFS_REGISTER_RESOURCE("shaders/deferred.vsh.glsl", deferred_vsh_glsl);
+VIRTFS_REGISTER_RESOURCE("shaders/deferred.fsh.glsl", deferred_fsh_glsl);
 
 G_Buffer::G_Buffer()
     : _prevFBDraw(0)
@@ -93,9 +98,13 @@ G_Buffer::G_Buffer(unsigned width, unsigned height) {
     glEnableVertexAttribArray(1);
 
     try {
-
-        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(deferred_vsh_glsl, {});
-        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(deferred_fsh_glsl, {});
+        Shader_Define_List defines = { { "NUM_MAX_LIGHTS", "16" } };
+        char const *deferredVshGlsl = nullptr;
+        char const *deferredFshGlsl = nullptr;
+        virtfs::GetFile("shaders/deferred.vsh.glsl", &deferredVshGlsl);
+        virtfs::GetFile("shaders/deferred.fsh.glsl", &deferredFshGlsl);
+        auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(deferredVshGlsl, defines);
+        auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(deferredFshGlsl, defines);
 
         gl::Shader_Program_Builder builder("G-buffer shader");
         auto program = builder.Attach(vsh).Attach(fsh).Link();
@@ -103,11 +112,15 @@ G_Buffer::G_Buffer(unsigned width, unsigned height) {
             auto locTexBaseColor = gl::Uniform_Location<GLint>(*program, "texBaseColor");
             auto locTexNormal = gl::Uniform_Location<GLint>(*program, "texNormal");
             auto locTexPosition = gl::Uniform_Location<GLint>(*program, "texPosition");
+            auto locViewPosition = gl::Uniform_Location<glm::vec3>(*program, "viewPosition");
+            auto locNumLights = gl::Uniform_Location<GLint>(*program, "numLights");
             _program = {
                 std::move(program.value()),
                 locTexBaseColor,
                 locTexNormal,
                 locTexPosition,
+                locViewPosition,
+                locNumLights,
             };
         }
     } catch (Shader_Compiler_Exception const &ex) {
@@ -121,7 +134,7 @@ void G_Buffer::activate() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void G_Buffer::draw() {
+void G_Buffer::draw(G_Buffer_Draw_Params const &params) {
     if (!_program) {
         return;
     }
@@ -132,6 +145,24 @@ void G_Buffer::draw() {
     glBindVertexArray(_quadVao);
 
     glUseProgram(_program->program);
+
+    gl::SetUniformLocation(_program->viewPosition, params.viewPosition);
+
+    // Set number of lights
+    gl::SetUniformLocation(_program->numLights, (GLint)params.lights.size());
+
+    for (GLint i = 0; i < params.lights.size(); i++) {
+        char uniformNameBuf[128];
+
+        // Query locations for the ith light and set their attribs
+        snprintf(uniformNameBuf, 127, "lights[%u].position", i);
+        gl::Uniform_Location<glm::vec3> locLightPosition(_program->program, uniformNameBuf);
+        snprintf(uniformNameBuf, 127, "lights[%u].color", i);
+        gl::Uniform_Location<glm::vec3> locLightColor(_program->program, uniformNameBuf);
+
+        gl::SetUniformLocation(locLightPosition, params.lights[i].position);
+        gl::SetUniformLocation(locLightColor, params.lights[i].color);
+    }
 
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, _bufBaseColor);

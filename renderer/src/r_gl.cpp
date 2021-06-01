@@ -316,7 +316,15 @@ public:
         TracyPlot("GL::point_recycler::count", point_recycler.count());
         TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
 
-        _gbuffer.draw();
+        auto viewPos = glm::vec3(m_view[3]);
+        std::vector<G_Buffer_Light> lights = { { _sun_position, glm::vec3(1, 1, 1) } };
+
+        auto g_params = G_Buffer_Draw_Params {
+            viewPos,
+            lights,
+        };
+
+        _gbuffer.draw(g_params);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

@@ -11,9 +11,23 @@
 
 struct G_Buffer_Shader_Program {
     gl::Shader_Program program;
+
     gl::Uniform_Location<GLint> texBaseColor;
     gl::Uniform_Location<GLint> texNormal;
     gl::Uniform_Location<GLint> texPosition;
+
+    gl::Uniform_Location<glm::vec3> viewPosition;
+    gl::Uniform_Location<GLint> numLights;
+};
+
+struct G_Buffer_Light {
+    glm::vec3 position;
+    glm::vec3 color;
+};
+
+struct G_Buffer_Draw_Params {
+    glm::vec3 viewPosition;
+    std::vector<G_Buffer_Light> lights;
 };
 
 class G_Buffer {
@@ -22,7 +36,7 @@ public:
     G_Buffer(unsigned width, unsigned height);
 
     void activate();
-    void draw();
+    void draw(G_Buffer_Draw_Params const &params);
 private:
     gl::Framebuffer _fb;
     gl::Texture _bufBaseColor;

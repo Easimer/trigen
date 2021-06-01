@@ -36,7 +36,7 @@ target_link_libraries(renderer
     PUBLIC
         CONAN_PKG::glm
     PRIVATE
-        glad SDL::SDL2 imgui Tracy::Client
+        glad SDL::SDL2 imgui Tracy::Client virtfs
 )
 
 target_include_directories(renderer
