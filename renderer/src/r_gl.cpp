@@ -77,7 +77,8 @@ static void GLMessageCallback
 
 struct Line {
     gl::VAO arr;
-    gl::VBO buf[2];
+    gl::VBO vertices;
+    gl::VBO t;
 };
 
 struct Point {
@@ -351,12 +352,15 @@ public:
         auto const size = nLineCount * 2 * 3 * sizeof(float);
         auto const data = pEndpoints;
 
-        glBindBuffer(GL_ARRAY_BUFFER, l->buf[0]);
+        glBindBuffer(GL_ARRAY_BUFFER, l->vertices);
         glBufferData(GL_ARRAY_BUFFER, size, data, GL_STREAM_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, l->buf[1]);
+        // The "t" buffer contains alternating zeroes and ones, so the first
+        // endpoint of the line gets a 0 and the other gets a 1.
+        // These values are used by the frag shader to mix the two colors.
+        glBindBuffer(GL_ARRAY_BUFFER, l->t);
         glBufferData(GL_ARRAY_BUFFER, nLineCount * 2 * sizeof(float), zero_one_p, GL_STREAM_DRAW);
         glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 1 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(1);
