@@ -201,14 +201,6 @@ public:
         m_element_model_shader_textured_lit = Shader_Generic_Textured_Lit();
         try_build(*m_element_model_shader_textured_lit);
 
-        Shader_Define_List defines = { {"BATCH_SIZE", ""} };
-        for (int order = 0; order < SDF_BATCH_SIZE_ORDER + 1; order++) {
-            char buf[64];
-            snprintf(buf, 63, "%d", 1 << order);
-            defines[0].value = (char const*)buf;
-            LoadShaderFromStrings("SDF ellipsoids", ellipsoid_vsh_glsl, ellipsoid_fsh_glsl, defines, m_sdf_ellipsoid_batch[order], [&](auto &) {});
-        }
-
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
         glLineWidth(2.0f);
@@ -367,106 +359,6 @@ public:
 
     void pop_debug_group() {
         glPopDebugGroup();
-    }
-
-    void draw_ellipsoids(
-        gfx::Render_Parameters const& ctx,
-        size_t count,
-        Vec3 const* centers,
-        Vec3 const* sizes,
-        Quat const* rotations,
-        Vec3 const& color
-    ) override {
-        ZoneScoped;
-        if (m_sdf_ellipsoid_batch[0]) {
-            // Setup screen quad
-            float quad[] = {
-                -1,  1,
-                 1,  1,
-                -1, -1,
-                 1, -1,
-            };
-            GLuint vao, vbo;
-            glGenVertexArrays(1, &vao);
-            glGenBuffers(1, &vbo);
-            glBindVertexArray(vao);
-
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), quad, GL_STREAM_DRAW);
-
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-
-            auto const matVP = m_proj * m_view;
-            auto const matInvVP = glm::inverse(matVP);
-
-            auto batch_size = SDF_BATCH_SIZE;
-            auto order = SDF_BATCH_SIZE_ORDER;
-            auto remain = count;
-            auto shader = &m_sdf_ellipsoid_batch[order].value();
-            glUseProgram(*shader);
-
-            auto locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
-            auto locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
-            auto locSiz = gl::Uniform_Location<glm::vec4*>(*shader, "vSize");
-            auto locTranslation = gl::Uniform_Location<glm::vec4*>(*shader, "vTranslation");
-            auto locInvRotation = gl::Uniform_Location<glm::mat4*>(*shader, "matInvRotation");
-            auto locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
-            auto locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
-
-            gl::SetUniformLocation(locVP, matVP);
-            gl::SetUniformLocation(locInvVP, matInvVP);
-
-            gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
-            gl::SetUniformLocation(locColor, color);
-
-            glm::vec4 vTranslationArray[SDF_BATCH_SIZE];
-            glm::mat4 matInvRotationArray[SDF_BATCH_SIZE];
-            glm::vec4 vSizeArray[SDF_BATCH_SIZE];
-
-            for (unsigned off = 0; off < count; off += batch_size) {
-                while (remain < batch_size) {
-                    batch_size >>= 1;
-                    order--;
-                    if (remain >= batch_size) {
-                        shader = &m_sdf_ellipsoid_batch[order].value();
-                        glUseProgram(*shader);
-
-                        locVP = gl::Uniform_Location<Mat4>(*shader, "matVP");
-                        locInvVP = gl::Uniform_Location<Mat4>(*shader, "matInvVP");
-                        locSiz = gl::Uniform_Location<glm::vec4*>(*shader, "vSize");
-                        locTranslation = gl::Uniform_Location<glm::vec4*>(*shader, "vTranslation");
-                        locInvRotation = gl::Uniform_Location<glm::mat4*>(*shader, "matInvRotation");
-                        locSun = gl::Uniform_Location<Vec3>(*shader, "vSun");
-                        locColor = gl::Uniform_Location<Vec3>(*shader, "vColor");
-
-                        gl::SetUniformLocation(locVP, matVP);
-                        gl::SetUniformLocation(locInvVP, matInvVP);
-
-                        gl::SetUniformLocation(locSun, ctx.sun ? *ctx.sun : Vec3(10, 10, 10));
-                        gl::SetUniformLocation(locColor, color);
-                    }
-                }
-
-                for (int i = 0; i < batch_size; i++) {
-                    auto idx = off + i;
-                    vTranslationArray[i] = glm::vec4(centers[idx], 0);
-                    matInvRotationArray[i] = Mat3(glm::conjugate(rotations[idx]));
-                    vSizeArray[i] = glm::vec4(sizes[idx], 0);
-                }
-
-                gl::SetUniformLocationArray(locTranslation, vTranslationArray, batch_size);
-                gl::SetUniformLocationArray(locSiz, vSizeArray, batch_size);
-                gl::SetUniformLocationArray(locInvRotation, matInvRotationArray, batch_size);
-
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-                remain -= batch_size;
-            }
-
-            glDeleteBuffers(1, &vbo);
-            glDeleteVertexArrays(1, &vao);
-        }
     }
 
     void new_frame() override {
@@ -957,8 +849,6 @@ private:
     std::optional<Shader_Generic_With_Vertex_Colors> m_element_model_shader_with_vtx_color;
     std::optional<Shader_Generic_Textured_Unlit> m_element_model_shader_textured;
     std::optional<Shader_Generic_Textured_Lit> m_element_model_shader_textured_lit;
-
-    std::optional<gl::Shader_Program> m_sdf_ellipsoid_batch[SDF_BATCH_SIZE_ORDER + 1];
 
     std::list<Texture> _textures;
     std::list<Model> _models;

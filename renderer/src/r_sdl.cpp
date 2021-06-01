@@ -113,11 +113,6 @@ public:
         backend->draw_lines(pEndpoints, nLineCount, vWorldPosition, vStartColor, vEndColor);
     }
 
-    void draw_ellipsoids(gfx::Render_Parameters const& ctx, size_t count, glm::vec3 const* centers, glm::vec3 const* sizes, glm::quat const* rotations, glm::vec3 const& color) override {
-        ZoneScoped;
-        backend->draw_ellipsoids(ctx, count, centers, sizes, rotations, color);
-    }
-
     void change_resolution(unsigned* inout_width, unsigned* inout_height) override {
         assert(inout_width != NULL);
         assert(inout_height != NULL);

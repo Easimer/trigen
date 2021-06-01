@@ -76,15 +76,6 @@ namespace gfx {
             glm::vec3 const& vEndColor
         ) = 0;
 
-        virtual void draw_ellipsoids(
-            Render_Parameters const& ctx,
-            size_t count,
-            glm::vec3 const* centers,
-            glm::vec3 const* sizes,
-            glm::quat const* rotations,
-            glm::vec3 const& color = glm::vec3(0.6, 0.6, 0.6)
-        ) = 0;
-
         virtual void draw_triangle_elements(
             size_t vertex_count,
             std::array<float, 3> const* vertices,
