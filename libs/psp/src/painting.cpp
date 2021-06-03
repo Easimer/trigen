@@ -403,3 +403,4 @@ private:
 std::unique_ptr<PSP::IPainter> PSP::make_painter(PSP::Parameters const &params) {
     return std::make_unique<Painter>(params);
 }
+

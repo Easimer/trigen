@@ -4,6 +4,7 @@ set(SRC_PSP
     src/uv_unwrap.cpp
     src/uv_unwrap.h
     src/painting.cpp
+    src/painting2.cpp
     src/painting.h
     src/uv_quadtree.cpp
     src/uv_quadtree.h

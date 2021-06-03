@@ -63,5 +63,32 @@ namespace PSP {
         int subdiv_phi;
     };
 
+    [[deprecated]]
     std::unique_ptr<PSP::IPainter> make_painter(Parameters const &params);
+
+    // NEW API
+
+    struct Input_Texture {
+        unsigned width, height;
+        void const *buffer;
+    };
+
+    using Input_Material = std::vector<Input_Texture>;
+
+    struct Output_Texture {
+        unsigned width, height;
+        std::unique_ptr<uint8_t[]> buffer;
+    };
+
+    using Output_Material = std::vector<Output_Texture>;
+
+    struct Paint_Input {
+        PSP::Mesh const *mesh;
+        Input_Material const &inputMaterial;
+
+        unsigned outWidth;
+        unsigned outHeight;
+    };
+
+    Output_Material paint(Paint_Input const &params);
 }
