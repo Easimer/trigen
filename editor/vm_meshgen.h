@@ -94,7 +94,6 @@ signals:
 protected:
     void regenerateMetaballs();
     void regenerateMesh();
-    void regenerateUVs();
     void repaintMesh();
 
     void destroyModel(gfx::Model_ID handle);

@@ -319,13 +319,8 @@ void VM_Meshgen::regenerateMesh() {
         auto mesh = trigen::Mesh::make(*session);
         _unwrappedMesh = convertMesh(*mesh);
 
-        regenerateUVs();
+        repaintMesh();
     }
-}
-
-void VM_Meshgen::regenerateUVs() {
-    // TODO: remove me
-    repaintMesh();
 }
 
 static void clear(Trigen_Texture &tex) {
