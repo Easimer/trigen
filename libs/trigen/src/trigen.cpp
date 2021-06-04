@@ -26,9 +26,12 @@ struct Trigen_Collider_t {
     sb::ISoftbody_Simulation::Collider_Handle handle;
 };
 
+/** \brief An input texture; owns both the pixel data and the
+ * PSP::Input_Texture descriptor.
+ */
 struct Input_Texture {
     std::unique_ptr<uint8_t[]> data;
-    PSP::Texture info;
+    PSP::Input_Texture info;
 };
 
 struct Trigen_Session_t {
@@ -39,19 +42,18 @@ struct Trigen_Session_t {
 
     marching_cubes::params _meshgenParams;
     float metaballScale;
-    PSP::Parameters _paintParams;
+
     std::optional<PSP::Mesh> _pspMesh;
 
-    PSP::Material _inputMaterial;
     Input_Texture _texBase;
     Input_Texture _texNormal;
     Input_Texture _texHeight;
     Input_Texture _texRoughness;
     Input_Texture _texAo;
 
-    PSP::Material _outputMaterial;
-
-    std::unique_ptr<PSP::IPainter> _painter;
+    tg_u32 _outputWidth;
+    tg_u32 _outputHeight;
+    PSP::Output_Material _outputMaterial;
 };
 
 extern "C" {
@@ -101,8 +103,8 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
 
     s->metaballScale = 8;
     s->_meshgenParams.subdivisions = 8;
-    s->_paintParams.out_width = 512;
-    s->_paintParams.out_height = 512;
+    s->_outputWidth = 512;
+    s->_outputHeight = 512;
 
     *session = s;
     return Trigen_OK;
@@ -419,8 +421,8 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetOutputResolution(
         return Trigen_InvalidArguments;
     }
 
-    session->_paintParams.out_width = width;
-    session->_paintParams.out_height = height;
+    session->_outputWidth = width;
+    session->_outputHeight = height;
 
     return Trigen_OK;
 }
@@ -436,50 +438,52 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
         return Trigen_NotReady;
     }
 
-    PSP::Texture texBlack = {};
+    PSP::Input_Texture texBlack = {};
     uint8_t const blackPixel[3] = { 0, 0, 0 };
 
     texBlack.buffer = blackPixel;
     texBlack.width = 1;
     texBlack.height = 1;
 
-    PSP::Texture texNormal = {};
+    PSP::Input_Texture texNormal = {};
     uint8_t const normalPixel[3] = { 128, 128, 255 };
 
     texNormal.buffer = normalPixel;
     texNormal.width = 1;
     texNormal.height = 1;
 
-    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Texture &target, PSP::Texture const &placeholder) {
+    PSP::Input_Material inputMaterial;
+    // TODO: refactor line this once we have implemented the General Texturing API
+    // :GeneralTexturingAPI
+    inputMaterial.reserve(5);
+
+    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Input_Texture const &placeholder) {
         if (input.data == nullptr) {
-            target = placeholder;
+            inputMaterial.emplace_back(placeholder);
         } else {
-            target = input.info;
+            inputMaterial.emplace_back(input.info);
         }
     };
 
-    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texBlack);
-    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, std::placeholders::_2, texNormal);
+    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, texBlack);
+    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, texNormal);
 
     assert(session->_pspMesh->uv.size() == session->_pspMesh->elements.size());
 
-    putBlackTextureIfEmpty(session->_texBase, session->_inputMaterial.base);
-    putNormalTextureIfEmpty(session->_texNormal, session->_inputMaterial.normal);
-    putBlackTextureIfEmpty(session->_texHeight, session->_inputMaterial.height);
-    putBlackTextureIfEmpty(session->_texRoughness, session->_inputMaterial.roughness);
-    putBlackTextureIfEmpty(session->_texAo, session->_inputMaterial.ao);
+    putBlackTextureIfEmpty(session->_texBase);
+    putNormalTextureIfEmpty(session->_texNormal);
+    putBlackTextureIfEmpty(session->_texHeight);
+    putBlackTextureIfEmpty(session->_texRoughness);
+    putBlackTextureIfEmpty(session->_texAo);
 
-    session->_paintParams.material = &session->_inputMaterial;
-    session->_paintParams.mesh = &session->_pspMesh.value();
+    auto paint_input = PSP::Paint_Input {
+        &session->_pspMesh.value(),
+        inputMaterial,
+        session->_outputWidth,
+        session->_outputHeight
+    };
 
-    session->_outputMaterial = {};
-    session->_painter = PSP::make_painter(session->_paintParams);
-
-    session->_painter->step_painting(0);
-
-    if (session->_painter->is_painting_done()) {
-        session->_painter->result(&session->_outputMaterial);
-    }
+    session->_outputMaterial = PSP::paint(paint_input);
 
     return Trigen_OK;
 }
@@ -497,35 +501,22 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_GetOutputTexture(
         return Trigen_InvalidArguments;
     }
 
-    PSP::Texture *tex = nullptr;
-    switch (kind) {
-    case Trigen_Texture_BaseColor:
-        tex = &session->_outputMaterial.base;
-        break;
-    case Trigen_Texture_NormalMap:
-        tex = &session->_outputMaterial.normal;
-        break;
-    case Trigen_Texture_HeightMap:
-        tex = &session->_outputMaterial.height;
-        break;
-    case Trigen_Texture_RoughnessMap:
-        tex = &session->_outputMaterial.roughness;
-        break;
-    case Trigen_Texture_AmbientOcclusionMap:
-        tex = &session->_outputMaterial.ao;
-        break;
-    default:
-        assert(0);
-        return Trigen_InvalidArguments;
-    }
-
-    if (tex->buffer == nullptr) {
+    // TODO: check that the number of configured textures and output textures match
+    // :GeneralTexturingAPI
+    if (session->_outputMaterial.size() == 0) {
         return Trigen_NotReady;
     }
 
-    texture->width = tex->width;
-    texture->height = tex->height;
-    texture->image = tex->buffer;
+    PSP::Output_Texture const &tex = session->_outputMaterial[kind];
+
+    if (tex.buffer == nullptr) {
+        assert(!"Output material is complete, but the texture was empty");
+        return Trigen_NotReady;
+    }
+
+    texture->width = tex.width;
+    texture->height = tex.height;
+    texture->image = tex.buffer.get();
 
     return Trigen_OK;
 }
