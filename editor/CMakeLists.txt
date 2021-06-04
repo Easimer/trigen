@@ -38,6 +38,8 @@ set(SRC
     dlg_meshgen.h
     vm_meshgen.cpp
     vm_meshgen.h
+    trigen_worker.cpp
+    trigen_worker.h
 
     tiny_obj_loader.cpp
 

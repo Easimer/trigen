@@ -118,9 +118,13 @@ private:
 class Mesh {
 public:
     static Mesh make(Session &session) {
+        return make(session.handle());
+    }
+
+    static Mesh make(Trigen_Session session) {
         Trigen_Mesh mesh;
         Trigen_Status rc;
-        if ((rc = Trigen_Mesh_GetMesh(session.handle(), &mesh)) != Trigen_OK) {
+        if ((rc = Trigen_Mesh_GetMesh(session, &mesh)) != Trigen_OK) {
             throw Exception(rc);
         }
 

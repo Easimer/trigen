@@ -9,8 +9,15 @@
 #include <imgui.h>
 #include "entity_list.h"
 
+#include "trigen_worker.h"
+
 static int runApplication(int argc, char **argv) {
 	QApplication app(argc, argv);
+	qRegisterMetaType<Stage_Tag>();
+	qRegisterMetaType<Trigen_Session>();
+	qRegisterMetaType<Trigen_Status>();
+	qRegisterMetaType<std::function<Trigen_Status(Trigen_Session)>>();
+
 	auto entityListModel = std::make_unique<Entity_List_Model>();
 	auto vm = std::make_unique<VM_Main>(entityListModel.get());
 	Window_Main wnd(std::move(vm), std::move(entityListModel));

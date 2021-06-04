@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 
+#include "trigen_worker.h"
 #include "world_qt.h"
 
 #include <r_queue.h>
@@ -99,6 +100,9 @@ protected:
     void destroyModel(gfx::Model_ID handle);
     void cleanupModels(gfx::Render_Queue *rq);
 
+protected slots:
+    void onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session session);
+
 private:
     QWorld const *_world;
     Entity_Handle _ent;
@@ -124,4 +128,6 @@ private:
     std::vector<gfx::Texture_ID> _texturesDestroying;
 
     bool _renderNormals = false;
+
+    Trigen_Controller _controller;
 };

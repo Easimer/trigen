@@ -10,6 +10,8 @@
 
 #include <QtDebug>
 
+#include "trigen_worker.h"
+
 #include <uv_inspect.hpp>
 #include <mesh_export.h>
 #include <r_cmd/general.h>
@@ -106,6 +108,8 @@ VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
     , _texOutHeight{}
     , _texOutRoughness{}
     , _texOutAo{} {
+    connect(&_controller, &Trigen_Controller::onResult, this, &VM_Meshgen::onStageDone);
+    printf("VM_Meshgen on thread %p\n", QThread::currentThread());
 }
 
 bool VM_Meshgen::checkEntity() const {
@@ -306,21 +310,23 @@ void VM_Meshgen::regenerateMetaballs() {
         return;
     }
 
-    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    if (Trigen_Metaballs_Regenerate(session->handle()) == Trigen_OK) {
-        regenerateMesh();
-    }
+    _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
+    _controller.execute(Stage_Tag::Metaballs, [](Trigen_Session session) {
+        return Trigen_Metaballs_Regenerate(session);
+    });
 }
 
 void VM_Meshgen::regenerateMesh() {
-    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    assert(checkEntity());
     
-    if (Trigen_Mesh_Regenerate(session->handle()) == Trigen_OK) {
-        auto mesh = trigen::Mesh::make(*session);
-        _unwrappedMesh = convertMesh(*mesh);
-
-        repaintMesh();
+    if (!checkEntity()) {
+        return;
     }
+
+    _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
+    _controller.execute(Stage_Tag::Mesh, [](Trigen_Session session) {
+        return Trigen_Mesh_Regenerate(session);
+    });
 }
 
 static void clear(Trigen_Texture &tex) {
@@ -328,28 +334,53 @@ static void clear(Trigen_Texture &tex) {
     tex.width = tex.height = 0;
 }
 
-void VM_Meshgen::repaintMesh() {
-    Trigen_Status rc;
+void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session session) {
+    switch (stage) {
+        case Stage_Tag::Metaballs:
+        {
+            regenerateMesh();
+            break;
+        }
+        case Stage_Tag::Mesh:
+        {
+            try {
+                auto mesh = trigen::Mesh::make(session);
+                _unwrappedMesh = convertMesh(*mesh);
+                repaintMesh();
+            } catch(trigen::Exception const &ex) {
+            }
+            break;
+        }
+        case Stage_Tag::Painting:
+        {
+            if(res == Trigen_OK) {
+                Trigen_Painting_GetOutputTexture(session, Trigen_Texture_BaseColor, &_texOutBase);
+                Trigen_Painting_GetOutputTexture(session, Trigen_Texture_NormalMap, &_texOutNormal);
+                Trigen_Painting_GetOutputTexture(session, Trigen_Texture_HeightMap, &_texOutHeight);
+                Trigen_Painting_GetOutputTexture(session, Trigen_Texture_RoughnessMap, &_texOutRoughness);
+                Trigen_Painting_GetOutputTexture(session, Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
+            } else {
+                qWarning() << "Trigen_Painting_Regenerate has failed with rc=" << res << '\n';
+                clear(_texOutBase);
+                clear(_texOutNormal);
+                clear(_texOutHeight);
+                clear(_texOutRoughness);
+                clear(_texOutAo);
+            }
 
-    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-    if ((rc = Trigen_Painting_Regenerate(session->handle())) == Trigen_OK) {
-        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_BaseColor, &_texOutBase);
-        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_NormalMap, &_texOutNormal);
-        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_HeightMap, &_texOutHeight);
-        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_RoughnessMap, &_texOutRoughness);
-        Trigen_Painting_GetOutputTexture(session->handle(), Trigen_Texture_AmbientOcclusionMap, &_texOutAo);
-    } else {
-        qWarning() << "Trigen_Painting_Regenerate has failed with rc=" << rc << '\n';
-        clear(_texOutBase);
-        clear(_texOutNormal);
-        clear(_texOutHeight);
-        clear(_texOutRoughness);
-        clear(_texOutAo);
+            _texturesDestroying.push_back(_texOutNormalHandle);
+            _texOutNormalHandle = nullptr;
+            _texturesDestroying.push_back(_texOutBaseHandle);
+            _texOutBaseHandle = nullptr;
+            break;
+        }
     }
+}
 
-    _texturesDestroying.push_back(_texOutNormalHandle);
-    _texOutNormalHandle = nullptr;
-    _texturesDestroying.push_back(_texOutBaseHandle);
-    _texOutBaseHandle = nullptr;
+void VM_Meshgen::repaintMesh() {
+    _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
+    _controller.execute(Stage_Tag::Painting, [](Trigen_Session session) {
+        return Trigen_Painting_Regenerate(session);
+    });
 }
 
