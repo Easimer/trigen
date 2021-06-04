@@ -2,6 +2,8 @@ set(SRC
     src/trigen.cpp
     include/trigen.h
     include/trigen.hpp
+
+    src/c_compile_test.c
 )
 
 set(SRC_CSHARP
