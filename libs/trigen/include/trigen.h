@@ -73,6 +73,8 @@ typedef enum Trigen_Status_t {
     Trigen_NotReady,
     /** Can't fit the data into the output array */
     Trigen_NotEnoughSpace,
+    /** This function cannot be called using this session handle */
+    Trigen_FunctionIsUnavailable,
 } Trigen_Status;
 
 #if _WIN32 && defined(_Check_return_)
@@ -85,6 +87,7 @@ typedef enum Trigen_Status_t {
 #endif
 #endif
 
+typedef uint8_t tg_u8;
 typedef uint32_t tg_u32;
 typedef uint64_t tg_u64;
 typedef float tg_f32;
@@ -194,6 +197,22 @@ typedef enum Trigen_Texture_Kind_t {
     Trigen_Texture_AmbientOcclusionMap,
     Trigen_Texture_Max,
 } Trigen_Texture_Kind;
+
+typedef enum Trigen_Texture_Format_t {
+    Trigen_PixFmt_RGB888 = 0,
+    Trigen_PixFmt_MAX
+} Trigen_Pixel_Format;
+
+typedef struct Trigen_Texture_Slot_Descriptor_t {
+    Trigen_Pixel_Format pixel_format;
+    
+    /** Default color for this texture;
+     * e.g. black for albedo, 128-128-255 for normal maps, etc.
+     */
+    union {
+        tg_u8 rgb888[3];
+    } defaultPixel;
+} Trigen_Texture_Slot_Descriptor;
 
 #ifdef __cplusplus
 extern "C" {
@@ -406,6 +425,11 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetBranches(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_INOUT tg_usize *count,
     TRIGEN_IN tg_f32 *buffer);
+
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_OUT Trigen_Texture_Kind *slotHandle,
+    TRIGEN_IN Trigen_Texture_Slot_Descriptor *descriptor);
 
 #ifdef __cplusplus
 }

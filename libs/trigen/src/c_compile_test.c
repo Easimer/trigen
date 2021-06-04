@@ -5,5 +5,3 @@
 //
 
 #include <trigen.h>
-
-static void dummy() {}

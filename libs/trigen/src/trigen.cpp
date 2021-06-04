@@ -45,16 +45,54 @@ struct Trigen_Session_t {
 
     std::optional<PSP::Mesh> _pspMesh;
 
-    Input_Texture _texBase;
-    Input_Texture _texNormal;
-    Input_Texture _texHeight;
-    Input_Texture _texRoughness;
-    Input_Texture _texAo;
+    std::vector<Trigen_Texture_Slot_Descriptor> _texSlots;
+    bool _texSlotsLocked = false;
+
+    std::vector<Input_Texture> _inputTextures;
 
     tg_u32 _outputWidth;
     tg_u32 _outputHeight;
     PSP::Output_Material _outputMaterial;
 };
+
+#define TEXSLOTDESC_INIT_RGB888(slot, r, g, b) \
+    slot.defaultPixel.rgb888[0] = r; \
+    slot.defaultPixel.rgb888[1] = g; \
+    slot.defaultPixel.rgb888[2] = b;
+
+#define TEXSLOTDESC_INIT_RGB888_BLACK(slot) TEXSLOTDESC_INIT_RGB888(slot, 0, 0, 0)
+
+static void DefaultInitializeTextureSlots(TRIGEN_HANDLE Trigen_Session session) {
+    assert(session != nullptr);
+
+    if(session == nullptr) {
+        return;
+    }
+
+    Trigen_Texture_Slot_Descriptor slotBaseColor = { Trigen_PixFmt_RGB888 };
+    TEXSLOTDESC_INIT_RGB888_BLACK(slotBaseColor);
+    session->_texSlots.emplace_back(slotBaseColor);
+
+    Trigen_Texture_Slot_Descriptor slotNormal = { Trigen_PixFmt_RGB888 };
+    TEXSLOTDESC_INIT_RGB888(slotNormal, 128, 128, 255);
+    session->_texSlots.emplace_back(slotNormal);
+
+    Trigen_Texture_Slot_Descriptor slotHeightMap = { Trigen_PixFmt_RGB888 };
+    TEXSLOTDESC_INIT_RGB888_BLACK(slotHeightMap);
+    session->_texSlots.emplace_back(slotHeightMap);
+
+    Trigen_Texture_Slot_Descriptor slotRoughness = { Trigen_PixFmt_RGB888 };
+    TEXSLOTDESC_INIT_RGB888_BLACK(slotRoughness);
+    session->_texSlots.emplace_back(slotRoughness);
+
+    Trigen_Texture_Slot_Descriptor slotAO = { Trigen_PixFmt_RGB888 };
+    TEXSLOTDESC_INIT_RGB888_BLACK(slotAO);
+    session->_texSlots.emplace_back(slotAO);
+
+    session->_inputTextures.resize(session->_texSlots.size());
+
+    session->_texSlotsLocked = true;
+}
 
 extern "C" {
 
@@ -105,6 +143,10 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
     s->_meshgenParams.subdivisions = 8;
     s->_outputWidth = 512;
     s->_outputHeight = 512;
+
+    if (!(params->flags & Trigen_F_UseGeneralTexturingAPI)) {
+        DefaultInitializeTextureSlots(s);
+    }
 
     *session = s;
     return Trigen_OK;
@@ -369,45 +411,38 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_SetInputTexture(
     assert(texture);
     assert(texture->image);
     if (session == nullptr ||
-        !(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max) ||
+        !(0 <= kind && kind < session->_inputTextures.size()) ||
         texture == nullptr ||
         texture->image == nullptr) {
         return Trigen_InvalidArguments;
     }
 
-    // TODO: assuming RGB888 here with no padding
-    auto size = texture->width * texture->height * 3;
+    assert(kind < session->_inputTextures.size());
+    assert(kind < session->_texSlots.size());
 
-    Input_Texture *tex = nullptr;
-    switch (kind) {
-    case Trigen_Texture_BaseColor:
-        tex = &session->_texBase;
+    auto &tex = session->_inputTextures[kind];
+    auto &desc = session->_texSlots[kind];
+
+    int pixelSize;
+
+    switch(desc.pixel_format) {
+        case Trigen_PixFmt_RGB888:
+        pixelSize = 3;
         break;
-    case Trigen_Texture_NormalMap:
-        tex = &session->_texNormal;
-        break;
-    case Trigen_Texture_HeightMap:
-        tex = &session->_texHeight;
-        break;
-    case Trigen_Texture_RoughnessMap:
-        tex = &session->_texRoughness;
-        break;
-    case Trigen_Texture_AmbientOcclusionMap:
-        tex = &session->_texAo;
-        break;
-    default:
-        assert(0);
+        case Trigen_PixFmt_MAX:
+        std::abort();
         break;
     }
 
-    if (tex != nullptr) {
-        auto data = std::make_unique<uint8_t[]>(size);
-        memcpy(data.get(), texture->image, size);
-        tex->data = std::move(data);
-        tex->info.buffer = tex->data.get();
-        tex->info.width = texture->width;
-        tex->info.height = texture->height;
-    }
+    // TODO: assuming no padding here
+    auto size = texture->width * texture->height * pixelSize;
+
+    auto data = std::make_unique<uint8_t[]>(size);
+    memcpy(data.get(), texture->image, size);
+    tex.data = std::move(data);
+    tex.info.buffer = tex.data.get();
+    tex.info.width = texture->width;
+    tex.info.height = texture->height;
 
     return Trigen_OK;
 }
@@ -438,43 +473,25 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
         return Trigen_NotReady;
     }
 
-    PSP::Input_Texture texBlack = {};
-    uint8_t const blackPixel[3] = { 0, 0, 0 };
-
-    texBlack.buffer = blackPixel;
-    texBlack.width = 1;
-    texBlack.height = 1;
-
-    PSP::Input_Texture texNormal = {};
-    uint8_t const normalPixel[3] = { 128, 128, 255 };
-
-    texNormal.buffer = normalPixel;
-    texNormal.width = 1;
-    texNormal.height = 1;
-
     PSP::Input_Material inputMaterial;
-    // TODO: refactor line this once we have implemented the General Texturing API
-    // :GeneralTexturingAPI
-    inputMaterial.reserve(5);
+    std::vector<PSP::Input_Texture> placeholderTextureDescriptors;
+    inputMaterial.reserve(session->_texSlots.size());
 
-    auto putPlaceholderTextureIfEmpty = [&](Input_Texture const &input, PSP::Input_Texture const &placeholder) {
-        if (input.data == nullptr) {
+    for(size_t slot = 0; slot < session->_texSlots.size(); slot++) {
+        auto &desc = session->_texSlots[slot];
+        auto &tex = session->_inputTextures[slot];
+
+        if(tex.data == nullptr) {
+            PSP::Input_Texture placeholder;
+            placeholder.buffer = &desc.defaultPixel;
+            placeholder.width = placeholder.height = 1;
             inputMaterial.emplace_back(placeholder);
         } else {
-            inputMaterial.emplace_back(input.info);
+            inputMaterial.emplace_back(tex.info);
         }
-    };
-
-    auto putBlackTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, texBlack);
-    auto putNormalTextureIfEmpty = std::bind(putPlaceholderTextureIfEmpty, std::placeholders::_1, texNormal);
+    }
 
     assert(session->_pspMesh->uv.size() == session->_pspMesh->elements.size());
-
-    putBlackTextureIfEmpty(session->_texBase);
-    putNormalTextureIfEmpty(session->_texNormal);
-    putBlackTextureIfEmpty(session->_texHeight);
-    putBlackTextureIfEmpty(session->_texRoughness);
-    putBlackTextureIfEmpty(session->_texAo);
 
     auto paint_input = PSP::Paint_Input {
         &session->_pspMesh.value(),
@@ -607,6 +624,32 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_GetBranches(
             }
         }
     }
+
+    return Trigen_OK;
+}
+
+TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_OUT Trigen_Texture_Kind *slotHandle,
+    TRIGEN_IN Trigen_Texture_Slot_Descriptor *descriptor) {
+    if (session == nullptr ||
+        slotHandle == nullptr ||
+        descriptor == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    if(session->_texSlotsLocked) {
+        return Trigen_FunctionIsUnavailable;
+    }
+
+    if (descriptor->pixel_format >= Trigen_PixFmt_MAX) {
+        return Trigen_InvalidArguments;
+    }
+
+    auto idx = session->_texSlots.size();
+    session->_texSlots.emplace_back(*descriptor);
+    session->_inputTextures.resize(session->_texSlots.size());
+    *slotHandle = (Trigen_Texture_Kind)idx;
 
     return Trigen_OK;
 }
