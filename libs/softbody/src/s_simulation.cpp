@@ -8,6 +8,8 @@
 #include "m_utils.h"
 #include "l_iterators.h"
 #include "s_simulation.h"
+#include "logger.h"
+#include "collider_handles.h"
 #define SB_BENCHMARK 1
 #define SB_BENCHMARK_UNITS microseconds
 #define SB_BENCHMARK_UNITS_STR "us"
@@ -209,7 +211,7 @@ bool Softbody_Simulation::add_collider(
         return false;
     }
 
-    System_State::SDF_Slot* slot = NULL;
+    SDF_Slot* slot = NULL;
     for (auto i = 0ull; i < s.colliders_sdf.size(); i++) {
         if (!s.colliders_sdf[i].used) {
             slot = &s.colliders_sdf[i];
@@ -294,7 +296,7 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     }
 
     // Allocate slot
-    System_State::Mesh_Collider_Slot* slot = NULL;
+    Mesh_Collider_Slot* slot = NULL;
     // Look for an unused slot
     for (auto i = 0ull; i < s.colliders_mesh.size(); i++) {
         if (!s.colliders_mesh[i].used) {

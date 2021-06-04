@@ -5,10 +5,10 @@
 
 #pragma once
 
-#include "common.h"
 #include "softbody.h"
 #include <array>
 #include "l_constexpr_map.h"
+#include "system_state.h"
 
 class IParticle_Manager {
 public:

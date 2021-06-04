@@ -25,7 +25,8 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include "common.h"
+#include "types.h"
+#include "logger.h"
 
 #else
 

@@ -4,7 +4,7 @@
 //
 
 #include "stdafx.h"
-#include "common.h"
+#include "system_state.h"
 #include "softbody.h"
 #include "s_ext.h"
 #include "m_utils.h"
@@ -15,7 +15,7 @@
 #include <intersect.h>
 
 // TODO(danielm): duplicate of the implementation in s_compute_ref.cpp!!!
-static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+static std::array<uint64_t, 3> get_vertex_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
     auto base = triangle_index * 3;
     return {
         c.vertex_indices[base + 0],
@@ -24,7 +24,7 @@ static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Sl
     };
 }
 
-static std::array<uint64_t, 3> get_normal_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+static std::array<uint64_t, 3> get_normal_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
     auto base = triangle_index * 3;
     return {
         c.normal_indices[base + 0],
@@ -99,7 +99,7 @@ private:
                     anchor_points.erase(i);
                 }
             } else {
-                System_State::SDF_Slot const* surface = NULL;
+                SDF_Slot const* surface = NULL;
                 float surface_dist = INFINITY;
 
                 // Find the closest surface

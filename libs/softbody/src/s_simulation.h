@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "common.h"
 #include "softbody.h"
 #include "s_ext.h"
 

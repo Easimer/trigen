@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <raymarching.h>
 #include "softbody.h"
+#include "collision_constraint.h"
 #include "l_iterators.h"
 #include "s_compute_backend.h"
 #define SB_BENCHMARK (1)
@@ -22,7 +23,7 @@
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
 // TODO(danielm): duplicate of the implementation in objscan!!!
-static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+static std::array<uint64_t, 3> get_vertex_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
     auto base = triangle_index * 3;
     return {
         c.vertex_indices[base + 0],
@@ -31,7 +32,7 @@ static std::array<uint64_t, 3> get_vertex_indices(System_State::Mesh_Collider_Sl
     };
 }
 
-static std::array<uint64_t, 3> get_normal_indices(System_State::Mesh_Collider_Slot const &c, size_t triangle_index) {
+static std::array<uint64_t, 3> get_normal_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
     auto base = triangle_index * 3;
     return {
         c.normal_indices[base + 0],

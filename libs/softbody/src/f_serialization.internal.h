@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include "system_state.h"
 
 #define MAKE_4BYTE_ID_X(c0, c1, c2, c3) \
     (uint32_t)((((c0) & 0xFF) << 24) | (((c1) & 0xFF) << 16) | (((c2) & 0xFF) << 8) | ((c3) & 0xFF))

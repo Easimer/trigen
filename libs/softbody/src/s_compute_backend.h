@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "common.h"
+#include "system_state.h"
 
 class Softbody_Simulation;
 class ICompute_Backend_Complete;

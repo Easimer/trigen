@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include "common.h"
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <optional>

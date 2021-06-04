@@ -4,7 +4,6 @@
 //
 
 #include "stdafx.h"
-#include "common.h"
 #include "c_particle.h"
 
 namespace coll {

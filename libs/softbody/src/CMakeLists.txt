@@ -3,7 +3,11 @@ embed_file(shape_matching.cl.cpp ${CMAKE_SOURCE_DIR}/shaders/shape_matching.cl)
 
 add_library(softbody STATIC
     stdafx.h
-    common.h
+    types.h
+    system_state.h
+    logger.h
+    collider_handles.h
+    collision_constraint.h
 
     s_simulation.cpp
     s_simulation.h

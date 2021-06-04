@@ -6,7 +6,7 @@
 #pragma once
 
 #include "softbody.h"
-#include "common.h"
+#include "system_state.h"
 #include "s_simulation.h"
 
 enum class Serialization_Result {

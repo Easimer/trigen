@@ -4,7 +4,7 @@
 //
 
 #include "stdafx.h"
-#include "common.h"
+#include "system_state.h"
 #include "softbody.h"
 #include "s_ext.h"
 #include "m_utils.h"
