@@ -21,6 +21,7 @@
 #include "s_compute_cuda_codegen.h"
 #include "s_compute_cuda.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "collider_handles.h"
 
 #include <Tracy.hpp>
 #include <TracyC.h>
