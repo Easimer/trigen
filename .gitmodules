@@ -4,3 +4,6 @@
 [submodule "tracy"]
 	path = tracy
 	url = https://github.com/wolfpld/tracy
+[submodule "libs/metadesk/metadesk"]
+	path = libs/metadesk/metadesk
+	url = https://github.com/Dion-Systems/metadesk

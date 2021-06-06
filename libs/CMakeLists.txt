@@ -1,4 +1,5 @@
 add_subdirectory(glad)
+add_subdirectory(metadesk)
 add_subdirectory(virtfs)
 add_subdirectory(imgui)
 add_subdirectory(psp)

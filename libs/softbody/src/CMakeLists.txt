@@ -5,6 +5,7 @@ add_library(softbody STATIC
     stdafx.h
     types.h
     system_state.h
+    system_state.generated.h
     logger.h
     collider_handles.h
     collision_constraint.h
@@ -56,6 +57,7 @@ target_link_libraries(softbody
         CONAN_PKG::glm
     PRIVATE
         ${OpenCL_LIBRARIES} ${TRACY_LIBRARIES} intersect
+        metadesk
 )
 target_include_directories(softbody PRIVATE ${OpenCL_INCLUDE_DIRS})
 
@@ -100,3 +102,12 @@ if(${SOFTBODY_ENABLE_CUDA})
         target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_MEMTRACK=1)
     endif()
 endif()
+
+add_executable(system_state_generator system_state_generator.cpp)
+target_link_libraries(system_state_generator PRIVATE metadesk)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/system_state.generated.h
+    COMMAND system_state_generator system_state.generated.h ${CMAKE_CURRENT_SOURCE_DIR}/system_state.md
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/system_state.md)
+target_include_directories(softbody PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

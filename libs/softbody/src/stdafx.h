@@ -28,6 +28,8 @@
 #include "types.h"
 #include "logger.h"
 
+#include "system_state.h"
+
 #else
 
 #include <assert.h>
