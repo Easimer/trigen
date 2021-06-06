@@ -6,6 +6,7 @@
 #pragma once
 
 #include "system_state.h"
+#include "logger.h"
 
 class Softbody_Simulation;
 class ICompute_Backend_Complete;
