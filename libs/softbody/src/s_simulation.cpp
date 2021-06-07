@@ -373,24 +373,16 @@ bool Softbody_Simulation::update_transform(Collider_Handle handle, glm::mat4 con
 index_t Softbody_Simulation::add_init_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
-    Vec4 zero(0, 0, 0, 0);
-    index_t const index = particle_count();
+    index_t const index = create_element(s);
     auto pos = Vec4(p_pos, 0);
     auto size = Vec4(p_size, 0);
-    s.bind_pose.push_back(pos);
-    s.position.push_back(pos);
-    s.predicted_position.push_back(pos);
-    s.velocity.push_back(zero);
-    s.angular_velocity.push_back(zero);
-    s.goal_position.push_back(pos);
-    s.size.push_back(size);
-    s.density.push_back(p_density);
-    s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
-    s.predicted_orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
-    s.center_of_mass.push_back(zero);
-    //age.push_back(0);
+    s.bind_pose[index] = pos;
+    s.position[index] = pos;
+    s.predicted_position[index] = pos;
+    s.goal_position[index] = pos;
+    s.size[index] = size;
+    s.density[index] = p_density;
     s.edges[index] = {};
-    s.internal_forces.push_back(zero);
 
     invalidate_particle_cache(index);
 
