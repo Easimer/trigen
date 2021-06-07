@@ -92,9 +92,6 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 find_package(OpenCL REQUIRED)
 
-set(Boost_INSTALL_DIR ${CONAN_BOOST_ROOT})
-find_package(Boost REQUIRED COMPONENTS system thread)
-
 find_package(Tracy)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

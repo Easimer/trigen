@@ -31,7 +31,7 @@ target_link_libraries(mesh_paint_proto PRIVATE
 	stb
 	mesh_export
 	trigen
-	Boost::thread
+	CONAN_PKG::boost
 	RCmd::Base
 	RCmd::Softbody
 )
