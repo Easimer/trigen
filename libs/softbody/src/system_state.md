@@ -34,7 +34,9 @@ System_State : {
     @map("Vector<index_t>")
     edges: Map,
 
+    @noinit
     bind_pose_center_of_mass: Vec4,
+    @noinit
     bind_pose_inverse_bind_pose: Mat4,
 
     center_of_mass: Vec4,
