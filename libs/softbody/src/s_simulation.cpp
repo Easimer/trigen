@@ -413,8 +413,8 @@ void Softbody_Simulation::connect_particles(index_t a, index_t b) {
 index_t Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size, float p_density, index_t parent) {
     assert(!assert_parallel);
     assert(p_density >= 0.0f && p_density <= 1.0f);
-    Vec4 zero(0, 0, 0, 0);
-    index_t const index = particle_count();
+
+    index_t const index = create_element(s);
     assert(parent < index);
 
     auto pos = Vec4(p_pos, 0);
@@ -425,20 +425,13 @@ index_t Softbody_Simulation::add_particle(Vec3 const& p_pos, Vec3 const& p_size,
     auto offset = pos - parent_pos;
     auto p_bpos = s.bind_pose[parent] + offset;
 
-
-    s.bind_pose.push_back(p_bpos);
-    s.position.push_back(pos);
-    s.predicted_position.push_back(pos);
-    s.velocity.push_back(zero);
-    s.angular_velocity.push_back(zero);
-    s.goal_position.push_back(pos);
-    s.size.push_back(size);
-    s.density.push_back(p_density);
-    s.orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
-    s.predicted_orientation.push_back(Quat(1.0f, 0.0f, 0.0f, 0.0f));
-    s.center_of_mass.push_back(zero);
+    s.bind_pose[index] = p_bpos;
+    s.position[index] = pos;
+    s.predicted_position[index] = pos;
+    s.goal_position[index] = pos;
+    s.size[index] = size;
+    s.density[index] = p_density;
     s.edges[index] = {};
-    s.internal_forces.push_back(zero);
 
 // #define INHERIT_MOMENTUM
 #ifdef INHERIT_MOMENTUM
