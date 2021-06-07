@@ -1,4 +1,4 @@
-add_library(mesh_compress STATIC)
+add_library(mesh_compress SHARED)
 
 target_sources(mesh_compress
     PRIVATE
@@ -23,3 +23,7 @@ target_link_libraries(mesh_compress
 target_compile_definitions(mesh_compress
     PRIVATE
         TMC_COMPILATION=1)
+
+set_target_properties(mesh_compress PROPERTIES FOLDER "Libs")
+tri_builddir(mesh_compress)
+

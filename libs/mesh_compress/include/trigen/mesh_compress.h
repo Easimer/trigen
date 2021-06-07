@@ -17,6 +17,7 @@
 
 typedef enum ETMC_Status {
     k_ETMCStatus_OK = 0,
+    k_ETMCStatus_Failure,
     k_ETMCStatus_InvalidArguments,
 } ETMC_Status;
 
