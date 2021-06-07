@@ -26,9 +26,9 @@ typedef enum ETMC_Type {
     k_ETMCType_UInt64,
 } ETMC_Type;
 
-typedef struct TMC_Context *TMC_Context;
-typedef struct TMC_Buffer *TMC_Buffer;
-typedef struct TMC_Attribute *TMC_Attribute;
+typedef struct TMC_Context_t *TMC_Context;
+typedef struct TMC_Buffer_t *TMC_Buffer;
+typedef struct TMC_Attribute_t *TMC_Attribute;
 typedef uint32_t TMC_Size;
 
 HEDLEY_BEGIN_C_DECLS
