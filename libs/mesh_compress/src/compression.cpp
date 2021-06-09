@@ -1,0 +1,193 @@
+// === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
+//
+// Purpose:
+//
+
+#include "stdafx.h"
+
+#include "arena.h"
+#include <glm/glm.hpp>
+#include <optional>
+
+template<typename ArrayType>
+static ArrayType sample_attribute(TMC_Attribute attribute, TMC_Size element) {
+    auto ptr = attribute->buffer->data.get();
+    auto byteOffset = attribute->stride * element + attribute->offset;
+    
+    if (byteOffset >= attribute->buffer->size) {
+        std::abort();
+    }
+
+    return *(ArrayType *)&ptr[byteOffset];
+}
+
+template<typename ArrayType>
+static ArrayType sample_attribute_arena(Arena const &arena, TMC_Attribute attribute, TMC_Size element) {
+    auto ptr = static_cast<uint8_t const *>(arena.data());
+    auto byteOffset = attribute->stride * element + attribute->offset;
+    
+    if (byteOffset >= arena.size()) {
+        std::abort();
+    }
+
+    return *reinterpret_cast<ArrayType const *>(&ptr[byteOffset]);
+}
+
+template<typename ArrayType>
+static float calculate_error_between_vertices(TMC_Attribute attr, TMC_Index origIndex, Arena const& arena, TMC_Index arenaIndex) {
+    return glm::distance(sample_attribute<ArrayType>(attr, origIndex),
+        sample_attribute_arena<ArrayType>(arena, attr, arenaIndex));
+}
+
+static float distance(TMC_Context context, TMC_Index origIndex, std::vector<Arena> const& arenas, TMC_Index arenaIndex) {
+    float total_error = 0;
+
+    for (TMC_Index i = 0; i < context->attributes.size(); i++) {
+        auto *attr = context->attributes[i].get();
+        auto &arena = arenas[i];
+
+        switch (attr->type) {
+        case k_ETMCType_Float32:
+            switch (attr->numComponents) {
+            case 1:
+                total_error += calculate_error_between_vertices<glm::vec<1, float>>(attr, origIndex, arena, arenaIndex);
+                break;
+            case 2:
+                total_error += calculate_error_between_vertices<glm::vec<2, float>>(attr, origIndex, arena, arenaIndex);
+                break;
+            case 3:
+                total_error += calculate_error_between_vertices<glm::vec<3, float>>(attr, origIndex, arena, arenaIndex);
+                break;
+            case 4:
+                total_error += calculate_error_between_vertices<glm::vec<4, float>>(attr, origIndex, arena, arenaIndex);
+                break;
+            default:
+                std::abort();
+                break;
+            }
+            break;
+        default:
+            assert(!"Unhandled attribute type");
+            break;
+        }
+    }
+}
+
+template<typename ArrayType>
+void copy(Arena &arena, TMC_Attribute attr, TMC_Index idx) {
+    *arena.allocate<ArrayType>() = sample_attribute<ArrayType>(attr, idx);
+}
+
+static void push(std::vector<Arena> &arenas, TMC_Context ctx, TMC_Index idx) {
+    assert(ctx);
+    assert(arenas.size() == ctx->attributes.size());
+    assert(idx >= 0);
+
+    for (TMC_Index i = 0; i < ctx->attributes.size(); i++) {
+        auto *attr = ctx->attributes[i].get();
+        auto &arena = arenas[i];
+
+        switch (attr->type) {
+        case k_ETMCType_Float32:
+            switch (attr->numComponents) {
+            case 1:
+                copy<glm::vec<1, float>>(arena, attr, idx);
+                break;
+            case 2:
+                copy<glm::vec<2, float>>(arena, attr, idx);
+                break;
+            case 3:
+                copy<glm::vec<3, float>>(arena, attr, idx);
+                break;
+            case 4:
+                copy<glm::vec<4, float>>(arena, attr, idx);
+                break;
+            default:
+                std::abort();
+                break;
+            }
+            break;
+        default:
+            assert(!"Unhandled attribute type");
+            break;
+        }
+    }
+}
+
+template<typename IndexType>
+static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
+    assert(context);
+    assert(vertexCount >= 0);
+    float const epsilon = 0.01f;
+
+    // TODO(danielm): check whether we have enough data in the buffers for each
+    // attribute
+
+    std::vector<IndexType> indexBuffer;
+    TMC_Index num_output_vertices = 0;
+    std::vector<Arena> arenas(context->attributes.size());
+
+    for (TMC_Index i = 0; i < vertexCount; i++) {
+        std::optional<TMC_Index> idx;
+
+        for (TMC_Index j = num_output_vertices - 1; j >= 0; j--) {
+            if (distance(context, i, arenas, j) < epsilon) {
+                idx = j;
+                break;
+            }
+        }
+
+        if (!idx.has_value()) {
+            idx = num_output_vertices;
+            push(arenas, context, i);
+            num_output_vertices++;
+        }
+
+        assert(idx.has_value());
+        indexBuffer.push_back(idx.value());
+    }
+
+    assert(indexBuffer.size() == vertexCount);
+
+    for (TMC_Index i = 0; i < context->attributes.size(); i++) {
+        auto &arena = arenas[i];
+        auto buf = std::make_unique<uint8_t[]>(arena.size());
+        memcpy(buf.get(), arena.data(), arena.size());
+        context->attributes[i]->compressedBuf = std::move(buf);
+        context->attributes[i]->compressedSize = arena.size();
+    }
+
+    auto indexBufferBuf = std::make_unique<uint8_t[]>(indexBuffer.size() * sizeof(IndexType));
+    memcpy(indexBufferBuf.get(), indexBuffer.data(), indexBuffer.size() * sizeof(IndexType));
+    context->indexBuffer = std::move(indexBufferBuf);
+    context->indexBufferSize = indexBuffer.size() * sizeof(IndexType);
+    context->indexBufferCount = indexBuffer.size();
+
+    return k_ETMCStatus_OK;
+}
+
+HEDLEY_BEGIN_C_DECLS
+
+TMC_API
+ETMC_Status
+TMC_Compress(TMC_Context context, TMC_Size vertex_count) {
+    if (context == nullptr) {
+        return k_ETMCStatus_InvalidArguments;
+    }
+
+    switch (context->indexType) {
+    case k_ETMCType_UInt16:
+        compress<uint16_t>(context, vertex_count);
+        break;
+    case k_ETMCType_UInt32:
+        compress<uint32_t>(context, vertex_count);
+        break;
+    default:
+        std::abort();
+        break;
+    }
+
+    return k_ETMCStatus_OK;
+}
+
+HEDLEY_END_C_DECLS
