@@ -37,6 +37,7 @@ target_link_libraries(renderer
         CONAN_PKG::glm
     PRIVATE
         glad SDL::SDL2 imgui Tracy::Client virtfs
+        mesh_compress
 )
 
 target_include_directories(renderer
