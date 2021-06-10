@@ -656,6 +656,14 @@ public:
 
         TMC_Compress(ctx, model->element_count);
 
+        TMC_Size num_elements = 0;
+        TMC_GetIndexArrayElementCount(ctx, &num_elements);
+
+        if (num_elements < 65536) {
+            TMC_SetIndexArrayType(ctx, k_ETMCType_UInt16);
+            TMC_Compress(ctx, model->element_count);
+        }
+
         *tmc_context_out = ctx;
     }
 
