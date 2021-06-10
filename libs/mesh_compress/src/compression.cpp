@@ -224,6 +224,9 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
         case k_ETMCType_Float32:
             TMC_Print(context, "    - Type: %u x float32", attr->numComponents);
             break;
+        default:
+            assert(0);
+            break;
         }
         auto size_bytes = attr->compressedSize;
         auto size_kilobytes = TMC_Size(size_bytes / 1024);

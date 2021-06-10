@@ -7,6 +7,7 @@
 
 #include "arena.h"
 #include "dbgmsg.h"
+#include <cstring>
 #include <trigen/mesh_compress.h>
 
 HEDLEY_BEGIN_C_DECLS
