@@ -29,6 +29,8 @@ struct TMC_Attribute_t {
 };
 
 struct TMC_Context_t {
+    TMC_Bitfield hints;
+
     std::vector<std::unique_ptr<TMC_Buffer_t>> buffers;
     std::vector<std::unique_ptr<TMC_Attribute_t>> attributes;
 
@@ -36,6 +38,8 @@ struct TMC_Context_t {
     std::unique_ptr<uint8_t[]> indexBuffer;
     TMC_Size indexBufferSize = 0;
     TMC_Size indexBufferCount = 0;
+
+    TMC_Index numOutputVertices = 0;
 
     TMC_Debug_Message_Proc dbgMsg = nullptr;
     void *dbgMsgUser = nullptr;

@@ -626,7 +626,7 @@ public:
         TMC_Buffer buf_uv;
         TMC_Buffer buf_tangent;
         TMC_Buffer buf_bitangent;
-        TMC_CreateContext(&ctx);
+        TMC_CreateContext(&ctx, k_ETMCHint_AllowSmallerIndices);
         assert(ctx);
 
         TMC_SetDebugMessageCallback(ctx, TMCMessageCallback, nullptr);
@@ -655,14 +655,6 @@ public:
         }
 
         TMC_Compress(ctx, model->element_count);
-
-        TMC_Size num_elements = 0;
-        TMC_GetIndexArrayElementCount(ctx, &num_elements);
-
-        if (num_elements < 65536) {
-            TMC_SetIndexArrayType(ctx, k_ETMCType_UInt16);
-            TMC_Compress(ctx, model->element_count);
-        }
 
         *tmc_context_out = ctx;
     }

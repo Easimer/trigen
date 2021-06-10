@@ -8,6 +8,7 @@
 #include "arena.h"
 #include "dbgmsg.h"
 #include <glm/glm.hpp>
+#include <limits>
 #include <optional>
 
 template<typename ArrayType>
@@ -115,6 +116,43 @@ static void push(std::vector<Arena> &arenas, TMC_Context ctx, TMC_Index idx) {
     }
 }
 
+template<typename From, typename To>
+static void convert_index_buffer(TMC_Context context) {
+    auto elementCount = context->indexBufferCount;
+
+    auto oldIndexBuffer = std::move(context->indexBuffer);
+    auto oldIndexBufferPtr = (From const *)oldIndexBuffer.get();
+
+    auto newIndexBuffer
+        = std::make_unique<uint8_t[]>(elementCount * sizeof(To));
+    auto newIndexBufferPtr = (To *)newIndexBuffer.get();
+
+    for (TMC_Index idx = 0; idx < elementCount; idx++) {
+        assert(oldIndexBufferPtr[idx] <= std::numeric_limits<To>::max());
+        newIndexBufferPtr[idx] = To(oldIndexBufferPtr[idx]);
+    }
+
+    context->indexBuffer = std::move(newIndexBuffer);
+    context->indexBufferSize = elementCount * sizeof(To);
+}
+
+static void try_fit_indices_into_smaller_type(TMC_Context context) {
+    assert(context);
+    assert(context->hints & k_ETMCHint_AllowSmallerIndices);
+
+    switch (context->indexType) {
+    case k_ETMCType_UInt32:
+        if (context->numOutputVertices < 65536) {
+            context->indexType = k_ETMCType_UInt16;
+            convert_index_buffer<uint32_t, uint16_t>(context);
+        }
+        break;
+    default:
+        std::abort();
+        break;
+    }
+}
+
 template<typename IndexType>
 static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     assert(context);
@@ -127,6 +165,8 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     std::vector<IndexType> indexBuffer;
     TMC_Index num_output_vertices = 0;
     std::vector<Arena> arenas(context->attributes.size());
+
+    indexBuffer.reserve(vertexCount);
 
     for (TMC_Index i = 0; i < vertexCount; i++) {
         std::optional<TMC_Index> idx;
@@ -164,6 +204,12 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     context->indexBufferSize = indexBuffer.size() * sizeof(IndexType);
     context->indexBufferCount = indexBuffer.size();
 
+    context->numOutputVertices = num_output_vertices;
+
+    if (context->hints & k_ETMCHint_AllowSmallerIndices) {
+        try_fit_indices_into_smaller_type(context);
+    }
+
     TMC_Print(context, "Compressed mesh");
     TMC_Print(context, "- Input vertex count: %zu", vertexCount);
     TMC_Print(context, "- Output vertex count: %zd", num_output_vertices);
@@ -175,13 +221,14 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
         TMC_Print(context, "  - [#%zd]", i);
         switch (attr->type) {
         case k_ETMCType_Float32:
-            TMC_Print(context, "    - Type: %uXfloat32", attr->numComponents);
+            TMC_Print(context, "    - Type: %u x float32", attr->numComponents);
             break;
         }
         auto size_bytes = attr->compressedSize;
         auto size_kilobytes = TMC_Size(size_bytes / 1024);
         auto size_megabytes = TMC_Size(size_kilobytes / 1024);
-        TMC_Print(context, "    - Compressed size: %zu B | %zu KiB | %zu MiB", size_bytes, size_kilobytes, size_megabytes);
+        TMC_Print(context, "    - Compressed size: %zu B | %zu KiB | %zu MiB",
+            size_bytes, size_kilobytes, size_megabytes);
     }
 
     return k_ETMCStatus_OK;

@@ -29,10 +29,19 @@ typedef enum ETMC_Type {
     k_ETMCType_UInt32,
 } ETMC_Type;
 
+typedef enum ETMC_Hint {
+    k_ETMCHint_None = 0,
+    /** Allow the compressor to automatically switch to a smaller index type
+       than specified by a call to TMC_SetIndexArrayType; e.g. UInt32 -> UInt16
+       if the element count was less than 65536. */
+    k_ETMCHint_AllowSmallerIndices = 1 << 0,
+} ETMC_Hint;
+
 typedef struct TMC_Context_t *TMC_Context;
 typedef struct TMC_Buffer_t *TMC_Buffer;
 typedef struct TMC_Attribute_t *TMC_Attribute;
 typedef uint32_t TMC_Size;
+typedef uint32_t TMC_Bitfield;
 typedef int TMC_Bool;
 typedef void (*TMC_Debug_Message_Proc)(void *user, char const *message, TMC_Bool is_error);
 
@@ -40,7 +49,7 @@ HEDLEY_BEGIN_C_DECLS
 
 TMC_API
 ETMC_Status
-TMC_CreateContext(TMC_Context *contextPtr);
+TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints);
 
 TMC_API
 ETMC_Status

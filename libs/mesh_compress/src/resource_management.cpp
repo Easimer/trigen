@@ -13,7 +13,7 @@ HEDLEY_BEGIN_C_DECLS
 
 TMC_API
 ETMC_Status
-TMC_CreateContext(TMC_Context* contextPtr) {
+TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints) {
     if (contextPtr == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -23,6 +23,8 @@ TMC_CreateContext(TMC_Context* contextPtr) {
     if (*contextPtr == nullptr) {
         return k_ETMCStatus_OutOfMemory;
     }
+
+    (*contextPtr)->hints = hints;
 
     return k_ETMCStatus_OK;
 }
