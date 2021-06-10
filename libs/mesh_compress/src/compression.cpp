@@ -164,7 +164,25 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     context->indexBufferSize = indexBuffer.size() * sizeof(IndexType);
     context->indexBufferCount = indexBuffer.size();
 
-    TMC_Print(context, "Compressed mesh, input vertex count: %zu, output vertex count: %zd\n", vertexCount, num_output_vertices);
+    TMC_Print(context, "Compressed mesh");
+    TMC_Print(context, "- Input vertex count: %zu", vertexCount);
+    TMC_Print(context, "- Output vertex count: %zd", num_output_vertices);
+    TMC_Print(context, "  - Index buffer size: %zd B", TMC_Size(context->indexBufferSize));
+    TMC_Print(context, "- Attributes:");
+
+    for (TMC_Index i = 0; i < context->attributes.size(); i++) {
+        auto &attr = context->attributes[i];
+        TMC_Print(context, "  - [#%zd]", i);
+        switch (attr->type) {
+        case k_ETMCType_Float32:
+            TMC_Print(context, "    - Type: %uXfloat32", attr->numComponents);
+            break;
+        }
+        auto size_bytes = attr->compressedSize;
+        auto size_kilobytes = TMC_Size(size_bytes / 1024);
+        auto size_megabytes = TMC_Size(size_kilobytes / 1024);
+        TMC_Print(context, "    - Compressed size: %zu B | %zu KiB | %zu MiB", size_bytes, size_kilobytes, size_megabytes);
+    }
 
     return k_ETMCStatus_OK;
 }

@@ -78,6 +78,10 @@ TMC_API
 ETMC_Status
 TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Size *element_count);
 
+TMC_API
+ETMC_Status
+TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count);
+
 HEDLEY_END_C_DECLS
 
 #endif /* TRIGEN_MESH_COMPRESS_H */

@@ -155,4 +155,16 @@ TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Si
     return k_ETMCStatus_OK;
 }
 
+TMC_API
+ETMC_Status
+TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count) {
+    if (context == nullptr || element_count == nullptr) {
+        return k_ETMCStatus_InvalidArguments;
+    }
+
+    *element_count = context->indexBufferCount;
+
+    return k_ETMCStatus_OK;
+}
+
 HEDLEY_END_C_DECLS
