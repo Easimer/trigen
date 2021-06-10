@@ -654,7 +654,7 @@ public:
             TMC_CreateAttribute(ctx, attr_bitangent, buf_bitangent, 3, k_ETMCType_Float32, 3 * sizeof(float), 0);
         }
 
-        TMC_Compress(ctx, model->vertex_count);
+        TMC_Compress(ctx, model->element_count);
 
         *tmc_context_out = ctx;
     }

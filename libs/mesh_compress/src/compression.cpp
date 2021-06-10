@@ -6,6 +6,7 @@
 #include "stdafx.h"
 
 #include "arena.h"
+#include "dbgmsg.h"
 #include <glm/glm.hpp>
 #include <optional>
 
@@ -162,6 +163,8 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     context->indexBuffer = std::move(indexBufferBuf);
     context->indexBufferSize = indexBuffer.size() * sizeof(IndexType);
     context->indexBufferCount = indexBuffer.size();
+
+    TMC_Print(context, "Compressed mesh, input vertex count: %zu, output vertex count: %zd\n", vertexCount, num_output_vertices);
 
     return k_ETMCStatus_OK;
 }
