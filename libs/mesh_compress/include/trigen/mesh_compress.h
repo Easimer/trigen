@@ -15,6 +15,54 @@
     #define TMC_API HEDLEY_IMPORT
 #endif /* defined(TMC_COMPILATION) */
 
+#define TMC_VERSION_MAJOR    (1)
+#define TMC_VERSION_MINOR    (0)
+#define TMC_VERSION_REVISION (0)
+#define TMC_VERSION                                                            \
+    HEDLEY_VERSION_ENCODE(                                                     \
+        TMC_VERSION_MAJOR, TMC_VERSION_MINOR, TMC_VERSION_REVISION)
+
+#if !defined(TMC_TARGET_VERSION)
+#define TMC_TARGET_VERSION TMC_VERSION
+#endif
+
+#if TMC_TARGET_VERSION < HEDLEY_VERSION_ENCODE(1, 0, 0)
+#define TMC_AVAILABLE_SINCE_1_0 HEDLEY_UNAVAILABLE(1.0)
+#define TMC_DEPRECATED_SINCE_1_0
+#else
+#define TMC_AVAILABLE_SINCE_1_0
+#define TMC_DEPRECATED_SINCE_1_0 HEDLEY_DEPRECATED(1.0)
+#endif /* TMC_TARGET_VERSION < 1.0.0 */
+
+#if defined(HEDLEY_MSVC_VERSION)
+#define TMC_IN _In_ _Pre_notnull_
+#define TMC_OUT _Out_
+#define TMC_INOUT _Inout_
+
+#define TMC_HANDLE _Inout_
+#define TMC_HANDLE_ACQUIRE _Outptr_
+#define TMC_HANDLE_RELEASE _Post_invalid_
+#define TMC_FREED _Post_invalid_
+#elif defined(__clang__)
+#define TMC_IN
+#define TMC_OUT
+#define TMC_INOUT
+
+#define TMC_HANDLE __attribute__((use_handle("tmc")))
+#define TMC_HANDLE_ACQUIRE __attribute__((acquire_handle("tmc")))
+#define TMC_HANDLE_RELEASE __attribute__((release_handle("tmc")))
+#define TMC_FREED
+#else
+#define TMC_IN
+#define TMC_OUT
+#define TMC_INOUT
+
+#define TMC_HANDLE
+#define TMC_HANDLE_ACQUIRE
+#define TMC_HANDLE_RELEASE
+#define TMC_FREED
+#endif
+
 typedef enum ETMC_Status {
     /** No error */
     k_ETMCStatus_OK = 0,
@@ -25,8 +73,8 @@ typedef enum ETMC_Status {
     /** The compressor has run out of memory */
     k_ETMCStatus_OutOfMemory,
     /**
-     * The results can't be returned to the caller because they are not ready
-     * yet.
+     * The results can't be returned to the caller because they are not yet
+     * ready.
      */
     k_ETMCStatus_NotReady,
 } ETMC_Status;
@@ -47,7 +95,7 @@ typedef enum ETMC_Hint {
        than specified by a call to TMC_SetIndexArrayType; e.g. UInt32 -> UInt16
        if the vertex count was less than 65536. */
     k_ETMCHint_AllowSmallerIndices = 1 << 0,
-} ETMC_Hint;
+} HEDLEY_FLAGS ETMC_Hint;
 
 typedef enum ETMC_Param {
     /** Controls the size of the window used by the compressor. Default is 0,
@@ -108,6 +156,7 @@ HEDLEY_BEGIN_C_DECLS
  * \note If a bit with an unspecified meaning is set to 1 in the hints bitfield
  * then the behavior of the function is undefined.
  */
+HEDLEY_NON_NULL(1)
 TMC_API
 ETMC_Status
 TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints);
