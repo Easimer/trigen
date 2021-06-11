@@ -3,8 +3,6 @@
 // Purpose: arena container
 //
 
-#pragma once
-
 #include "stdafx.h"
 
 #include "arena.h"

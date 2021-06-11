@@ -17,7 +17,7 @@
 template<typename ArrayType>
 static ArrayType sample_attribute(TMC_Attribute attribute, TMC_Size element) {
     ZoneScoped;
-    auto ptr = attribute->buffer->data.get();
+    auto *ptr = attribute->buffer->data.get();
     auto byteOffset = attribute->stride * element + attribute->offset;
     
     if (byteOffset >= attribute->buffer->size) {
@@ -30,7 +30,7 @@ static ArrayType sample_attribute(TMC_Attribute attribute, TMC_Size element) {
 template<typename ArrayType>
 static ArrayType sample_attribute_arena(Arena const &arena, TMC_Attribute attribute, TMC_Size element) {
     ZoneScoped;
-    auto ptr = static_cast<uint8_t const *>(arena.data());
+    auto *ptr = static_cast<uint8_t const *>(arena.data());
     auto byteOffset = attribute->stride * element + attribute->offset;
     
     if (byteOffset >= arena.size()) {
@@ -53,7 +53,7 @@ static float distance(TMC_Context context, TMC_Index origIndex, std::vector<Aren
 
     for (TMC_Index i = 0; i < context->attributes.size(); i++) {
         auto *attr = context->attributes[i].get();
-        auto &arena = arenas[i];
+        auto const &arena = arenas[i];
 
         switch (attr->type) {
         case k_ETMCType_Float32:
@@ -80,6 +80,8 @@ static float distance(TMC_Context context, TMC_Index origIndex, std::vector<Aren
             break;
         }
     }
+
+    return total_error;
 }
 
 template<typename ArrayType>
@@ -131,11 +133,11 @@ static void convert_index_buffer(TMC_Context context) {
     auto elementCount = context->indexBufferCount;
 
     auto oldIndexBuffer = std::move(context->indexBuffer);
-    auto oldIndexBufferPtr = (From const *)oldIndexBuffer.get();
+    auto const *oldIndexBufferPtr = (From const *)oldIndexBuffer.get();
 
     auto newIndexBuffer
         = std::make_unique<uint8_t[]>(elementCount * sizeof(To));
-    auto newIndexBufferPtr = (To *)newIndexBuffer.get();
+    auto *newIndexBufferPtr = (To *)newIndexBuffer.get();
 
     for (TMC_Index idx = 0; idx < elementCount; idx++) {
         assert(oldIndexBufferPtr[idx] <= std::numeric_limits<To>::max());
