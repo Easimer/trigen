@@ -33,7 +33,7 @@ typedef enum ETMC_Hint {
     k_ETMCHint_None = 0,
     /** Allow the compressor to automatically switch to a smaller index type
        than specified by a call to TMC_SetIndexArrayType; e.g. UInt32 -> UInt16
-       if the element count was less than 65536. */
+       if the vertex count was less than 65536. */
     k_ETMCHint_AllowSmallerIndices = 1 << 0,
 } ETMC_Hint;
 
