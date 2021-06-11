@@ -25,7 +25,7 @@ pipeline {
         string(name: 'SOFTBODY_ENABLE_TRACY', defaultValue: "ON", description: 'Should softbody be built with instrumentation')
         string(name: 'SOFTBODY_CLANG_TIDY', defaultValue: "OFF", description: 'Should we run clang-tidy')
         string(name: 'CMAKE_EXPORT_COMPILE_COMMANDS', defaultValue: "ON", description: 'Should compile commands be exported')
-        string(name: 'MESH_COMPRESS_BUILD_EXAMPLES, defualtValue: "ON", description: 'Build example code for the mesh_compress library')
+        string(name: 'MESH_COMPRESS_BUILD_EXAMPLES', defualtValue: "ON", description: 'Build example code for the mesh_compress library')
 
         string(name: 'CMAKE_C_COMPILER', defaultValue: '/usr/bin/clang', description: 'Path to the C compiler')
         string(name: 'CMAKE_CXX_COMPILER', defaultValue: '/usr/bin/clang++', description: 'Path to the C++ compiler')
