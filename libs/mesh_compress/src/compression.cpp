@@ -7,6 +7,7 @@
 
 #include "arena.h"
 #include "dbgmsg.h"
+#include <cstdlib>
 #include <cstring>
 #include <glm/glm.hpp>
 #include <limits>
