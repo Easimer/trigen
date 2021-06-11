@@ -26,7 +26,7 @@ target_link_libraries(mesh_compress
     PUBLIC
         CONAN_PKG::hedley
 	PRIVATE
-		CONAN_PKG::glm
+		CONAN_PKG::glm tracy_client
 )
 
 target_compile_definitions(mesh_compress
@@ -35,4 +35,12 @@ target_compile_definitions(mesh_compress
 
 set_target_properties(mesh_compress PROPERTIES FOLDER "Libs")
 tri_builddir(mesh_compress)
+
+set(MESH_COMPRESS_TRACY OFF CACHE BOOL "Build mesh_compress with Tracy instrumentation enabled")
+if(${MESH_COMPRESS_TRACY})
+target_compile_definitions(mesh_compress
+    PRIVATE
+        TRACY_ENABLE=1
+)
+endif()
 

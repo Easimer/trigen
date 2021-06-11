@@ -12,8 +12,11 @@
 #include <limits>
 #include <optional>
 
+#include <Tracy.hpp>
+
 template<typename ArrayType>
 static ArrayType sample_attribute(TMC_Attribute attribute, TMC_Size element) {
+    ZoneScoped;
     auto ptr = attribute->buffer->data.get();
     auto byteOffset = attribute->stride * element + attribute->offset;
     
@@ -26,6 +29,7 @@ static ArrayType sample_attribute(TMC_Attribute attribute, TMC_Size element) {
 
 template<typename ArrayType>
 static ArrayType sample_attribute_arena(Arena const &arena, TMC_Attribute attribute, TMC_Size element) {
+    ZoneScoped;
     auto ptr = static_cast<uint8_t const *>(arena.data());
     auto byteOffset = attribute->stride * element + attribute->offset;
     
@@ -38,11 +42,13 @@ static ArrayType sample_attribute_arena(Arena const &arena, TMC_Attribute attrib
 
 template<typename ArrayType>
 static float calculate_error_between_vertices(TMC_Attribute attr, TMC_Index origIndex, Arena const& arena, TMC_Index arenaIndex) {
+    ZoneScoped;
     return glm::distance(sample_attribute<ArrayType>(attr, origIndex),
         sample_attribute_arena<ArrayType>(arena, attr, arenaIndex));
 }
 
 static float distance(TMC_Context context, TMC_Index origIndex, std::vector<Arena> const& arenas, TMC_Index arenaIndex) {
+    ZoneScoped;
     float total_error = 0;
 
     for (TMC_Index i = 0; i < context->attributes.size(); i++) {
@@ -78,10 +84,12 @@ static float distance(TMC_Context context, TMC_Index origIndex, std::vector<Aren
 
 template<typename ArrayType>
 void copy(Arena &arena, TMC_Attribute attr, TMC_Index idx) {
+    ZoneScoped;
     *arena.allocate<ArrayType>() = sample_attribute<ArrayType>(attr, idx);
 }
 
 static void push(std::vector<Arena> &arenas, TMC_Context ctx, TMC_Index idx) {
+    ZoneScoped;
     assert(ctx);
     assert(arenas.size() == ctx->attributes.size());
     assert(idx >= 0);
@@ -119,6 +127,7 @@ static void push(std::vector<Arena> &arenas, TMC_Context ctx, TMC_Index idx) {
 
 template<typename From, typename To>
 static void convert_index_buffer(TMC_Context context) {
+    ZoneScoped;
     auto elementCount = context->indexBufferCount;
 
     auto oldIndexBuffer = std::move(context->indexBuffer);
@@ -138,6 +147,7 @@ static void convert_index_buffer(TMC_Context context) {
 }
 
 static void try_fit_indices_into_smaller_type(TMC_Context context) {
+    ZoneScoped;
     assert(context);
     assert(context->hints & k_ETMCHint_AllowSmallerIndices);
 
@@ -156,6 +166,7 @@ static void try_fit_indices_into_smaller_type(TMC_Context context) {
 
 template<typename IndexType>
 static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
+    ZoneScoped;
     assert(context);
     assert(vertexCount >= 0);
     float const epsilon = 0.01f;
@@ -251,6 +262,7 @@ HEDLEY_BEGIN_C_DECLS
 TMC_API
 ETMC_Status
 TMC_Compress(TMC_Context context, TMC_Size vertex_count) {
+    ZoneScoped;
     if (context == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
