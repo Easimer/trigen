@@ -83,9 +83,17 @@ TMC_CreateBuffer(TMC_Context context, TMC_Buffer *buffer, const void *data, TMC_
     }
 
     auto bufData = std::make_unique<uint8_t[]>(size);
+    if (bufData == nullptr) {
+        return k_ETMCStatus_OutOfMemory;
+    }
+
     memcpy(bufData.get(), data, size);
     auto buf = TMC_Buffer_t { std::move(bufData), size };
     auto bufPtr = std::make_unique<TMC_Buffer_t>(std::move(buf));
+    if (bufPtr == nullptr) {
+        return k_ETMCStatus_OutOfMemory;
+    }
+
     *buffer = bufPtr.get();
     context->buffers.emplace_back(std::move(bufPtr));
 
@@ -115,6 +123,10 @@ TMC_CreateAttribute(TMC_Context context, TMC_Attribute *attribute, TMC_Buffer bu
     }
 
     auto attr = std::make_unique<TMC_Attribute_t>(TMC_Attribute_t { type, numComponents, stride, offset, buffer });
+    if (attr == nullptr) {
+        return k_ETMCStatus_OutOfMemory;
+    }
+
     *attribute = attr.get();
     context->attributes.emplace_back(std::move(attr));
 
@@ -126,6 +138,10 @@ ETMC_Status
 TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **data, TMC_Size *size) {
     if (context == nullptr || attribute == nullptr || data == nullptr || size == nullptr) {
         return k_ETMCStatus_InvalidArguments;
+    }
+
+    if (context->indexBuffer == nullptr) {
+        return k_ETMCStatus_NotReady;
     }
 
     *data = attribute->compressedBuf.data();
@@ -163,6 +179,10 @@ ETMC_Status
 TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count) {
     if (context == nullptr || element_count == nullptr) {
         return k_ETMCStatus_InvalidArguments;
+    }
+
+    if (context->indexBuffer == nullptr) {
+        return k_ETMCStatus_NotReady;
     }
 
     *element_count = context->indexBufferCount;
