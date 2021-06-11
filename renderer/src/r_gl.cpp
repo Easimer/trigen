@@ -79,11 +79,14 @@ static void GLMessageCallback
 #endif
 }
 
-static void TMCMessageCallback(void* user, char const* msg, TMC_Bool is_error) {
-    if (is_error) {
+static void TMCMessageCallback(void* user, char const* msg, ETMC_Message_Level level) {
+    switch(level) {
+        case k_ETMCMsgLevel_Error:
         printf("[ gfx ] mesh compressor ERROR: %s\n", msg);
-    } else {
+        break;
+        case k_ETMCMsgLevel_Info:
         printf("[ gfx ] mesh compressor: %s\n", msg);
+        break;
     }
 }
 

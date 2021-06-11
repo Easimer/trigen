@@ -44,6 +44,11 @@ typedef enum ETMC_Param {
     k_ETMCParam_WindowSize = 0x1000,
 } ETMC_Param;
 
+typedef enum ETMC_Message_Level {
+    k_ETMCMsgLevel_Info = 0,
+    k_ETMCMsgLevel_Error,
+} ETMC_Message_Level;
+
 typedef struct TMC_Context_t *TMC_Context;
 typedef struct TMC_Buffer_t *TMC_Buffer;
 typedef struct TMC_Attribute_t *TMC_Attribute;
@@ -52,6 +57,7 @@ typedef int32_t TMC_Int;
 typedef uint32_t TMC_Bitfield;
 typedef int TMC_Bool;
 typedef void (*TMC_Debug_Message_Proc)(void *user, char const *message, TMC_Bool is_error);
+typedef void (*TMC_Debug_Message_Proc)(void *user, char const *message, ETMC_Message_Level level);
 
 HEDLEY_BEGIN_C_DECLS
 

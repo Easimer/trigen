@@ -39,7 +39,7 @@ static void TMC_Printf(TMC_Context context, char const* fmt, std::va_list va, TM
     buf = new char[res + 1];
     res = vsnprintf(buf, res + 1, fmt, va);
 
-    context->dbgMsg(context->dbgMsgUser, buf, is_error);
+    context->dbgMsg(context->dbgMsgUser, buf, is_error ? k_ETMCMsgLevel_Error : k_ETMCMsgLevel_Info);
 
     delete[] buf;
 }
