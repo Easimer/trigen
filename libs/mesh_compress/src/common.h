@@ -30,6 +30,7 @@ struct TMC_Attribute_t {
 
 struct TMC_Context_t {
     TMC_Bitfield hints;
+    TMC_Size windowSize = 0;
 
     std::vector<std::unique_ptr<TMC_Buffer_t>> buffers;
     std::vector<std::unique_ptr<TMC_Attribute_t>> attributes;

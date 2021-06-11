@@ -165,6 +165,7 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
 
     std::vector<IndexType> indexBuffer;
     TMC_Index num_output_vertices = 0;
+    TMC_Index last_index = 0;
     std::vector<Arena> arenas(context->attributes.size());
 
     indexBuffer.reserve(vertexCount);
@@ -172,7 +173,7 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     for (TMC_Index i = 0; i < vertexCount; i++) {
         std::optional<TMC_Index> idx;
 
-        for (TMC_Index j = num_output_vertices - 1; j >= 0; j--) {
+        for (TMC_Index j = num_output_vertices - 1; j >= last_index; j--) {
             if (distance(context, i, arenas, j) < epsilon) {
                 idx = j;
                 break;
@@ -183,6 +184,13 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
             idx = num_output_vertices;
             push(arenas, context, i);
             num_output_vertices++;
+
+            if (context->windowSize != 0) {
+                last_index = num_output_vertices - 1 - context->windowSize;
+                if (last_index < 0) {
+                    last_index = 0;
+                }
+            }
         }
 
         assert(idx.has_value());

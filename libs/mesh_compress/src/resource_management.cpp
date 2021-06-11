@@ -170,4 +170,32 @@ TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count) {
     return k_ETMCStatus_OK;
 }
 
+TMC_API
+ETMC_Status
+TMC_SetParamInteger(TMC_Context context, ETMC_Param param, TMC_Int value) {
+    if (context == nullptr) {
+        return k_ETMCStatus_InvalidArguments;
+    }
+
+    switch (param) {
+    case k_ETMCParam_WindowSize:
+        if (value < 0) {
+            TMC_PrintError(context,
+                "TMC_SetParamInteger: k_ETMCParam_WindowSize cannot be less "
+                "than zero!\n");
+            return k_ETMCStatus_InvalidArguments;
+        }
+
+        context->windowSize = TMC_Size(value);
+        break;
+    default:
+        TMC_PrintError(context,
+            "TMC_SetParamInteger called with invalid parameter kind '%x'\n",
+            param);
+        return k_ETMCStatus_InvalidArguments;
+    }
+
+    return k_ETMCStatus_OK;
+}
+
 HEDLEY_END_C_DECLS

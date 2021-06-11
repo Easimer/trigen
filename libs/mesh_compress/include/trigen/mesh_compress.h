@@ -37,10 +37,18 @@ typedef enum ETMC_Hint {
     k_ETMCHint_AllowSmallerIndices = 1 << 0,
 } ETMC_Hint;
 
+typedef enum ETMC_Param {
+    /** Controls the size of the window used by the compressor. Default is 0,
+       which means that the window is as big as possible.
+       Can't be a negative value. */
+    k_ETMCParam_WindowSize = 0x1000,
+} ETMC_Param;
+
 typedef struct TMC_Context_t *TMC_Context;
 typedef struct TMC_Buffer_t *TMC_Buffer;
 typedef struct TMC_Attribute_t *TMC_Attribute;
 typedef uint32_t TMC_Size;
+typedef int32_t TMC_Int;
 typedef uint32_t TMC_Bitfield;
 typedef int TMC_Bool;
 typedef void (*TMC_Debug_Message_Proc)(void *user, char const *message, TMC_Bool is_error);
@@ -54,6 +62,10 @@ TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints);
 TMC_API
 ETMC_Status
 TMC_DestroyContext(TMC_Context context);
+
+TMC_API
+ETMC_Status
+TMC_SetParamInteger(TMC_Context context, ETMC_Param param, TMC_Int value);
 
 TMC_API
 ETMC_Status

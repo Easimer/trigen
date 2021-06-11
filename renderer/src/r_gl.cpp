@@ -630,6 +630,7 @@ public:
         assert(ctx);
 
         TMC_SetDebugMessageCallback(ctx, TMCMessageCallback, nullptr);
+        TMC_SetParamInteger(ctx, k_ETMCParam_WindowSize, 16);
 
         TMC_CreateBuffer(ctx, &buf_position, position.data(), num_vertices * sizeof(position[0]));
         TMC_CreateBuffer(ctx, &buf_uv, model->uv, num_vertices * sizeof(model->uv[0]));
