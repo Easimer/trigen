@@ -8,9 +8,13 @@
 #include <cstdio>
 #include <cstdarg>
 
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_SetDebugMessageCallback(TMC_Context context, TMC_Debug_Message_Proc proc, void* user) {
+TMC_RETURN_CODE
+TMC_SetDebugMessageCallback(
+    TMC_HANDLE TMC_Context context,
+    TMC_IN_OPT TMC_Debug_Message_Proc proc,
+    TMC_IN_OPT void* user) {
     if (context == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }

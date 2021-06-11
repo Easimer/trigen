@@ -12,9 +12,12 @@
 
 HEDLEY_BEGIN_C_DECLS
 
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints) {
+TMC_RETURN_CODE
+TMC_CreateContext(
+    TMC_HANDLE_ACQUIRE TMC_Context *contextPtr,
+    TMC_Bitfield hints) {
     if (contextPtr == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -30,9 +33,11 @@ TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints) {
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_DestroyContext(TMC_Context context) {
+TMC_RETURN_CODE
+TMC_DestroyContext(
+    TMC_HANDLE_RELEASE TMC_Context context) {
     if (context == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -42,9 +47,12 @@ TMC_DestroyContext(TMC_Context context) {
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_SetIndexArrayType(TMC_Context context, ETMC_Type type) {
+TMC_RETURN_CODE
+TMC_SetIndexArrayType(
+    TMC_HANDLE TMC_Context context,
+    ETMC_Type type) {
     if (context == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -63,9 +71,12 @@ TMC_SetIndexArrayType(TMC_Context context, ETMC_Type type) {
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1, 2)
 TMC_API
-ETMC_Status
-TMC_GetIndexArrayType(TMC_Context context, ETMC_Type *type) {
+TMC_RETURN_CODE
+TMC_GetIndexArrayType(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT ETMC_Type *type) {
     if (context == nullptr || type == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -75,9 +86,14 @@ TMC_GetIndexArrayType(TMC_Context context, ETMC_Type *type) {
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_CreateBuffer(TMC_Context context, TMC_Buffer *buffer, const void *data, TMC_Size size) {
+TMC_RETURN_CODE
+TMC_CreateBuffer(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE_ACQUIRE TMC_Buffer *buffer,
+    TMC_IN const void *data,
+    TMC_Size size) {
     if (context == nullptr || buffer == nullptr || data == nullptr || size == 0) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -100,9 +116,17 @@ TMC_CreateBuffer(TMC_Context context, TMC_Buffer *buffer, const void *data, TMC_
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_CreateAttribute(TMC_Context context, TMC_Attribute *attribute, TMC_Buffer buffer, unsigned numComponents, ETMC_Type type, TMC_Size stride, TMC_Size offset) {
+TMC_RETURN_CODE
+TMC_CreateAttribute(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE_ACQUIRE TMC_Attribute *attribute,
+    TMC_HANDLE TMC_Buffer buffer,
+    unsigned numComponents,
+    ETMC_Type type,
+    TMC_Size stride,
+    TMC_Size offset) {
     if (context == nullptr || attribute == nullptr || buffer == nullptr || numComponents <= 0) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -133,9 +157,14 @@ TMC_CreateAttribute(TMC_Context context, TMC_Attribute *attribute, TMC_Buffer bu
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1, 2, 3, 4)
 TMC_API
-ETMC_Status
-TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **data, TMC_Size *size) {
+TMC_RETURN_CODE
+TMC_GetDirectArray(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE TMC_Attribute attribute,
+    TMC_OUT const void **data,
+    TMC_OUT TMC_Size *size) {
     if (context == nullptr || attribute == nullptr || data == nullptr || size == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -150,9 +179,14 @@ TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **da
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Size *element_count) {
+TMC_RETURN_CODE
+TMC_GetIndexArray(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT const void **data,
+    TMC_OUT TMC_Size *size,
+    TMC_OUT TMC_Size *element_count) {
     if (context == nullptr || data == nullptr || (size == nullptr && element_count == nullptr)) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -175,8 +209,10 @@ TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Si
 }
 
 TMC_API
-ETMC_Status
-TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count) {
+TMC_RETURN_CODE
+TMC_GetIndexArrayElementCount(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT TMC_Size *element_count) {
     if (context == nullptr || element_count == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }
@@ -190,9 +226,13 @@ TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count) {
     return k_ETMCStatus_OK;
 }
 
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_SetParamInteger(TMC_Context context, ETMC_Param param, TMC_Int value) {
+TMC_RETURN_CODE
+TMC_SetParamInteger(
+    TMC_HANDLE TMC_Context context,
+    ETMC_Param param,
+    TMC_Int value) {
     if (context == nullptr) {
         return k_ETMCStatus_InvalidArguments;
     }

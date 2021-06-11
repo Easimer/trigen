@@ -22,45 +22,89 @@
     HEDLEY_VERSION_ENCODE(                                                     \
         TMC_VERSION_MAJOR, TMC_VERSION_MINOR, TMC_VERSION_REVISION)
 
+#define TMC_VERSION_1_0 HEDLEY_VERSION_ENCODE(1, 0, 0)
+
 #if !defined(TMC_TARGET_VERSION)
 #define TMC_TARGET_VERSION TMC_VERSION
 #endif
 
-#if TMC_TARGET_VERSION < HEDLEY_VERSION_ENCODE(1, 0, 0)
+#if TMC_TARGET_VERSION < TMC_VERSION_1_0
 #define TMC_AVAILABLE_SINCE_1_0 HEDLEY_UNAVAILABLE(1.0)
-#define TMC_DEPRECATED_SINCE_1_0
 #else
 #define TMC_AVAILABLE_SINCE_1_0
-#define TMC_DEPRECATED_SINCE_1_0 HEDLEY_DEPRECATED(1.0)
 #endif /* TMC_TARGET_VERSION < 1.0.0 */
+
+/*!
+  \def TMC_IN
+  The function will only read the pointer. The pointer must be non-NULL!
+*/
+
+/*!
+  \def TMC_IN_OPT
+  The function will only read the pointer. The pointer may be non-NULL.
+*/
+
+/*!
+  \def TMC_OUT
+  The function will only write the pointer. The pointer must be non-NULL!
+*/
+
+/*!
+  \def TMC_INOUT
+  The function will read and write the pointer. The pointer must be non-NULL!
+*/
+
+/*!
+  \def TMC_HANDLE
+  The parameter must be a valid handle and can't be NULL.
+*/
+
+/*!
+  \def TMC_HANDLE_ACQUIRE
+  If the function succeeds, the value at the pointer will be a valid handle.
+*/
+
+/*!
+  \def TMC_HANDLE_RELEASE
+  The handle will be released.
+*/
+
+/*!
+  \def TMC_RETURN_CODE
+  Status code. See \ref ETMC_Status.
+*/
 
 #if defined(HEDLEY_MSVC_VERSION)
 #define TMC_IN _In_ _Pre_notnull_
-#define TMC_OUT _Out_
-#define TMC_INOUT _Inout_
+#define TMC_IN_OPT _In_
+#define TMC_OUT _Out_ _Pre_notnull_
+#define TMC_INOUT _Inout_ _Pre_notnull_
 
-#define TMC_HANDLE _Inout_
-#define TMC_HANDLE_ACQUIRE _Outptr_
-#define TMC_HANDLE_RELEASE _Post_invalid_
-#define TMC_FREED _Post_invalid_
+#define TMC_HANDLE _Inout_ _Pre_notnull_
+#define TMC_HANDLE_ACQUIRE _Outptr_ _Pre_notnull_
+#define TMC_HANDLE_RELEASE _Post_invalid_ _Pre_notnull_
+
+#define TMC_RETURN_CODE _Success_(return == k_ETMCStatus_OK) ETMC_Status
 #elif defined(__clang__)
 #define TMC_IN
+#define TMC_IN_OPT
 #define TMC_OUT
 #define TMC_INOUT
 
 #define TMC_HANDLE __attribute__((use_handle("tmc")))
 #define TMC_HANDLE_ACQUIRE __attribute__((acquire_handle("tmc")))
 #define TMC_HANDLE_RELEASE __attribute__((release_handle("tmc")))
-#define TMC_FREED
+#define TMC_RETURN_CODE ETMC_Status
 #else
 #define TMC_IN
+#define TMC_IN_OPT
 #define TMC_OUT
 #define TMC_INOUT
 
 #define TMC_HANDLE
 #define TMC_HANDLE_ACQUIRE
 #define TMC_HANDLE_RELEASE
-#define TMC_FREED
+#define TMC_RETURN_CODE ETMC_Status
 #endif
 
 typedef enum ETMC_Status {
@@ -158,8 +202,11 @@ HEDLEY_BEGIN_C_DECLS
  */
 HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_CreateContext(
+    TMC_HANDLE_ACQUIRE TMC_Context *contextPtr,
+    TMC_Bitfield hints);
 
 /**
  * \brief Destroy a context
@@ -173,9 +220,12 @@ TMC_CreateContext(TMC_Context *contextPtr, TMC_Bitfield hints);
  * allocated by a call to TMC_CreateContext() then the behavior of this
  * function is undefined.
  */
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_DestroyContext(TMC_Context context);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_DestroyContext(
+    TMC_HANDLE_RELEASE TMC_Context context);
 
 /**
  * \brief Sets a parameter of integer type
@@ -188,9 +238,14 @@ TMC_DestroyContext(TMC_Context context);
  * \returns ::k_ETMCStatus_InvalidArguments if \p context is invalid, param can't
  * be an integer value or value is out-of-range for the specified parameter.
  */
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_SetParamInteger(TMC_Context context, ETMC_Param param, TMC_Int value);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_SetParamInteger(
+    TMC_HANDLE TMC_Context context,
+    ETMC_Param param,
+    TMC_Int value);
 
 /**
  * \brief Sets the debug message callback
@@ -206,9 +261,14 @@ TMC_SetParamInteger(TMC_Context context, ETMC_Param param, TMC_Int value);
  * \note If \p proc is nullptr then the debug message callback is reset for the
  * context.
  */
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status TMC_SetDebugMessageCallback(
-    TMC_Context context, TMC_Debug_Message_Proc proc, void *user);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_SetDebugMessageCallback(
+    TMC_HANDLE TMC_Context context,
+    TMC_IN_OPT TMC_Debug_Message_Proc proc,
+    TMC_IN_OPT void *user);
 
 /**
  * \brief Sets the type of the element index.
@@ -227,9 +287,13 @@ ETMC_Status TMC_SetDebugMessageCallback(
  * explicitly or check it using TMC_GetIndexArrayType() before using the
  * contents of the index buffer.
  */
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_SetIndexArrayType(TMC_Context context, ETMC_Type type);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_SetIndexArrayType(
+    TMC_HANDLE TMC_Context context,
+    ETMC_Type type);
 
 /**
  * \brief Gets the type of the element index.
@@ -242,9 +306,13 @@ TMC_SetIndexArrayType(TMC_Context context, ETMC_Type type);
  * \returns ::k_EMTCStatus_InvalidArguments if \p context is invalid or \p type
  * is nullptr.
  */
+HEDLEY_NON_NULL(1, 2)
 TMC_API
-ETMC_Status
-TMC_GetIndexArrayType(TMC_Context context, ETMC_Type *type);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_GetIndexArrayType(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT ETMC_Type *type);
 
 /**
  * \brief Creates a new buffer
@@ -266,9 +334,15 @@ TMC_GetIndexArrayType(TMC_Context context, ETMC_Type *type);
  * \note This is analogous to a call to glCreateBuffers() and glBufferData() in
  * OpenGL.
  */
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_CreateBuffer(TMC_Context context, TMC_Buffer *buffer, const void *data, TMC_Size size);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_CreateBuffer(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE_ACQUIRE TMC_Buffer *buffer,
+    TMC_IN const void *data,
+    TMC_Size size);
 
 /**
  * \brief Defines a new vertex attribute.
@@ -294,9 +368,18 @@ TMC_CreateBuffer(TMC_Context context, TMC_Buffer *buffer, const void *data, TMC_
  * out-of-range or invalid.
  * \returns ::k_ETMCStatus_OutOfMemory if the compressor has run out of memory.
  */
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_CreateAttribute(TMC_Context context, TMC_Attribute *attribute, TMC_Buffer buffer, unsigned numComponents, ETMC_Type type, TMC_Size stride, TMC_Size offset);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_CreateAttribute(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE_ACQUIRE TMC_Attribute *attribute,
+    TMC_HANDLE TMC_Buffer buffer,
+    unsigned numComponents,
+    ETMC_Type type,
+    TMC_Size stride,
+    TMC_Size offset);
 
 /**
  * \brief Compresses the mesh
@@ -316,9 +399,13 @@ TMC_CreateAttribute(TMC_Context context, TMC_Attribute *attribute, TMC_Buffer bu
  * - TMC_GetIndexArray() and
  * - TMC_GetIndexArrayElementCount().
  */
+HEDLEY_NON_NULL(1)
 TMC_API
-ETMC_Status
-TMC_Compress(TMC_Context context, TMC_Size vertex_count);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_Compress(
+    TMC_HANDLE TMC_Context context,
+    TMC_Size vertex_count);
 
 /**
  * \brief Returns the direct array of an attribute to the caller.
@@ -339,9 +426,15 @@ TMC_Compress(TMC_Context context, TMC_Size vertex_count);
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
+HEDLEY_NON_NULL(1, 2, 3, 4)
 TMC_API
-ETMC_Status
-TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **data, TMC_Size *size);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_GetDirectArray(
+    TMC_HANDLE TMC_Context context,
+    TMC_HANDLE TMC_Attribute attribute,
+    TMC_OUT const void **data,
+    TMC_OUT TMC_Size *size);
 
 /**
  * \brief Returns the index array of the mesh to the caller
@@ -364,9 +457,15 @@ TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **da
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
+HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
-ETMC_Status
-TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Size *element_count);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_GetIndexArray(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT const void **data,
+    TMC_OUT TMC_Size *size,
+    TMC_OUT TMC_Size *element_count);
 
 /**
  * \brief Returns the number of elements in the index array to the caller.
@@ -384,9 +483,13 @@ TMC_GetIndexArray(TMC_Context context, const void **data, TMC_Size *size, TMC_Si
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
+HEDLEY_NON_NULL(1, 2)
 TMC_API
-ETMC_Status
-TMC_GetIndexArrayElementCount(TMC_Context context, TMC_Size *element_count);
+TMC_AVAILABLE_SINCE_1_0
+TMC_RETURN_CODE
+TMC_GetIndexArrayElementCount(
+    TMC_HANDLE TMC_Context context,
+    TMC_OUT TMC_Size *element_count);
 
 HEDLEY_END_C_DECLS
 

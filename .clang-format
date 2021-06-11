@@ -2,3 +2,9 @@ BasedOnStyle: WebKit
 PointerAlignment: Right
 BreakBeforeBraces: Attach
 ColumnLimit: 80
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackParameters: false
+AlwaysBreakAfterDefinitionReturnType: All
+AlwaysBreakAfterReturnType: All
+AllowAllParametersOfDeclarationOnNextLine: false
+AlignAfterOpenBracket: AlwaysBreak
