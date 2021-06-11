@@ -25,6 +25,7 @@ pipeline {
         string(name: 'SOFTBODY_ENABLE_TRACY', defaultValue: "ON", description: 'Should softbody be built with instrumentation')
         string(name: 'SOFTBODY_CLANG_TIDY', defaultValue: "ON", description: 'Should we run clang-tidy')
         string(name: 'CMAKE_EXPORT_COMPILE_COMMANDS', defaultValue: "ON", description: 'Should compile commands be exported')
+        string(name: 'MESH_COMPRESS_BUILD_EXAMPLES, defualtValue: "ON", description: 'Build example code for the mesh_compress library')
 
         string(name: 'CMAKE_C_COMPILER', defaultValue: '/usr/bin/clang', description: 'Path to the C compiler')
         string(name: 'CMAKE_CXX_COMPILER', defaultValue: '/usr/bin/clang++', description: 'Path to the C++ compiler')
@@ -52,7 +53,7 @@ pipeline {
         }
         stage('Configure') {
             steps {
-                cmakeBuild buildType: 'Release', installation: 'InSearchPath', buildDir: 'build', cmakeArgs: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DFILAMENT_DIR=${params.FILAMENT_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY}"
+                cmakeBuild buildType: 'Release', installation: 'InSearchPath', buildDir: 'build', cmakeArgs: "-DFBX_SDK_DIR=${params.FBX_SDK_DIR} -DOPTIX_DIR=${params.OPTIX_DIR} -DFILAMENT_DIR=${params.FILAMENT_DIR} -DSOFTBODY_TESTBED_QT=${params.SOFTBODY_TESTBED_QT} -DSOFTBODY_ENABLE_CUDA=${params.SOFTBODY_ENABLE_CUDA} -DSOFTBODY_ENABLE_TRACY=${params.SOFTBODY_ENABLE_TRACY} -DCMAKE_EXPORT_COMPILE_COMMANDS=${params.CMAKE_EXPORT_COMPILE_COMMANDS} -DCMAKE_C_COMPILER=${params.CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${params.CMAKE_CXX_COMPILER} -DCMAKE_CUDA_COMPILER=${params.CMAKE_CUDA_COMPILER} -DSOFTBODY_CLANG_TIDY=${params.SOFTBODY_CLANG_TIDY} -DCLANG_TIDY=${params.CLANG_TIDY} -DMESH_COMPRESS_BUILD_EXAMPLES=${params.MESH_COMPRESS_BUILD_EXAMPLES}"
             }
         }
         stage('Build') {
