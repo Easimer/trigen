@@ -29,6 +29,17 @@ sample_attribute(TMC_HANDLE TMC_Attribute attribute, TMC_Size element) {
     return *(ArrayType *)&ptr[byteOffset];
 }
 
+HEDLEY_NON_NULL(1)
+static TMC_Size
+sizeof_attribute(TMC_HANDLE TMC_Attribute attribute) {
+    switch (attribute->type) {
+    case k_ETMCType_Float32:
+        return attribute->numComponents * sizeof(float);
+    }
+
+    std::abort();
+}
+
 template<typename ArrayType>
 static ArrayType
 sample_attribute_arena(
@@ -37,7 +48,7 @@ sample_attribute_arena(
     TMC_Size element) {
     ZoneScoped;
     auto *ptr = static_cast<uint8_t const *>(arena.data());
-    auto byteOffset = attribute->stride * element + attribute->offset;
+    auto byteOffset = element * sizeof_attribute(attribute);
     
     if (byteOffset >= arena.size()) {
         std::abort();
