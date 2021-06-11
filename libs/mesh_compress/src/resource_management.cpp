@@ -12,7 +12,6 @@
 
 HEDLEY_BEGIN_C_DECLS
 
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_RETURN_CODE
 TMC_CreateContext(
@@ -33,7 +32,6 @@ TMC_CreateContext(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_RETURN_CODE
 TMC_DestroyContext(
@@ -47,7 +45,6 @@ TMC_DestroyContext(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_RETURN_CODE
 TMC_SetIndexArrayType(
@@ -71,7 +68,6 @@ TMC_SetIndexArrayType(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1, 2)
 TMC_API
 TMC_RETURN_CODE
 TMC_GetIndexArrayType(
@@ -86,7 +82,6 @@ TMC_GetIndexArrayType(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_RETURN_CODE
 TMC_CreateBuffer(
@@ -116,7 +111,6 @@ TMC_CreateBuffer(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_RETURN_CODE
 TMC_CreateAttribute(
@@ -157,7 +151,6 @@ TMC_CreateAttribute(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1, 2, 3, 4)
 TMC_API
 TMC_RETURN_CODE
 TMC_GetDirectArray(
@@ -179,7 +172,6 @@ TMC_GetDirectArray(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_RETURN_CODE
 TMC_GetIndexArray(
@@ -226,7 +218,6 @@ TMC_GetIndexArrayElementCount(
     return k_ETMCStatus_OK;
 }
 
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_RETURN_CODE
 TMC_SetParamInteger(

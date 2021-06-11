@@ -203,7 +203,6 @@ HEDLEY_BEGIN_C_DECLS
  * \note If a bit with an unspecified meaning is set to 1 in the hints bitfield
  * then the behavior of the function is undefined.
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -223,7 +222,6 @@ TMC_CreateContext(
  * allocated by a call to TMC_CreateContext() then the behavior of this
  * function is undefined.
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -241,7 +239,6 @@ TMC_DestroyContext(
  * \returns ::k_ETMCStatus_InvalidArguments if \p context is invalid, param can't
  * be an integer value or value is out-of-range for the specified parameter.
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -264,7 +261,6 @@ TMC_SetParamInteger(
  * \note If \p proc is nullptr then the debug message callback is reset for the
  * context.
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -290,7 +286,6 @@ TMC_SetDebugMessageCallback(
  * explicitly or check it using TMC_GetIndexArrayType() before using the
  * contents of the index buffer.
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -309,7 +304,6 @@ TMC_SetIndexArrayType(
  * \returns ::k_EMTCStatus_InvalidArguments if \p context is invalid or \p type
  * is nullptr.
  */
-HEDLEY_NON_NULL(1, 2)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -337,7 +331,6 @@ TMC_GetIndexArrayType(
  * \note This is analogous to a call to glCreateBuffers() and glBufferData() in
  * OpenGL.
  */
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -371,7 +364,6 @@ TMC_CreateBuffer(
  * out-of-range or invalid.
  * \returns ::k_ETMCStatus_OutOfMemory if the compressor has run out of memory.
  */
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -402,7 +394,6 @@ TMC_CreateAttribute(
  * - TMC_GetIndexArray() and
  * - TMC_GetIndexArrayElementCount().
  */
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -429,7 +420,6 @@ TMC_Compress(
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
-HEDLEY_NON_NULL(1, 2, 3, 4)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -460,7 +450,6 @@ TMC_GetDirectArray(
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
-HEDLEY_NON_NULL(1, 2, 3)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE
@@ -486,7 +475,6 @@ TMC_GetIndexArray(
  * TMC_CreateBuffer(), TMC_CreateAttribute(), TMC_SetParamInteger() or
  * TMC_SetIndexArrayType() results in undefined behavior.
  */
-HEDLEY_NON_NULL(1, 2)
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
 TMC_RETURN_CODE

@@ -8,7 +8,6 @@
 #include <cstdio>
 #include <cstdarg>
 
-HEDLEY_NON_NULL(1)
 TMC_API
 TMC_RETURN_CODE
 TMC_SetDebugMessageCallback(
