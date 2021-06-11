@@ -11,6 +11,8 @@
 
 #include <trigen/mesh_compress.h>
 
+#include "arena.h"
+
 using TMC_Index = std::make_signed<size_t>::type;
 
 struct TMC_Buffer_t {
@@ -24,8 +26,7 @@ struct TMC_Attribute_t {
     TMC_Size stride, offset;
     TMC_Buffer buffer;
 
-    std::unique_ptr<uint8_t[]> compressedBuf;
-    TMC_Size compressedSize = 0;
+    Arena compressedBuf;
 };
 
 struct TMC_Context_t {

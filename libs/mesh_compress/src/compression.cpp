@@ -211,11 +211,7 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
     assert(indexBuffer.size() == vertexCount);
 
     for (TMC_Index i = 0; i < context->attributes.size(); i++) {
-        auto &arena = arenas[i];
-        auto buf = std::make_unique<uint8_t[]>(arena.size());
-        memcpy(buf.get(), arena.data(), arena.size());
-        context->attributes[i]->compressedBuf = std::move(buf);
-        context->attributes[i]->compressedSize = arena.size();
+        context->attributes[i]->compressedBuf = std::move(arenas[i]);
     }
 
     auto indexBufferBuf = std::make_unique<uint8_t[]>(indexBuffer.size() * sizeof(IndexType));
@@ -247,7 +243,7 @@ static ETMC_Status compress(TMC_Context context, TMC_Index vertexCount) {
             assert(0);
             break;
         }
-        auto size_bytes = attr->compressedSize;
+        auto size_bytes = attr->compressedBuf.size();
         auto size_kilobytes = TMC_Size(size_bytes / 1024);
         auto size_megabytes = TMC_Size(size_kilobytes / 1024);
         TMC_Print(context, "    - Compressed size: %zu B | %zu KiB | %zu MiB",

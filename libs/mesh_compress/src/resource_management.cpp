@@ -128,8 +128,8 @@ TMC_GetDirectArray(TMC_Context context, TMC_Attribute attribute, const void **da
         return k_ETMCStatus_InvalidArguments;
     }
 
-    *data = attribute->compressedBuf.get();
-    *size = attribute->compressedSize;
+    *data = attribute->compressedBuf.data();
+    *size = attribute->compressedBuf.size();
 
     return k_ETMCStatus_OK;
 }
