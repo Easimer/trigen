@@ -185,8 +185,8 @@ TMC_RETURN_CODE
 TMC_GetIndexArray(
     TMC_HANDLE TMC_Context context,
     TMC_OUT const void **data,
-    TMC_OUT TMC_Size *size,
-    TMC_OUT TMC_Size *element_count) {
+    TMC_OUT_OPT TMC_Size *size,
+    TMC_OUT_OPT TMC_Size *element_count) {
     if (context == nullptr || data == nullptr || (size == nullptr && element_count == nullptr)) {
         return k_ETMCStatus_InvalidArguments;
     }

@@ -78,6 +78,7 @@
 #define TMC_IN _In_ _Pre_notnull_
 #define TMC_IN_OPT _In_
 #define TMC_OUT _Out_ _Pre_notnull_
+#define TMC_OUT_OPT _Out_
 #define TMC_INOUT _Inout_ _Pre_notnull_
 
 #define TMC_HANDLE _Inout_ _Pre_notnull_
@@ -89,6 +90,7 @@
 #define TMC_IN
 #define TMC_IN_OPT
 #define TMC_OUT
+#define TMC_OUT_OPT
 #define TMC_INOUT
 
 #define TMC_HANDLE __attribute__((use_handle("tmc")))
@@ -99,6 +101,7 @@
 #define TMC_IN
 #define TMC_IN_OPT
 #define TMC_OUT
+#define TMC_OUT_OPT
 #define TMC_INOUT
 
 #define TMC_HANDLE
@@ -464,8 +467,8 @@ TMC_RETURN_CODE
 TMC_GetIndexArray(
     TMC_HANDLE TMC_Context context,
     TMC_OUT const void **data,
-    TMC_OUT TMC_Size *size,
-    TMC_OUT TMC_Size *element_count);
+    TMC_OUT_OPT TMC_Size *size,
+    TMC_OUT_OPT TMC_Size *element_count);
 
 /**
  * \brief Returns the number of elements in the index array to the caller.
