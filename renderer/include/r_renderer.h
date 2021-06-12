@@ -25,6 +25,7 @@ namespace gfx {
 
     using Model_ID = void*;
     using Texture_ID = void*;
+    using Framebuffer_ID = void*;
 
     struct Model_Descriptor {
         size_t vertex_count = 0;
@@ -125,6 +126,22 @@ namespace gfx {
             gfx::Model_ID model_handle,
             gfx::Transform const &transform
         ) = 0;
+
+        virtual void
+        create_framebuffer(Framebuffer_ID *out_id, float resolution_scale)
+            = 0;
+
+        virtual void
+        destroy_framebuffer(Framebuffer_ID id)
+            = 0;
+
+        virtual void
+        activate_framebuffer(Framebuffer_ID id)
+            = 0;
+
+        virtual void
+        draw_framebuffer(Framebuffer_ID id)
+            = 0;
     };
 
     enum class Renderer_Backend {

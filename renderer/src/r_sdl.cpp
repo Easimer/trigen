@@ -221,6 +221,27 @@ public:
         backend->set_sun_position(position);
     }
 
+    void
+    create_framebuffer(gfx::Framebuffer_ID *out_id, float resolution_scale)
+        override {
+        backend->create_framebuffer(out_id, resolution_scale);
+    }
+
+    void
+    destroy_framebuffer(gfx::Framebuffer_ID id) override {
+        backend->destroy_framebuffer(id);
+    }
+
+    void
+    activate_framebuffer(gfx::Framebuffer_ID id) override {
+        backend->activate_framebuffer(id);
+    }
+
+    void
+    draw_framebuffer(gfx::Framebuffer_ID id) override {
+        backend->draw_framebuffer(id);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

@@ -128,3 +128,39 @@ void Upload_Texture_Command::execute(gfx::IRenderer *renderer) {
 
     renderer->upload_texture(_outHandle, _width, _height, _format, _buffer);
 }
+
+Create_Framebuffer_Command::Create_Framebuffer_Command(
+    gfx::Framebuffer_ID *outHandle,
+    float resolution_scale)
+    : _outHandle(outHandle)
+    , _resolution_scale(resolution_scale) { }
+
+void
+Create_Framebuffer_Command::execute(gfx::IRenderer *renderer) {
+    renderer->create_framebuffer(_outHandle, _resolution_scale);
+}
+
+Destroy_Framebuffer_Command::Destroy_Framebuffer_Command(
+    gfx::Framebuffer_ID handle)
+    : _handle(handle) { }
+
+void
+Destroy_Framebuffer_Command::execute(gfx::IRenderer *renderer) {
+    renderer->destroy_framebuffer(_handle);
+}
+
+Activate_Framebuffer_Command::Activate_Framebuffer_Command(
+    gfx::Framebuffer_ID handle) : _handle(handle) { }
+
+void
+Activate_Framebuffer_Command::execute(gfx::IRenderer *renderer) {
+    renderer->activate_framebuffer(_handle);
+}
+
+Draw_Framebuffer_Command::Draw_Framebuffer_Command(gfx::Framebuffer_ID handle)
+    : _handle(handle) { }
+
+void
+Draw_Framebuffer_Command::execute(gfx::IRenderer *renderer) {
+    renderer->draw_framebuffer(_handle);
+}

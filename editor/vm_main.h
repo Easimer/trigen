@@ -43,4 +43,6 @@ private:
 	std::list<std::unique_ptr<Session>> _sessions;
 	Session *_currentSession = nullptr;
 	Entity_List_Model *_entityListModel;
+
+	gfx::Framebuffer_ID _framebuffer = nullptr;
 };

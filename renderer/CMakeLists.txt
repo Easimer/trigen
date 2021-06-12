@@ -35,8 +35,9 @@ add_library(renderer STATIC
 target_link_libraries(renderer
     PUBLIC
         CONAN_PKG::glm
+        SDL::SDL2
     PRIVATE
-        glad SDL::SDL2 imgui Tracy::Client virtfs
+        glad imgui Tracy::Client virtfs
         mesh_compress
 )
 

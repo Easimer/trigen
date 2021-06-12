@@ -8,6 +8,8 @@
 #include "vm_main.h"
 #include "dlg_meshgen.h"
 
+#include <r_cmd/general.h>
+
 VM_Main::VM_Main(Entity_List_Model *entityListModel)
 : _entityListModel(entityListModel) {
 }
@@ -77,12 +79,27 @@ void VM_Main::createMeshgenDialog(QWidget *parent) {
 }
 
 void VM_Main::onRender(gfx::Render_Queue *rq) {
+	if (_framebuffer == nullptr) {
+        gfx::allocate_command_and_initialize<Create_Framebuffer_Command>(
+            rq, &_framebuffer, 1.0f);
+	}
+
+	if (_framebuffer != nullptr) {
+        gfx::allocate_command_and_initialize<Activate_Framebuffer_Command>(
+            rq, _framebuffer);
+    }
+
 	if (_currentSession != nullptr) {
 		_currentSession->onMeshUpload(rq);
 		_currentSession->onRender(rq);
 	}
 
     emit rendering(rq);
+
+	if (_framebuffer != nullptr) {
+        gfx::allocate_command_and_initialize<Draw_Framebuffer_Command>(
+            rq, _framebuffer);
+    }
 }
 
 void VM_Main::setRunning(bool isRunning) {

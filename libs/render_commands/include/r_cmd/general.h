@@ -86,3 +86,50 @@ protected:
     int _height;
     gfx::Texture_Format _format;
 };
+
+class Create_Framebuffer_Command : public gfx::IRender_Command {
+public:
+    Create_Framebuffer_Command(
+        gfx::Framebuffer_ID *outHandle,
+        float resolution_scale);
+
+protected:
+    void
+    execute(gfx::IRenderer *renderer) override;
+
+    gfx::Framebuffer_ID *_outHandle;
+    float _resolution_scale;
+};
+
+class Destroy_Framebuffer_Command : public gfx::IRender_Command {
+public:
+    Destroy_Framebuffer_Command(gfx::Framebuffer_ID handle);
+
+protected:
+    void
+    execute(gfx::IRenderer *renderer) override;
+
+    gfx::Framebuffer_ID _handle;
+};
+
+class Activate_Framebuffer_Command : public gfx::IRender_Command {
+public:
+    Activate_Framebuffer_Command(gfx::Framebuffer_ID handle);
+
+protected:
+    void
+    execute(gfx::IRenderer *renderer) override;
+
+    gfx::Framebuffer_ID _handle;
+};
+
+class Draw_Framebuffer_Command : public gfx::IRender_Command {
+public:
+    Draw_Framebuffer_Command(gfx::Framebuffer_ID handle);
+
+protected:
+    void
+    execute(gfx::IRenderer *renderer) override;
+
+    gfx::Framebuffer_ID _handle;
+};

@@ -62,6 +62,11 @@ struct Model {
     gl::VBO elements;
 };
 
+struct Framebuffer {
+    float resolution_scale;
+    G_Buffer buffer;
+};
+
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
     if (length == 0) return;
@@ -116,8 +121,6 @@ public:
         } else {
             printf("[ gfx ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
-
-        _gbuffer = G_Buffer(surf_width, surf_height);
 
         ImGui_ImplOpenGL3_Init("#version 130");
 
@@ -322,8 +325,6 @@ public:
         line_recycler.flip();
         point_recycler.flip();
         element_model_recycler.flip();
-
-        _gbuffer.activate();
     }
 
     double present() override {
@@ -331,16 +332,6 @@ public:
         TracyPlot("GL::line_recycler::count", line_recycler.count());
         TracyPlot("GL::point_recycler::count", point_recycler.count());
         TracyPlot("GL::element_model_recycler::count", element_model_recycler.count());
-
-        auto viewPos = glm::vec3(m_view[3]);
-        std::vector<G_Buffer_Light> lights = { { _sun_position, glm::vec3(1, 1, 1) } };
-
-        auto g_params = G_Buffer_Draw_Params {
-            viewPos,
-            lights,
-        };
-
-        _gbuffer.draw(g_params);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -352,7 +343,12 @@ public:
         surf_width = *inout_width;
         surf_height = *inout_height;
 
-        _gbuffer = G_Buffer(surf_width, surf_height);
+        // Resize all framebuffers
+        for (auto& fb : _framebuffers) {
+            auto width = unsigned(fb.resolution_scale * surf_width);
+            auto height = unsigned(fb.resolution_scale * surf_height);
+            fb.buffer = G_Buffer(width, height);
+        }
     }
 
     void get_resolution(unsigned* out_width, unsigned* out_height) override {
@@ -892,10 +888,64 @@ public:
         _sun_position = position;
     }
 
+    void
+    create_framebuffer(gfx::Framebuffer_ID *out_id, float resolution_scale)
+        override {
+        ZoneScoped;
+        assert(out_id);
+        assert(resolution_scale > 0);
+        if (out_id == nullptr) {
+            return;
+        }
+        auto width = unsigned(resolution_scale * surf_width);
+        auto height = unsigned(resolution_scale * surf_height);
+        _framebuffers.emplace_front(
+            Framebuffer { resolution_scale, G_Buffer(width, height) });
+        *out_id = &_framebuffers.front();
+    }
+
+    void
+    destroy_framebuffer(gfx::Framebuffer_ID id) override {
+        ZoneScoped;
+        if (id == nullptr) {
+            return;
+        }
+
+        std::remove_if(_framebuffers.begin(), _framebuffers.end(), [&](Framebuffer const &m) { return &m == id; });
+    }
+
+    void
+    activate_framebuffer(gfx::Framebuffer_ID id) override {
+        ZoneScoped;
+        assert(id);
+        if (id == nullptr) {
+            return;
+        }
+
+        auto *fb = (Framebuffer *)id;
+        fb->buffer.activate();
+    }
+
+    void
+    draw_framebuffer(gfx::Framebuffer_ID id) override {
+        assert(id);
+
+        auto *fb = (Framebuffer *)id;
+
+        auto viewPos = glm::vec3(m_view[3]);
+        std::vector<G_Buffer_Light> lights = { { _sun_position, glm::vec3(1, 1, 1) } };
+
+        auto g_params = G_Buffer_Draw_Params {
+            viewPos,
+            lights,
+        };
+
+        fb->buffer.draw(g_params);
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
-    G_Buffer _gbuffer;
 
     Array_Recycler<Line> line_recycler;
     Array_Recycler<Point> point_recycler;
@@ -923,6 +973,7 @@ private:
 
     std::list<Texture> _textures;
     std::list<Model> _models;
+    std::list<Framebuffer> _framebuffers;
 };
 
 std::unique_ptr<gfx::IRenderer> gfx::make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*)) {
