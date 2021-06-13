@@ -242,6 +242,11 @@ public:
         backend->draw_framebuffer(id);
     }
 
+    void
+    clear(glm::vec4 color) override {
+        backend->clear(color);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

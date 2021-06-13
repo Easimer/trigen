@@ -25,7 +25,11 @@ uniform Light lights[NUM_MAX_LIGHTS];
 uniform vec3 viewPosition;
 
 void main() {
-    vec3 baseColor = texture(texBaseColor, vUV).rgb;
+    vec4 baseColorRGBA = texture(texBaseColor, vUV).rgba;
+    vec3 baseColor = baseColorRGBA.rgb;
+    if(baseColorRGBA.a  == 0) {
+        discard;
+    }
     vec3 normal = texture(texNormal, vUV).rgb;
     vec3 position = texture(texPosition, vUV).rgb;
 

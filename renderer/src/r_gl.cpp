@@ -158,12 +158,6 @@ public:
         glDepthFunc(GL_LESS);
         glLineWidth(2.0f);
         glFrontFace(GL_CCW);
-
-        // unsigned width, height;
-        // get_resolution(&width, &height);
-        // auto gbuf = G_Buffer::make_gbuffer(width, height);
-        // assert(gbuf.has_value());
-        // g_buffer = std::move(gbuf.value());
     }
 
     ~GL_Renderer() override {
@@ -345,9 +339,11 @@ public:
 
         // Resize all framebuffers
         for (auto& fb : _framebuffers) {
+            char buf[16];
+            snprintf(buf, 15, "%x", (void*)&fb);
             auto width = unsigned(fb.resolution_scale * surf_width);
             auto height = unsigned(fb.resolution_scale * surf_height);
-            fb.buffer = G_Buffer(width, height);
+            fb.buffer = G_Buffer(buf, width, height);
         }
     }
 
@@ -439,6 +435,7 @@ public:
             auto matModel = glm::translate(vWorldPosition);
             auto matMVP = m_proj * m_view * matModel;
             gl::SetUniformLocation(shader.locMVP(), matMVP);
+            gl::SetUniformLocation(shader.locTintColor(), { 1, 1, 1, 1 });
 
             glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
 
@@ -478,6 +475,7 @@ public:
             auto matModel = glm::translate(vWorldPosition);
             auto matMVP = m_proj * m_view * matModel;
             gl::SetUniformLocation(shader.locMVP(), matMVP);
+            gl::SetUniformLocation(shader.locTintColor(), { 1, 1, 1, 1 });
 
             glDrawElements(GL_TRIANGLES, element_count, GL_UNSIGNED_INT, 0);
 
@@ -897,11 +895,14 @@ public:
         if (out_id == nullptr) {
             return;
         }
+        char labelBuf[32];
+        snprintf(labelBuf, 31, "%x", _fbUid);
         auto width = unsigned(resolution_scale * surf_width);
         auto height = unsigned(resolution_scale * surf_height);
         _framebuffers.emplace_front(
-            Framebuffer { resolution_scale, G_Buffer(width, height) });
+            Framebuffer { resolution_scale, G_Buffer(labelBuf, width, height) });
         *out_id = &_framebuffers.front();
+        _fbUid++;
     }
 
     void
@@ -922,6 +923,18 @@ public:
             return;
         }
 
+        if (!_originalFramebuffer.has_value()) {
+            GLint prevFbDraw, prevFbRead;
+            // Store the handles to the original framebuffers
+            // The default framebuffer (id=0) may not be the framebuffer we're
+            // supposed to draw into (e.g. the viewport is embedded into a Qt window)
+            glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbDraw);
+            glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevFbRead);
+
+            _originalFramebuffer.emplace(
+                Original_Framebuffer { prevFbRead, prevFbDraw });
+        }
+
         auto *fb = (Framebuffer *)id;
         fb->buffer.activate();
     }
@@ -940,12 +953,32 @@ public:
             lights,
         };
 
-        fb->buffer.draw(g_params);
+        if (!_originalFramebuffer) {
+            return;
+        }
+
+        fb->buffer.draw(g_params, _originalFramebuffer->fbRead, _originalFramebuffer->fbDraw);
+    }
+
+    void
+    clear(glm::vec4 color) override {
+        ZoneScoped;
+        glClearColor(color.r, color.g, color.b, color.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
+
+    /** Contains information about the original framebuffer IDs */
+    struct Original_Framebuffer {
+        GLint fbRead, fbDraw;
+    };
+
+    int _fbUid = 0;
+
+    std::optional<Original_Framebuffer> _originalFramebuffer;
 
     Array_Recycler<Line> line_recycler;
     Array_Recycler<Point> point_recycler;

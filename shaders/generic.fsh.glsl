@@ -26,7 +26,8 @@ uniform vec4 tintColor;
 
 #if GENERIC_SHADER_WITH_VERTEX_COLORS
 void main() {
-    outBaseColor = vec4(vColor, 1.0f) * tintColor;
+    outBaseColor = vec4(1, 1, 1, 1.0f) * tintColor;
+    // outBaseColor = vec4(vColor, 1.0f) * tintColor;
     outNormal = vec4(0, 0, 1, 1);
     outPosition = vec4(vPosition, 1);
 }

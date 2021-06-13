@@ -142,6 +142,10 @@ namespace gfx {
         virtual void
         draw_framebuffer(Framebuffer_ID id)
             = 0;
+
+        virtual void
+        clear(glm::vec4 color)
+            = 0;
     };
 
     enum class Renderer_Backend {

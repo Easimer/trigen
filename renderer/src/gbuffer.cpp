@@ -21,24 +21,29 @@ extern "C" {
 VIRTFS_REGISTER_RESOURCE("shaders/deferred.vsh.glsl", deferred_vsh_glsl);
 VIRTFS_REGISTER_RESOURCE("shaders/deferred.fsh.glsl", deferred_fsh_glsl);
 
-G_Buffer::G_Buffer()
-    : _prevFBDraw(0)
-    , _prevFBRead(0) {
+static void
+formatLabelAndApply(char const* name, char const* suffix, GLenum type, GLint handle) {
+    char *labelBuf = nullptr;
+    int res = snprintf(labelBuf, 0, "%s::%s", name, suffix);
+    assert(res >= 0);
+    labelBuf = new char[size_t(res) + 1];
+    assert(labelBuf);
+    snprintf(labelBuf, size_t(res) + 1, "%s::%s", name, suffix);
+    glObjectLabel(type, handle, -1, labelBuf);
+    delete[] labelBuf;
 }
 
-G_Buffer::G_Buffer(unsigned width, unsigned height) {
+G_Buffer::G_Buffer(char const *name, unsigned width, unsigned height) {
     if (glObjectLabel) {
-        glObjectLabel(GL_FRAMEBUFFER, _fb, -1, "G-buffer");
-        glObjectLabel(GL_TEXTURE, _bufBaseColor, -1, "G-buffer::base color");
-        glObjectLabel(GL_TEXTURE, _bufNormal, -1, "G-buffer::normal");
-        glObjectLabel(GL_TEXTURE, _bufPosition, -1, "G-buffer::position");
+        formatLabelAndApply(name, "", GL_FRAMEBUFFER, _fb);
+        formatLabelAndApply(name, "base color", GL_TEXTURE, _bufBaseColor);
+        formatLabelAndApply(name, "normal", GL_TEXTURE, _bufNormal);
+        formatLabelAndApply(name, "position", GL_TEXTURE, _bufPosition);
     }
 
-    // Store the handles to the original framebuffers
-    // The default framebuffer (id=0) may not be the framebuffer we're
-    // supposed to draw into (e.g. the viewport is embedded into a Qt window)
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &_prevFBDraw);
-    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &_prevFBRead);
+    GLint prevFbDraw, prevFbRead;
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prevFbDraw);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevFbRead);
 
     glBindFramebuffer(GL_FRAMEBUFFER, _fb);
 
@@ -70,6 +75,9 @@ G_Buffer::G_Buffer(unsigned width, unsigned height) {
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         printf("[ gfx ] G-buffer framebuffer wasn't complete!");
     }
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prevFbDraw);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, prevFbRead);
 
     float const vertices[] = {
         -1.0f, -1.0f,
@@ -134,17 +142,18 @@ void G_Buffer::activate() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void G_Buffer::draw(G_Buffer_Draw_Params const &params) {
+void G_Buffer::draw(G_Buffer_Draw_Params const &params, GLint readFramebuffer, GLint drawFramebuffer) {
     if (!_program) {
         return;
     }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, _prevFBRead);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _prevFBDraw);
+    glUseProgram(_program->program);
+
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(_quadVao);
-
-    glUseProgram(_program->program);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
 
     gl::SetUniformLocation(_program->viewPosition, params.viewPosition);
 
@@ -181,4 +190,5 @@ void G_Buffer::draw(G_Buffer_Draw_Params const &params) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glDepthMask(GL_TRUE);
 }

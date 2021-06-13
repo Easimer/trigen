@@ -164,3 +164,11 @@ void
 Draw_Framebuffer_Command::execute(gfx::IRenderer *renderer) {
     renderer->draw_framebuffer(_handle);
 }
+
+Clear_Command::Clear_Command(glm::vec4 color)
+    : _color(color) { }
+
+void
+Clear_Command::execute(gfx::IRenderer *renderer) {
+    renderer->clear(_color);
+}

@@ -123,6 +123,17 @@ protected:
     gfx::Framebuffer_ID _handle;
 };
 
+class Clear_Command : public gfx::IRender_Command {
+public:
+    Clear_Command(glm::vec4 color);
+
+protected:
+    void
+    execute(gfx::IRenderer *renderer) override;
+
+    glm::vec4 _color;
+};
+
 class Draw_Framebuffer_Command : public gfx::IRender_Command {
 public:
     Draw_Framebuffer_Command(gfx::Framebuffer_ID handle);

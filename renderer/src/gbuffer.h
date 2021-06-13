@@ -32,11 +32,10 @@ struct G_Buffer_Draw_Params {
 
 class G_Buffer {
 public:
-    G_Buffer();
-    G_Buffer(unsigned width, unsigned height);
+    G_Buffer(char const *name, unsigned width, unsigned height);
 
     void activate();
-    void draw(G_Buffer_Draw_Params const &params);
+    void draw(G_Buffer_Draw_Params const &params, GLint readFramebuffer, GLint drawFramebuffer);
 private:
     gl::Framebuffer _fb;
     gl::Texture _bufBaseColor;
@@ -49,7 +48,4 @@ private:
     gl::VBO _quadUvVbo;
 
     std::optional<G_Buffer_Shader_Program> _program;
-
-    GLint _prevFBRead;
-    GLint _prevFBDraw;
 };
