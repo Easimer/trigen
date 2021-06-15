@@ -592,7 +592,9 @@ public:
         TMC_Attribute *attr_bitangent,
         TMC_Attribute *attr_normal) {
         assert(model);
-        assert(tmc_context_out && attr_position && attr_uv && attr_tangent && attr_bitangent && attr_normal)
+        assert(
+            tmc_context_out && attr_position && attr_uv && attr_tangent
+            && attr_bitangent && attr_normal);
         ZoneScoped;
 
         *tmc_context_out = nullptr;
