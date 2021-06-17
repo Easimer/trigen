@@ -6,6 +6,14 @@ namespace Net.Easimer.Trigen
     public enum Status
     {
         OK = 0,
+        Failure,
+        InvalidArguments,
+        OutOfMemory,
+        InvalidConfiguration,
+        InvalidMesh,
+        NotReady,
+        NotEnoughSpace,
+        FunctionIsUnavailable,
     }
 
     [Flags]
@@ -34,6 +42,58 @@ namespace Net.Easimer.Trigen
         public float branch_angle_variance;
 
         public uint particle_count_limit;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ColliderMesh
+    {
+        public UIntPtr triangle_count;
+
+        public IntPtr vertex_indices;
+        public IntPtr normal_indices;
+
+        public UIntPtr position_count;
+        public IntPtr positions;
+
+        public UIntPtr normal_count;
+        public IntPtr normals;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Mesh
+    {
+        public UIntPtr triangle_count;
+
+        public IntPtr vertex_indices;
+        public IntPtr normal_indices;
+
+        public UIntPtr position_count;
+        public IntPtr positions;
+        public IntPtr uvs;
+
+        public UIntPtr normal_count;
+        public IntPtr normals;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Transform
+    {
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 3)]
+        public float[] position;
+
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 4)]
+        public float[] orientation;
+
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.R4, SizeConst = 3)]
+        public float[] scale;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Texture
+    {
+        public IntPtr image;
+        public UInt32 width;
+        public UInt32 height;
     }
 
     public class Exception : System.Exception
@@ -81,5 +141,13 @@ namespace Net.Easimer.Trigen
 
         [DllImport("trigen.dll", EntryPoint = "Trigen_DestroySession")]
         private static extern Status DestroySession([In] IntPtr handle);
+
+        [DllImport("trigen.dll", EntryPoint = "Trigen_CreateCollider")]
+        private static extern Status CreateCollider(
+            [Out] out IntPtr colliderHandle,
+            [In] IntPtr handle,
+            [In] ref ColliderMesh mesh,
+            [In] ref Transform transform
+        );
     }
 }

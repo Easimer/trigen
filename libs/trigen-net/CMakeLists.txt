@@ -1,5 +1,5 @@
 set(SRC
-    src/trigen.cs
+    src/Wrapper.cs
     src/Properties/AssemblyInfo.cs
 )
 
