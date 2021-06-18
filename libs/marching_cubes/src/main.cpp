@@ -105,7 +105,6 @@ mesh marching_cubes::generate(std::vector<metaball> const &metaballs, params con
         auto normal = surf->getNormal(i);
         ret.positions.push_back(glm::vec3(pos[0] * icx, pos[1] * icy, pos[2] * icz) + bMin);
         ret.normal.push_back({ -normal[0], -normal[1], -normal[2] });
-        ret.uv.push_back({ 0, 0 });
     }
     auto tN = surf->get_num_triangles();
     for (unsigned i = 0; i < tN; i++) {
