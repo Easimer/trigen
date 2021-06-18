@@ -120,13 +120,12 @@ private:
         collider->transform = Mat4(1.0f);
         collider->triangle_count = N;
 
-        collider->vertex_indices = mesh.vertex_indices[sidx].data();
-        collider->normal_indices = mesh.normal_indices[sidx].data();
+        collider->indices = mesh.vertex_indices[sidx].data();
 
-        collider->position_count = mesh.attrib.vertices.size();
+        collider->num_positions = mesh.attrib.vertices.size();
         collider->positions = (float *)mesh.attrib.vertices.data();
 
-        collider->normal_count = mesh.attrib.normals.size();
+        collider->num_normals = mesh.attrib.normals.size();
         collider->normals = (float *)mesh.attrib.normals.data();
     }
 

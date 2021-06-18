@@ -31,18 +31,18 @@ bool render_softbody_simulation(gfx::Render_Queue* rq, sb::ISoftbody_Simulation*
 class Render_Mesh_Collider : public gfx::IRender_Command {
 public:
     Render_Mesh_Collider(sb::Mesh_Collider const *mesh) {
-        vertices.resize(mesh->position_count);
+        vertices.resize(mesh->num_positions);
         auto positions = (std::array<float, 3> *)mesh->positions;
 
-        for (size_t i = 0; i < mesh->position_count; i++) {
+        for (size_t i = 0; i < mesh->num_positions; i++) {
             vertices[i] = positions[i];
         }
 
         elements.resize(mesh->triangle_count * 3);
         for (size_t i = 0; i < mesh->triangle_count; i++) {
-            elements[i * 3 + 0] = mesh->vertex_indices[i * 3 + 0];
-            elements[i * 3 + 1] = mesh->vertex_indices[i * 3 + 1];
-            elements[i * 3 + 2] = mesh->vertex_indices[i * 3 + 2];
+            elements[i * 3 + 0] = mesh->indices[i * 3 + 0];
+            elements[i * 3 + 1] = mesh->indices[i * 3 + 1];
+            elements[i * 3 + 2] = mesh->indices[i * 3 + 2];
         }
     }
 
