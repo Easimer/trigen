@@ -16,5 +16,6 @@
 #endif
 
 namespace uv_inspector {
-    UV_INSPECTOR_EXPORT int inspect(glm::vec2 const *texCoords, int count);
+UV_INSPECTOR_EXPORT int
+inspect(glm::vec2 const *texCoords, unsigned const *indices, int count);
 }

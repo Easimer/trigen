@@ -125,20 +125,16 @@ typedef struct Trigen_Collider_Mesh_t {
     // times this number.
     tg_usize triangle_count;
 
-    // Pointer to the vertex index buffer.
-    tg_u64 const *vertex_indices;
-    // Pointer to the normal index buffer.
-    tg_u64 const *normal_indices;
+    // Pointer to the index buffer.
+    tg_u64 const *indices;
 
     // Number of elements in the position buffer.
-    // This should be at least `max(vertex_indices)+1`.
     tg_usize position_count;
     // Pointer to the position vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
     tg_f32 const *positions;
 
     // Number of elements in the normal buffer.
-    // This should be at least `max(normal_indices)+1`.
     tg_usize normal_count;
     // Pointer to the normal vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
@@ -152,22 +148,19 @@ typedef struct Trigen_Mesh_t {
     tg_usize triangle_count;
 
     // Pointer to the vertex index buffer.
-    tg_u64 const *vertex_indices;
-    // Pointer to the normal index buffer.
-    tg_u64 const *normal_indices;
+    tg_u64 const *indices;
 
     // Number of elements in the position buffer.
-    // This should be at least `max(vertex_indices)+1`.
     tg_usize position_count;
     // Pointer to the position vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
     tg_f32 const *positions;
+
     // Pointer to the UV buffer.
     // Assumed to be in the following format: UV UV UV
     tg_f32 const *uvs;
 
     // Number of elements in the normal buffer.
-    // This should be at least `max(normal_indices)+1`.
     tg_usize normal_count;
     // Pointer to the normal vector buffer.
     // Assumed to be in the following format: XYZ XYZ XYZ
@@ -213,6 +206,10 @@ typedef struct Trigen_Texture_Slot_Descriptor_t {
         tg_u8 rgb888[3];
     } defaultPixel;
 } Trigen_Texture_Slot_Descriptor;
+
+typedef struct Trigen_Foliage_Parameters_t {
+    int placeholder;
+} Trigen_Foliage_Parameters;
 
 #ifdef __cplusplus
 extern "C" {
@@ -430,6 +427,22 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_OUT Trigen_Texture_Kind *slotHandle,
     TRIGEN_IN Trigen_Texture_Slot_Descriptor *descriptor);
+
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_SetLeafTexture(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_IN Trigen_Texture const *texture);
+
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_SetFoliageParameters(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_IN Trigen_Foliage_Parameters const *params);
+
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session);
+
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_GetFoliageMesh(TRIGEN_HANDLE Trigen_Session session);
 
 #ifdef __cplusplus
 }

@@ -558,9 +558,9 @@ public:
             auto p0 = vec3_cast(model->vertices[idx0]);
             auto p1 = vec3_cast(model->vertices[idx1]);
             auto p2 = vec3_cast(model->vertices[idx2]);
-            auto w0 = vec2_cast(model->uv[t * 3 + 0]);
-            auto w1 = vec2_cast(model->uv[t * 3 + 1]);
-            auto w2 = vec2_cast(model->uv[t * 3 + 2]);
+            auto w0 = vec2_cast(model->uv[idx0]);
+            auto w1 = vec2_cast(model->uv[idx1]);
+            auto w2 = vec2_cast(model->uv[idx2]);
 
             auto e1 = p1 - p0;
             auto e2 = p2 - p0;
@@ -608,15 +608,18 @@ public:
         // We need to turn them into a direct format first
         std::vector<glm::vec3> position;
         std::vector<glm::vec3> normal;
+        std::vector<glm::vec2> texcoord;
 
         auto num_vertices = model->element_count;
 
         position.resize(num_vertices);
         normal.resize(num_vertices);
+        texcoord.resize(num_vertices);
         for (size_t i = 0; i < num_vertices; i++) {
             auto idx = model->elements[i];
             position[i] = vec3_cast(model->vertices[idx]);
             normal[i] = vec3_cast(model->normals[idx]);
+            texcoord[i] = vec2_cast(model->uv[idx]);
         }
 
         TMC_Context ctx = nullptr;
@@ -632,7 +635,7 @@ public:
         TMC_SetParamInteger(ctx, k_ETMCParam_WindowSize, 16);
 
         TMC_CreateBuffer(ctx, &buf_position, position.data(), num_vertices * sizeof(position[0]));
-        TMC_CreateBuffer(ctx, &buf_uv, model->uv, num_vertices * sizeof(model->uv[0]));
+        TMC_CreateBuffer(ctx, &buf_uv, texcoord.data(), num_vertices * sizeof(texcoord[0]));
 
         TMC_CreateAttribute(ctx, attr_position, buf_position, 3, k_ETMCType_Float32, 3 * sizeof(float), 0);
         TMC_CreateAttribute(ctx, attr_uv, buf_uv, 2, k_ETMCType_Float32, 2 * sizeof(float), 0);
@@ -691,6 +694,9 @@ public:
 
         TMC_Context compress_context;
         TMC_Attribute attr_position, attr_uv, attr_tangent, attr_bitangent, attr_normal;
+        // The input mesh is already in index-to-direct format, but we add
+        // additional information to the vertices and so we need to recompress
+        // it
         compress_model(model, &compress_context, &attr_position, &attr_uv,
             &attr_tangent, &attr_bitangent, &attr_normal);
 
@@ -702,7 +708,6 @@ public:
             upload_direct_array(mdl.tangents, compress_context, attr_tangent, 3, 3, GL_FLOAT, 3 * sizeof(float));
             upload_direct_array(mdl.bitangents, compress_context, attr_bitangent, 4, 3, GL_FLOAT, 3 * sizeof(float));
         }
-
         
         void const *elements_data = nullptr;
         TMC_Size elements_size = 0;

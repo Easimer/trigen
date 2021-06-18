@@ -14,13 +14,13 @@
 
 #define WND_SIZ (1024)
 
-static void draw_triangle(SDL_Renderer *renderer, glm::vec2 const *points) {
+static void draw_triangle(SDL_Renderer *renderer, glm::vec2 const *points, unsigned const *indices) {
     SDL_FPoint sdl_points[4];
 
-    sdl_points[0] = { points[0].x * WND_SIZ, points[0].y * WND_SIZ };
-    sdl_points[1] = { points[1].x * WND_SIZ, points[1].y * WND_SIZ };
-    sdl_points[2] = { points[2].x * WND_SIZ, points[2].y * WND_SIZ };
-    sdl_points[3] = { points[0].x * WND_SIZ, points[0].y * WND_SIZ };
+    sdl_points[0] = { points[indices[0]].x * WND_SIZ, points[indices[0]].y * WND_SIZ };
+    sdl_points[1] = { points[indices[1]].x * WND_SIZ, points[indices[1]].y * WND_SIZ };
+    sdl_points[2] = { points[indices[2]].x * WND_SIZ, points[indices[2]].y * WND_SIZ };
+    sdl_points[0] = { points[indices[0]].x * WND_SIZ, points[indices[0]].y * WND_SIZ };
 
     SDL_RenderDrawLinesF(renderer, sdl_points, 4);
 }
@@ -60,7 +60,7 @@ static float calculate_space_usage(glm::vec2 const *texCoords, int count) {
 }
 
 namespace uv_inspector {
-    int inspect(glm::vec2 const *texCoords, int count) {
+    int inspect(glm::vec2 const *texCoords, unsigned const *indices, int count) {
         int ret = 0;
         SDL_Event ev;
         bool quit = false;
@@ -98,13 +98,13 @@ namespace uv_inspector {
 
         ret = 1;
 
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+        SDL_RenderClear(renderer);
+
         font = load_font();
         if (font != nullptr) {
             spaceUsage = calculate_space_usage(texCoords, count);
             snprintf(textBuffer, 127, "Space usage: %f%%", spaceUsage * 100);
-
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
-            SDL_RenderClear(renderer);
 
             surfText = TTF_RenderUTF8_Blended(font, textBuffer, { 0, 0, 0 });
             texText = SDL_CreateTextureFromSurface(renderer, surfText);
@@ -120,7 +120,7 @@ namespace uv_inspector {
         // Draw triangles
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         for (i = 0; i < count; i += 3) {
-            draw_triangle(renderer, &texCoords[i]);
+            draw_triangle(renderer, texCoords, &indices[i]);
         }
         SDL_RenderPresent(renderer);
 

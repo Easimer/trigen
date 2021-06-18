@@ -86,7 +86,7 @@ Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
             return { p.x, p.y, p.z };
         });
     std::transform(
-        (size_t *)mesh.vertex_indices, (size_t *)(mesh.vertex_indices + mesh.triangle_count * 3),
+        (size_t *)mesh.indices, (size_t *)(mesh.indices + mesh.triangle_count * 3),
         std::back_inserter(ret.elements),
         [&](auto p) { return (unsigned)p; });
 
@@ -264,7 +264,7 @@ void VM_Meshgen::resolutionChanged(int resolution) {
 
 void VM_Meshgen::inspectUV() {
     if (_unwrappedMesh.has_value()) {
-        uv_inspector::inspect(_unwrappedMesh->uv.data(), _unwrappedMesh->uv.size());
+        uv_inspector::inspect(_unwrappedMesh->uv.data(), _unwrappedMesh->elements.data(), _unwrappedMesh->elements.size());
     }
 }
 

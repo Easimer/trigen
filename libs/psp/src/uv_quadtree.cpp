@@ -57,9 +57,9 @@ public:
         for (auto& value : results) {
             auto t = value.second;
 
-            auto uv0 = _mesh->uv[t * 3 + 0];
-            auto uv1 = _mesh->uv[t * 3 + 1];
-            auto uv2 = _mesh->uv[t * 3 + 2];
+            auto uv0 = _mesh->uv[_mesh->elements[t * 3 + 0]];
+            auto uv1 = _mesh->uv[_mesh->elements[t * 3 + 1]];
+            auto uv2 = _mesh->uv[_mesh->elements[t * 3 + 2]];
 
             auto area = 0.5f * glm::abs(glm::determinant(glm::mat3(glm::vec3(uv0, 1), glm::vec3(uv1, 1), glm::vec3(uv2, 1))));
 
@@ -82,13 +82,9 @@ std::unique_ptr<UVSpatialIndex> make_uv_spatial_index(PSP::Mesh const *mesh) {
 
     auto N = mesh->elements.size() / 3;
     for (size_t t = 0; t < N; t++) {
-        auto uv0 = mesh->uv[t * 3 + 0];
-        auto uv1 = mesh->uv[t * 3 + 1];
-        auto uv2 = mesh->uv[t * 3 + 2];
-
         Polygon p;
         for (int i = 0; i < 3; i++) {
-            auto uv = mesh->uv[t * 3 + i];
+            auto uv = mesh->uv[mesh->elements[t * 3 + i]];
             p.outer().push_back(Point(uv.x, uv.y));
         }
 

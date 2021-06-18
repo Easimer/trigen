@@ -9,6 +9,7 @@
 #include <marching_cubes.h>
 #include <psp/psp.h>
 #include <softbody.h>
+#include <trigen/mesh_compress.h>
 
 #include <algorithm>
 #include <cmath>
@@ -94,6 +95,74 @@ static void DefaultInitializeTextureSlots(TRIGEN_HANDLE Trigen_Session session) 
     session->_texSlotsLocked = true;
 }
 
+static void
+recompress(PSP::Mesh &mesh) {
+    std::vector<glm::vec3> flatPositions;
+    std::vector<glm::vec3> flatNormals;
+    std::vector<glm::vec2> flatTexcoords;
+
+    for (size_t i = 0; i < mesh.elements.size(); i++) {
+        flatPositions.emplace_back(mesh.position[mesh.elements[i]]);
+        flatNormals.emplace_back(mesh.normal[mesh.elements[i]]);
+    }
+    flatTexcoords = std::move(mesh.uv);
+
+    TMC_Context ctx;
+    TMC_Buffer bufPos, bufNormal, bufUV;
+    TMC_Attribute attrPos, attrNormal, attrUV;
+
+    TMC_CreateContext(&ctx, k_ETMCHint_None);
+    TMC_SetIndexArrayType(ctx, k_ETMCType_UInt32);
+
+    TMC_CreateBuffer(
+        ctx, &bufPos, flatPositions.data(),
+        flatPositions.size() * sizeof(flatPositions[0]));
+    TMC_CreateBuffer(
+        ctx, &bufNormal, flatNormals.data(),
+        flatNormals.size() * sizeof(flatNormals[0]));
+    TMC_CreateBuffer(
+        ctx, &bufUV, flatTexcoords.data(),
+        flatTexcoords.size() * sizeof(flatTexcoords[0]));
+
+    TMC_CreateAttribute(
+        ctx, &attrPos, bufPos, 3, k_ETMCType_Float32, sizeof(glm::vec3), 0);
+    TMC_CreateAttribute(
+        ctx, &attrNormal, bufNormal, 3, k_ETMCType_Float32, sizeof(glm::vec3), 0);
+    TMC_CreateAttribute(
+        ctx, &attrUV, bufUV, 2, k_ETMCType_Float32, sizeof(glm::vec2), 0);
+
+    TMC_Compress(ctx, mesh.elements.size());
+
+    void const *arrIndex;
+    TMC_Size sizIndex, numIndex;
+    TMC_GetIndexArray(ctx, &arrIndex, &sizIndex, &numIndex);
+
+    mesh.elements.resize(numIndex);
+    for (TMC_Size i = 0; i < numIndex; i++) {
+        mesh.elements[i] = ((uint32_t *)arrIndex)[i];
+    }
+
+    void const *arrData;
+    TMC_Size sizData, numData;
+
+    TMC_GetDirectArray(ctx, attrPos, &arrData, &sizData);
+    numData = sizData / sizeof(glm::vec3);
+    mesh.position.resize(numData);
+    memcpy(mesh.position.data(), arrData, sizData);
+
+    TMC_GetDirectArray(ctx, attrNormal, &arrData, &sizData);
+    numData = sizData / sizeof(glm::vec3);
+    mesh.normal.resize(numData);
+    memcpy(mesh.normal.data(), arrData, sizData);
+
+    TMC_GetDirectArray(ctx, attrUV, &arrData, &sizData);
+    numData = sizData / sizeof(glm::vec2);
+    mesh.uv.resize(numData);
+    memcpy(mesh.uv.data(), arrData, sizData);
+
+    TMC_DestroyContext(ctx);
+}
+
 extern "C" {
 
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
@@ -175,18 +244,22 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateCollider(
 
     *collider = nullptr;
 
-    assert(mesh->normals && mesh->positions && mesh->vertex_indices && mesh->normal_indices);
-    if (mesh->normals == nullptr || mesh->positions == nullptr || mesh->vertex_indices == nullptr || mesh->normal_indices == nullptr) {
+    assert(mesh->normals && mesh->positions && mesh->indices);
+    if (mesh->normals == nullptr || mesh->positions == nullptr || mesh->indices == nullptr) {
+        return Trigen_InvalidMesh;
+    }
+
+    assert(mesh->normal_count == mesh->position_count);
+    if (mesh->normal_count != mesh->position_count) {
         return Trigen_InvalidMesh;
     }
 
     sb::Mesh_Collider sbCollider;
     sbCollider.triangle_count = mesh->triangle_count;
-    sbCollider.vertex_indices = mesh->vertex_indices;
-    sbCollider.normal_indices = mesh->normal_indices;
-    sbCollider.position_count = mesh->position_count;
+    sbCollider.indices = mesh->indices;
+    sbCollider.num_positions = mesh->position_count;
     sbCollider.positions = mesh->positions;
-    sbCollider.normal_count = mesh->normal_count;
+    sbCollider.num_normals = mesh->normal_count;
     sbCollider.normals = mesh->normals;
 
     auto matOrient = glm::mat4_cast(glm::quat(transform->orientation[0], transform->orientation[1], transform->orientation[2], transform->orientation[3]));
@@ -200,6 +273,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateCollider(
     }
 
     session->colliders.push_front({ session->simulation.get(), handle });
+    *collider = &session->colliders.front();
 
     return Trigen_OK;
 }
@@ -218,8 +292,14 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_UpdateCollider(
         return Trigen_InvalidArguments;
     }
 
+    auto matTranslate = glm::translate(
+        glm::mat4(1.0f),
+        glm::vec3(
+            transform->position[0], transform->position[1],
+            transform->position[2]));
     auto matOrient = glm::mat4_cast(glm::quat(transform->orientation[0], transform->orientation[1], transform->orientation[2], transform->orientation[3]));
-    auto matTransform = glm::translate(matOrient, glm::vec3(transform->position[0], transform->position[1], transform->position[2]));
+
+    auto matTransform = matTranslate * matOrient;
 
     if (!collider->simulation->update_transform(collider->handle, matTransform)) {
         return Trigen_Failure;
@@ -347,6 +427,9 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_Regenerate(
     // Regenerate UVs
     session->_pspMesh->uv.clear();
     PSP::unwrap(session->_pspMesh.value());
+    
+    // PSP generates UVs for each element, so we need to recompress the mesh
+    recompress(*(session->_pspMesh));
 
     return Trigen_OK;
 }
@@ -365,6 +448,10 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_GetMesh(
 
     auto &mesh = session->_pspMesh.value();
 
+    assert(
+        mesh.position.size() == mesh.normal.size()
+        && mesh.normal.size() == mesh.uv.size());
+
     outMesh->position_count = mesh.position.size();
     outMesh->normal_count = mesh.normal.size();
     outMesh->triangle_count = mesh.elements.size() / 3;
@@ -372,16 +459,14 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_GetMesh(
     outMesh->positions = new float[mesh.position.size() * 3];
     outMesh->normals = new float[mesh.normal.size() * 3];
     outMesh->uvs = new float[mesh.uv.size() * 2];
-    outMesh->vertex_indices = new uint64_t[mesh.elements.size() * 3];
-    // PSP::Mesh has no normal indices
-    outMesh->normal_indices = outMesh->vertex_indices;
+    outMesh->indices = new uint64_t[mesh.elements.size() * 3];
 
     memcpy((void*)outMesh->positions, mesh.position.data(), outMesh->position_count * sizeof(glm::vec3));
     memcpy((void*)outMesh->normals, mesh.normal.data(), outMesh->normal_count * sizeof(glm::vec3));
     memcpy((void*)outMesh->uvs, mesh.uv.data(), mesh.uv.size() * sizeof(glm::vec2));
 
     static_assert(sizeof(uint64_t) == sizeof(size_t), "size_t was not 8 bytes! Fix this memcpy:");
-    memcpy((void *)outMesh->vertex_indices, mesh.elements.data(), mesh.elements.size() * sizeof(uint64_t));
+    memcpy((void *)outMesh->indices, mesh.elements.data(), mesh.elements.size() * sizeof(uint64_t));
 
     return Trigen_OK;
 }
@@ -389,9 +474,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_GetMesh(
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_FreeMesh(
     TRIGEN_FREED TRIGEN_INOUT Trigen_Mesh *mesh) {
     if (mesh != nullptr) {
-        delete[] mesh->vertex_indices;
-        // PSP::Mesh has no normal indices
-        // delete[] mesh->normal_indices;
+        delete[] mesh->indices;
         delete[] mesh->positions;
         delete[] mesh->normals;
         delete[] mesh->uvs;
@@ -490,8 +573,6 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
             inputMaterial.emplace_back(tex.info);
         }
     }
-
-    assert(session->_pspMesh->uv.size() == session->_pspMesh->elements.size());
 
     auto paint_input = PSP::Paint_Input {
         &session->_pspMesh.value(),

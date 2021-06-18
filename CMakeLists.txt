@@ -105,7 +105,6 @@ add_subdirectory(objscan)
 
 add_subdirectory(softbody_crosscheck)
 
-add_subdirectory(mesh_paint_proto)
 add_subdirectory(editor)
 
 option(SOFTBODY_TESTBED_QT "Build the Qt5-based testbed")

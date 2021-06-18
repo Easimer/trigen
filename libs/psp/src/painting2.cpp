@@ -235,9 +235,9 @@ static std::vector<Ray> raygen(
                 auto i0 = mesh->elements[triangle_id * 3 + 0];
                 auto i1 = mesh->elements[triangle_id * 3 + 1];
                 auto i2 = mesh->elements[triangle_id * 3 + 2];
-                auto uv0 = mesh->uv[triangle_id * 3 + 0];
-                auto uv1 = mesh->uv[triangle_id * 3 + 1];
-                auto uv2 = mesh->uv[triangle_id * 3 + 2];
+                auto uv0 = mesh->uv[i0];
+                auto uv1 = mesh->uv[i1];
+                auto uv2 = mesh->uv[i2];
                 auto x0 = mesh->position[i0];
                 auto x1 = mesh->position[i1];
                 auto x2 = mesh->position[i2];
