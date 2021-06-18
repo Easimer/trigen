@@ -100,7 +100,7 @@ private:
 };
 
 #if defined(NDEBUG)
-#define CHK_TMC_CALL(expr)                                                     \
+#define CHK_TMC(expr)                                                          \
     if ((expr) != k_ETMCStatus_OK)                                             \
         std::abort();
 #else
