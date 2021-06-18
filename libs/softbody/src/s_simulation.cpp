@@ -286,17 +286,19 @@ void Softbody_Simulation::collider_changed(Collider_Handle h) {
 }
 
 bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Collider const *mesh) {
-    assert(mesh != NULL);
-    if (mesh == NULL ||
-        mesh->vertex_indices == NULL ||
-        mesh->normal_indices == NULL ||
-        mesh->positions == NULL ||
+    assert(mesh != nullptr);
+    if (mesh == nullptr ||
+        mesh->indices == nullptr ||
+        mesh->positions == nullptr ||
+        mesh->num_positions == 0 ||
+        mesh->normals == nullptr ||
+        mesh->num_normals == 0 ||
         mesh->triangle_count == 0) {
         return false;
     }
 
     // Allocate slot
-    Mesh_Collider_Slot* slot = NULL;
+    Mesh_Collider_Slot* slot = nullptr;
     // Look for an unused slot
     for (auto i = 0ull; i < s.colliders_mesh.size(); i++) {
         if (!s.colliders_mesh[i].used) {
@@ -321,24 +323,24 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     slot->normal_indices.reserve(mesh->triangle_count * 3);
 
     for (auto i = 0ull; i < mesh->triangle_count; i++) {
-        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 0]);
-        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 1]);
-        slot->vertex_indices.push_back(mesh->vertex_indices[i * 3 + 2]);
+        slot->vertex_indices.push_back(mesh->indices[i * 3 + 0]);
+        slot->vertex_indices.push_back(mesh->indices[i * 3 + 1]);
+        slot->vertex_indices.push_back(mesh->indices[i * 3 + 2]);
 
-        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 0]);
-        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 1]);
-        slot->normal_indices.push_back(mesh->normal_indices[i * 3 + 2]);
+        slot->normal_indices.push_back(mesh->indices[i * 3 + 0]);
+        slot->normal_indices.push_back(mesh->indices[i * 3 + 1]);
+        slot->normal_indices.push_back(mesh->indices[i * 3 + 2]);
     }
 
-    slot->vertices.reserve(mesh->position_count);
-    slot->normals.reserve(mesh->position_count);
+    slot->vertices.reserve(mesh->num_positions);
+    slot->normals.reserve(mesh->num_normals);
 
-    for (auto i = 0ull; i < mesh->position_count; i++) {
+    for (auto i = 0ull; i < mesh->num_positions; i++) {
         auto b = i * 3; // base index
         slot->vertices.push_back(Vec3(mesh->positions[b + 0], mesh->positions[b + 1], mesh->positions[b + 2]));
     }
 
-    for (auto i = 0ull; i < mesh->normal_count; i++) {
+    for (auto i = 0ull; i < mesh->num_normals; i++) {
         auto b = i * 3; // base index
         slot->normals.push_back(Vec3(mesh->normals[b + 0], mesh->normals[b + 1], mesh->normals[b + 2]));
     }

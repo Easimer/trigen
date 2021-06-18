@@ -60,6 +60,7 @@ target_link_libraries(editor
     RCmd::Base
     arcball_camera renderer_qt
     mesh_export trigen uv_inspect
+    mesh_compress
     stb
 )
 target_precompile_headers(editor PRIVATE "stdafx.h")

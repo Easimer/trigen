@@ -256,30 +256,25 @@ namespace sb {
 
     // Mesh collider descriptor
     struct Mesh_Collider {
-        // Number of triangles in this mesh.
-        // The number of elements in the index buffer should be three
-        // times this number.
         size_t triangle_count;
+        // Pointer to the index buffer
+        uint64_t const *indices;
 
-        // Pointer to the vertex index buffer.
-        uint64_t const *vertex_indices;
-        // Pointer to the normal index buffer.
-        uint64_t const *normal_indices;
-
-        // Number of elements in the position buffer.
-        // This should be at least `max(vertex_indices)+1`.
-        size_t position_count;
-        // Pointer to the position vector buffer.
+        // Number of elements in the direct buffer containing the vertex
+        // positions
+        size_t num_positions;
+        // Pointer to the direct buffer containing the vertex positions
         // Assumed to be in the following format: XYZ XYZ XYZ
         float const *positions;
 
-        // Number of elements in the normal buffer.
-        // This should be at least `max(normal_indices)+1`.
-        size_t normal_count;
-        // Pointer to the normal vector buffer.
+        // Number of elements in the direct buffer containing the vertex
+        // normals
+        size_t num_normals;
+        // Pointer to the direct buffer containing the vertex normals
         // Assumed to be in the following format: XYZ XYZ XYZ
         float const *normals;
 
+        // Transform of the collider object
         glm::mat4 transform;
     };
 

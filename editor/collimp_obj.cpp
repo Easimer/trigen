@@ -8,27 +8,19 @@
 #include <vector>
 #include <tiny_obj_loader.h>
 #include "world.h"
-
-/*
- * Common data for meshes loaded from the same obj file
- */
-struct Model_Data {
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-};
+#include <trigen/mesh_compress.h>
 
 struct Mesh_Data {
-    std::vector<uint64_t> vertex_indices;
-    std::vector<uint64_t> normal_indices;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texcoords;
+    std::vector<uint32_t> indices;
 };
 
 class Mesh_Collider_OBJ : public IMesh_Collider {
 public:
-    Mesh_Collider_OBJ(std::shared_ptr<Model_Data> &modelData, Mesh_Data &&meshData, int shapeIndex) :
-        _modelData(modelData),
-        _meshData(std::move(meshData)),
-        _shapeIndex(shapeIndex) {
+    Mesh_Collider_OBJ(Mesh_Data &&meshData) :
+        _meshData(std::move(meshData)) {
     }
 
     ~Mesh_Collider_OBJ() override = default;
@@ -36,18 +28,22 @@ private:
     std::optional<trigen::Collider> uploadToSimulation(trigen::Session &session) override {
         Trigen_Collider_Mesh descriptor = {};
 
-        auto &indices = _modelData->shapes[_shapeIndex].mesh.indices;
-        auto N = indices.size() / 3;
+        auto N = _meshData.indices.size() / 3;
         descriptor.triangle_count = N;
 
-        descriptor.vertex_indices = _meshData.vertex_indices.data();
-        descriptor.normal_indices = _meshData.normal_indices.data();
+        std::vector<uint64_t> indices64;
+        indices64.reserve(_meshData.indices.size());
+        for (auto &idx : _meshData.indices) {
+            indices64.emplace_back(idx);
+        }
 
-        descriptor.position_count = _modelData->attrib.vertices.size();
-        descriptor.positions = (float *)_modelData->attrib.vertices.data();
+        descriptor.indices = indices64.data();
 
-        descriptor.normal_count = _modelData->attrib.normals.size();
-        descriptor.normals = (float *)_modelData->attrib.normals.data();
+        descriptor.position_count = _meshData.positions.size();
+        descriptor.positions = (float *)_meshData.positions.data();
+
+        descriptor.normal_count = _meshData.normals.size();
+        descriptor.normals = (float *)_meshData.normals.data();
 
         Trigen_Transform transform;
         memset(&transform, 0, sizeof(transform));
@@ -66,22 +62,23 @@ private:
         gfx::Model_Descriptor descriptor = {};
 
         std::vector<unsigned> elements;
-        auto vertices = (std::array<float, 3>*)_modelData->attrib.vertices.data();
         std::vector<glm::vec2> uvs;
 
-        for (auto &element : _meshData.vertex_indices) {
+        for (auto &element : _meshData.indices) {
             elements.push_back(element);
         }
 
-        for (size_t i = 0; i < _meshData.vertex_indices.size(); i++) {
+        for (size_t i = 0; i < _meshData.indices.size(); i++) {
             uvs.push_back({ 0.0f, 0.0f });
         }
 
-        descriptor.vertices = vertices;
-        descriptor.vertex_count = _modelData->attrib.vertices.size();
+        descriptor.vertex_count = _meshData.positions.size();
+        descriptor.vertices = (std::array<float, 3>*)_meshData.positions.data();
+        descriptor.normals = (std::array<float, 3>*)_meshData.normals.data();
+        descriptor.uv = (std::array<float, 2>*)_meshData.texcoords.data();
+
         descriptor.elements = elements.data();
         descriptor.element_count = elements.size();
-        descriptor.uv = (std::array<float, 2>*)uvs.data();
 
         if (!renderer->create_model(&ret, &descriptor)) {
             std::abort();
@@ -99,10 +96,16 @@ private:
     }
 
 private:
-    std::shared_ptr<Model_Data> _modelData;
     Mesh_Data _meshData;
-    int _shapeIndex;
 };
+
+#if defined(NDEBUG)
+#define CHK_TMC_CALL(expr)                                                     \
+    if ((expr) != k_ETMCStatus_OK)                                             \
+        std::abort();
+#else
+#define CHK_TMC(expr) assert((expr) == k_ETMCStatus_OK)
+#endif
 
 class Collider_Importer_OBJ : public ICollider_Importer {
 public:
@@ -112,28 +115,128 @@ private:
     std::vector<std::unique_ptr<IMesh_Collider>> loadFromFile(char const *path) override {
         std::vector<std::unique_ptr<IMesh_Collider>> ret;
 
-        auto modelData = std::make_shared<Model_Data>();
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
         std::string err;
 
-        if (!tinyobj::LoadObj(&modelData->attrib, &modelData->shapes, &modelData->materials, &err, path)) {
+        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path)) {
             return ret;
         }
 
         // We create a separate mesh collider for each shape/mesh in
         // the model
-        for(int sidx = 0; sidx < modelData->shapes.size(); sidx++) {
-            auto &shape = modelData->shapes[sidx];
-            Mesh_Data meshData;
+        for(int sidx = 0; sidx < shapes.size(); sidx++) {
+            auto &shape = shapes[sidx];
 
-            auto& vertex_indices = meshData.vertex_indices;
-            auto& normal_indices = meshData.normal_indices;
-            for (auto &index : shape.mesh.indices) {
-                vertex_indices.push_back((uint64_t)index.vertex_index);
-                normal_indices.push_back((uint64_t)index.normal_index);
-            }
+            std::vector<glm::vec3> flatPositions;
+            std::vector<glm::vec3> flatNormals;
+            std::vector<glm::vec2> flatTexcoords;
+            flatten_mesh(attrib, shape, flatPositions, flatNormals, flatTexcoords);
 
-            ret.emplace_back(std::make_unique<Mesh_Collider_OBJ>(modelData, std::move(meshData), sidx));
+            TMC_Context ctx;
+            TMC_Buffer bufPositions, bufNormals, bufTexcoords;
+            TMC_Attribute attrPositions, attrNormals, attrTexcoords;
+
+            CHK_TMC(TMC_CreateContext(&ctx, k_ETMCHint_None));
+            CHK_TMC(TMC_SetIndexArrayType(ctx, k_ETMCType_UInt32));
+
+            CHK_TMC(TMC_CreateBuffer(
+                ctx, &bufPositions, flatPositions.data(),
+                flatPositions.size() * sizeof(flatPositions[0])));
+            CHK_TMC(TMC_CreateBuffer(
+                ctx, &bufNormals, flatNormals.data(),
+                flatNormals.size() * sizeof(flatNormals[0])));
+            CHK_TMC(TMC_CreateBuffer(
+                ctx, &bufTexcoords, flatTexcoords.data(),
+                flatTexcoords.size() * sizeof(flatTexcoords[0])));
+
+            CHK_TMC(TMC_CreateAttribute(
+                ctx, &attrPositions, bufPositions, 3, k_ETMCType_Float32,
+                sizeof(flatPositions[0]), 0));
+            CHK_TMC(TMC_CreateAttribute(
+                ctx, &attrNormals, bufNormals, 3, k_ETMCType_Float32,
+                sizeof(flatNormals[0]), 0));
+            CHK_TMC(TMC_CreateAttribute(
+                ctx, &attrTexcoords, bufTexcoords, 2, k_ETMCType_Float32,
+                sizeof(flatTexcoords[0]), 0));
+
+            CHK_TMC(TMC_Compress(ctx, flatPositions.size()));
+
+            auto positions = attribute_to_vector<3>(ctx, attrPositions);
+            auto normals = attribute_to_vector<3>(ctx, attrNormals);
+            auto texcoords = attribute_to_vector<2>(ctx, attrTexcoords);
+            auto indices = indices_to_vector(ctx);
+
+            Mesh_Data meshData = { std::move(positions), std::move(normals),
+                                   std::move(texcoords), std::move(indices) };
+
+            ret.emplace_back(
+                std::make_unique<Mesh_Collider_OBJ>(std::move(meshData)));
+
+            CHK_TMC(TMC_DestroyContext(ctx));
         }
+
+        return ret;
+    }
+
+    static void
+    flatten_mesh(
+        tinyobj::attrib_t const &attrib,
+        tinyobj::shape_t const &shape,
+        std::vector<glm::vec3> &positions,
+        std::vector<glm::vec3> &normals,
+        std::vector<glm::vec2> &texcoords) {
+        auto const N = shape.mesh.indices.size();
+        positions.clear();
+        normals.clear();
+        positions.reserve(N);
+        normals.reserve(N);
+
+        auto aVertices = (glm::vec3 const *)attrib.vertices.data();
+        auto aNormals = (glm::vec3 const *)attrib.normals.data();
+        auto aTexcoords = (glm::vec2 const *)attrib.texcoords.data();
+
+        for (size_t i = 0; i < N; i++) {
+            auto idxPos = shape.mesh.indices[i].vertex_index;
+            auto idxNormal = shape.mesh.indices[i].normal_index;
+            auto idxTexcoord = shape.mesh.indices[i].texcoord_index;
+            positions.emplace_back(aVertices[idxPos]);
+            normals.emplace_back(aNormals[idxNormal]);
+            texcoords.emplace_back(aTexcoords[idxTexcoord]);
+        }
+    }
+
+    template<size_t NumComp>
+    static std::vector<glm::vec<NumComp, float>>
+    attribute_to_vector(TMC_Context ctx, TMC_Attribute attr) {
+        std::vector<glm::vec<NumComp, float>> ret;
+        void const *data;
+        TMC_Size size;
+        CHK_TMC(TMC_GetDirectArray(ctx, attr, &data, &size));
+        TMC_Size count = size / sizeof(glm::vec<NumComp, float>);
+        ret.resize(count);
+        auto *dataVec = (glm::vec<NumComp, float> const *)data;
+
+        for (TMC_Size i = 0; i < count; i++) {
+            ret[i] = dataVec[i];
+        }
+
+        return ret;
+    }
+
+    static std::vector<uint32_t>
+        indices_to_vector(TMC_Context ctx) {
+        void const *data;
+        TMC_Size size, count;
+
+        CHK_TMC(TMC_GetIndexArray(ctx, &data, &size, &count));
+        auto *indices = (uint32_t const *)data;
+
+        std::vector<uint32_t> ret;
+        ret.resize(count);
+
+        memcpy(ret.data(), indices, size);
 
         return ret;
     }
