@@ -444,6 +444,12 @@ Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session);
 TRIGEN_RETURN_CODE TRIGEN_API
 Trigen_GetFoliageMesh(TRIGEN_HANDLE Trigen_Session session);
 
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_GetLeafPositions_PRIVATE(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_INOUT tg_usize *count,
+    TRIGEN_OUT tg_f32 *buf);
+
 #ifdef __cplusplus
 }
 #endif
