@@ -91,7 +91,7 @@ Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
         [&](auto p) { return (unsigned)p; });
 
     std::transform(
-        (glm::vec2*)mesh.uvs, (glm::vec2*)(mesh.uvs + mesh.triangle_count * 3 * 2),
+        (glm::vec2*)mesh.uvs, (glm::vec2*)(mesh.uvs + mesh.triangle_count * 3),
         std::back_inserter(ret.uv),
         [&](auto p) -> glm::vec2 {
             return { p.x, p.y };
