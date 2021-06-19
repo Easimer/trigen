@@ -66,6 +66,7 @@ private:
     Map<index_t, Vec4> anchor_points;
     Map<index_t, float> lifetime;
     Dequeue<index_t> growing;
+    Vector<index_t> leaf_bud;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         // Create root
@@ -183,7 +184,12 @@ private:
                 });
                 ret = true;
             }
+        } else {
+            // This particle won't grow a lateral branch
+            // We're adding this particle to the list of leaf buds
+            leaf_bud.emplace_back(pidx);
         }
+
         auto pos = s.position[pidx] + branch_len * branch_dir;
 
         if (!checkIntersection(s, s.position[pidx], pos)) {
@@ -232,7 +238,6 @@ private:
 
     void growth(IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
         auto g = 1.0f; // 1/sec
-        auto prob_branching = 0.25f;
         auto const N = s.position.size();
         auto const max_size = 1.5f;
 
@@ -282,12 +287,18 @@ private:
         return std::make_unique<One_To_One_Relation_Iterator>(get_map, make_relation);
     }
 
-#define MAX_POSSIBLE_CHUNK_COUNT (4)
+    std::vector<index_t>
+    get_leaf_buds() override {
+        return leaf_bud;
+    }
+
+#define MAX_POSSIBLE_CHUNK_COUNT (5)
 #define VERSION (0x00000000)
 #define CHUNK_PARENTS       MAKE_4BYTE_ID('P', 'S', 'p', 'a')
 #define CHUNK_APICAL_CHILD  MAKE_4BYTE_ID('P', 'S', 'a', 'c')
 #define CHUNK_LATERAL_BUD   MAKE_4BYTE_ID('P', 'S', 'l', 'b')
 #define CHUNK_ANCHOR_POINTS MAKE_4BYTE_ID('P', 'S', 'a', 'p')
+#define CHUNK_LEAF_BUD      MAKE_4BYTE_ID('P', 'S', 'f', 'b')
 
     bool save_image(sb::ISerializer* serializer, System_State const& s) override {
         uint32_t id = Extension_Lookup_Chunk_Identifier(sb::Extension::Plant_Simulation);
@@ -304,6 +315,7 @@ private:
         serialize(serializer, apical_child, CHUNK_APICAL_CHILD);
         serialize(serializer, lateral_bud, CHUNK_LATERAL_BUD);
         serialize(serializer, anchor_points, CHUNK_ANCHOR_POINTS);
+        serialize(serializer, leaf_bud, CHUNK_LEAF_BUD);
 
         return true;
     }
@@ -317,7 +329,7 @@ private:
         }
 
         deserializer->read(&version, sizeof(version));
-        if (version != VERSION) {
+        if (version > VERSION) {
             return false;
         }
 
@@ -333,6 +345,7 @@ private:
                 case CHUNK_APICAL_CHILD: deserialize(deserializer, apical_child); break;
                 case CHUNK_LATERAL_BUD: deserialize(deserializer, lateral_bud); break;
                 case CHUNK_ANCHOR_POINTS: deserialize(deserializer, anchor_points); break;
+                case CHUNK_LEAF_BUD: deserialize(deserializer, leaf_bud); break;
                 default: printf("UNKNOWN CHUNK ID %x\n", id); std::terminate(); break;
                 }
             }

@@ -252,6 +252,9 @@ namespace sb {
     class IPlant_Simulation {
     public:
         virtual Unique_Ptr<Relation_Iterator> get_parental_relations() = 0;
+
+        virtual std::vector<index_t>
+        get_leaf_buds() = 0;
     };
 
     // Mesh collider descriptor
