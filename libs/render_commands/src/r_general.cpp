@@ -64,13 +64,19 @@ void Render_Model::execute(gfx::IRenderer *renderer) {
     }
 }
 
-Render_Untextured_Model::Render_Untextured_Model(gfx::Model_ID model, gfx::Transform const &transform) :
-    _model(model), _transform(transform), _tintColor({ 1, 1, 1, 1 }) {
-}
+Render_Untextured_Model::Render_Untextured_Model(
+    gfx::Model_ID model,
+    gfx::Transform const &transform)
+    : _model(model)
+    , _transform(transform)
+    , _tintColor({ 1, 1, 1, 1 })
+    , _wireframeOnTop(false) { }
 
-void Render_Untextured_Model::execute(gfx::IRenderer *renderer) {
+void
+Render_Untextured_Model::execute(gfx::IRenderer *renderer) {
     gfx::Render_Parameters params;
     params.tint_color = _tintColor;
+    params.wireframe_on_top = _wireframeOnTop;
 
     renderer->draw_triangle_elements(params, _model, _transform);
 }

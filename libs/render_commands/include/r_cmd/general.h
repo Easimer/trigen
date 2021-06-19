@@ -35,11 +35,17 @@ public:
 
     glm::vec4 &tint() { return _tintColor; }
 
+    bool &
+    wireframe_on_top() {
+        return _wireframeOnTop;
+    }
+
     void execute(gfx::IRenderer *renderer) override;
 private:
     gfx::Model_ID _model;
     gfx::Transform _transform;
     glm::vec4 _tintColor;
+    bool _wireframeOnTop;
 };
 
 class Load_Texture_Command : public gfx::IRender_Command {

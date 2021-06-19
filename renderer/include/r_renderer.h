@@ -21,6 +21,9 @@ namespace gfx {
 
         // Mesh surface tint color
         std::optional<glm::vec4> tint_color;
+
+        // Draw the wireframe ON TOP of the model
+        bool wireframe_on_top = false;
     };
 
     using Model_ID = void*;

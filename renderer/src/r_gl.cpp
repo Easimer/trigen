@@ -830,6 +830,14 @@ public:
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model->elements);
             glDrawElements(GL_TRIANGLES, model->num_elements,
                 model->index_type, nullptr);
+
+            if (params.wireframe_on_top) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                gl::SetUniformLocation(shader.locTintColor(), { 0, 0, 0, 1 });
+                glDrawElements(GL_TRIANGLES, model->num_elements,
+                    model->index_type, nullptr);
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            }
         } else {
             printf("renderer: can't draw triangle elements: no shader!\n");
         }
