@@ -20,7 +20,7 @@ static void draw_triangle(SDL_Renderer *renderer, glm::vec2 const *points, unsig
     sdl_points[0] = { points[indices[0]].x * WND_SIZ, points[indices[0]].y * WND_SIZ };
     sdl_points[1] = { points[indices[1]].x * WND_SIZ, points[indices[1]].y * WND_SIZ };
     sdl_points[2] = { points[indices[2]].x * WND_SIZ, points[indices[2]].y * WND_SIZ };
-    sdl_points[0] = { points[indices[0]].x * WND_SIZ, points[indices[0]].y * WND_SIZ };
+    sdl_points[3] = { points[indices[0]].x * WND_SIZ, points[indices[0]].y * WND_SIZ };
 
     SDL_RenderDrawLinesF(renderer, sdl_points, 4);
 }
