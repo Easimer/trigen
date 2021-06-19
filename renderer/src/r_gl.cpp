@@ -132,7 +132,8 @@ public:
             auto const locView = gl::Uniform_Location<Mat4>(program, "matView");
             auto const locProj = gl::Uniform_Location<Mat4>(program, "matProj");
             auto const locModel = gl::Uniform_Location<Mat4>(program, "matModel");
-            m_point_cloud_shader = { std::move(program), locView, locProj, locModel };
+            auto const locColor = gl::Uniform_Location<Vec3>(program, "vColor");
+            m_point_cloud_shader = { std::move(program), locView, locProj, locModel, locColor };
         });
 
         LoadShaderFromStrings("Lines", lines_vsh_glsl, lines_fsh_glsl, {}, discard, [&](gl::Shader_Program &program) {
@@ -287,6 +288,7 @@ public:
             gl::SetUniformLocation(shader.locModelMatrix , matModel);
             gl::SetUniformLocation(shader.locMatView, m_view);
             gl::SetUniformLocation(shader.locMatProj, m_proj);
+            gl::SetUniformLocation(shader.locColor, { 1, 0, 0 });
 
             glDrawArrays(GL_POINTS, 0, nCount);
 
@@ -1010,6 +1012,7 @@ private:
     struct Point_Cloud_Shader {
         gl::Shader_Program program;
         gl::Uniform_Location<Mat4> locMatView, locMatProj, locModelMatrix;
+        gl::Uniform_Location<Vec3> locColor;
     };
 
     std::optional<Line_Shader> m_line_shader;

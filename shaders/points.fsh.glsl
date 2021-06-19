@@ -1,5 +1,7 @@
 out vec4 vFrag;
 
+uniform vec3 vColor;
+
 void main() {
-    vFrag = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+    vFrag = vec4(vColor, 1.0f);
 }
