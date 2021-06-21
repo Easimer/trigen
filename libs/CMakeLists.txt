@@ -1,8 +1,11 @@
+option(TRIGEN_MODULAR_BUILD "" OFF)
+
 add_subdirectory(glad)
 add_subdirectory(metadesk)
 add_subdirectory(virtfs)
 add_subdirectory(imgui)
 add_subdirectory(psp)
+add_subdirectory(foliage)
 add_subdirectory(arcball_camera)
 add_subdirectory(softbody_ext)
 add_subdirectory(stb)
