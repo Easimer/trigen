@@ -47,7 +47,11 @@ void QOpenGLWidgetImGui::initializeGL() {
         assert(context() != NULL);
         gpCtx = context();
         printf("GLViewport context: %p\n", gpCtx);
-        _renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress);
+
+        auto imguiContext = ImGui::GetCurrentContext();
+        assert(imguiContext && "Did you forget to create an ImGui context?");
+
+        _renderer = gfx::make_opengl_renderer(context(), GLGetProcAddress, imguiContext);
         gpCtx = NULL;
 
         ImGuiIO &io = ImGui::GetIO();

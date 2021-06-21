@@ -14,6 +14,16 @@
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#if _WIN32
+#if defined(RENDERER_BUILDING)
+#define RENDERER_EXPORT __declspec(dllexport)
+#else
+#define RENDERER_EXPORT __declspec(dllimport)
+#endif
+#else
+#define RENDERER_EXPORT
+#endif
+
 namespace gfx {
     struct Render_Parameters {
         // Position of the sun
@@ -59,7 +69,7 @@ namespace gfx {
         glm::vec3 scale;
     };
 
-    class IRenderer {
+    class RENDERER_EXPORT IRenderer {
     public:
         virtual ~IRenderer() {}
 
@@ -155,5 +165,5 @@ namespace gfx {
         OpenGL,
     };
 
-    std::unique_ptr<IRenderer> make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*));
+    RENDERER_EXPORT std::unique_ptr<IRenderer> make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*), void *imguiContext);
 }

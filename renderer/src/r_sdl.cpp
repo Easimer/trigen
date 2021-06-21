@@ -54,7 +54,7 @@ public:
         ImGui::GetIO();
         ImGui::StyleColorsDark();
         ImGui_ImplSDL2_InitForOpenGL(window, glctx);
-        this->backend = gfx::make_opengl_renderer(glctx, SDL_GL_GetProcAddress);
+        this->backend = gfx::make_opengl_renderer(glctx, SDL_GL_GetProcAddress, m_pImGuiCtx);
     }
 
     ~SDL_Renderer() {

@@ -14,10 +14,10 @@ namespace gfx {
         char const* title;
     };
 
-    class ISDL_Window : public IRenderer {
+    class RENDERER_EXPORT ISDL_Window : public IRenderer {
     public:
         virtual bool poll_event(SDL_Event* ev) = 0;
     };
 
-    std::unique_ptr<ISDL_Window> make_window(Surface_Config const& cfg, Renderer_Backend backend);
+    RENDERER_EXPORT std::unique_ptr<ISDL_Window> make_window(Surface_Config const& cfg, Renderer_Backend backend);
 }

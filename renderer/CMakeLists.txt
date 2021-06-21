@@ -13,7 +13,19 @@ set(SRC_SHADER_SOURCES
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})
 
-add_library(renderer STATIC
+if(${TRIGEN_MODULAR_BUILD})
+	add_library(renderer SHARED)
+else()
+	add_library(renderer STATIC)
+endif()
+
+target_compile_definitions(renderer
+    PRIVATE
+        RENDERER_BUILDING 
+)
+tri_builddir(renderer)
+
+target_sources(renderer PRIVATE
     include/r_renderer.h
     include/r_queue.h
     src/r_gl.cpp

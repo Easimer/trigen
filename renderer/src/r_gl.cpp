@@ -1027,8 +1027,9 @@ private:
     std::list<Framebuffer> _framebuffers;
 };
 
-std::unique_ptr<gfx::IRenderer> gfx::make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*)) {
+std::unique_ptr<gfx::IRenderer> gfx::make_opengl_renderer(void* glctx, void* (*getProcAddress)(char const*), void *imguiContext) {
     if (gladLoadGLLoader(getProcAddress) == 1) {
+        ImGui::SetCurrentContext((ImGuiContext *)imguiContext);
         return std::make_unique<GL_Renderer>();
     } else {
         return nullptr;
