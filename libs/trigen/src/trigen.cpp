@@ -6,6 +6,7 @@
 #include "trigen.h"
 #include "trigen.hpp"
 
+#include <foliage.hpp>
 #include <marching_cubes.h>
 #include <psp/psp.h>
 #include <softbody.h>
