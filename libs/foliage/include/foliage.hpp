@@ -5,15 +5,18 @@
 
 #pragma once
 
-#include <hedley.h>
 #include <memory>
 
 #include <softbody.h>
 
+#if _WIN32
 #if defined(FOLIAGE_BUILDING)
-#define FOLIAGE_IMPORT HEDLEY_PUBLIC
+#define FOLIAGE_IMPORT __declspec(dllexport)
 #else
-#define FOLIAGE_IMPORT HEDLEY_IMPORT
+#define FOLIAGE_IMPORT __declspec(dllimport)
+#endif
+#else
+#define FOLIAGE_IMPORT 
 #endif
 
 class FOLIAGE_IMPORT IFoliage_Generator {

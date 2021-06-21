@@ -20,7 +20,7 @@ target_sources(foliage
 )
 target_link_libraries(foliage
 	PUBLIC
-        softbody CONAN_PKG::hedley mesh_compress
+        softbody mesh_compress
 )
 set_target_properties(foliage
     PROPERTIES
