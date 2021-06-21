@@ -208,7 +208,7 @@ typedef struct Trigen_Texture_Slot_Descriptor_t {
 } Trigen_Texture_Slot_Descriptor;
 
 typedef struct Trigen_Foliage_Parameters_t {
-    int placeholder;
+    float scale;
 } Trigen_Foliage_Parameters;
 
 #ifdef __cplusplus
@@ -429,11 +429,6 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
     TRIGEN_IN Trigen_Texture_Slot_Descriptor *descriptor);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_SetLeafTexture(
-    TRIGEN_HANDLE Trigen_Session session,
-    TRIGEN_IN Trigen_Texture const *texture);
-
-TRIGEN_RETURN_CODE TRIGEN_API
 Trigen_SetFoliageParameters(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_IN Trigen_Foliage_Parameters const *params);
@@ -442,13 +437,9 @@ TRIGEN_RETURN_CODE TRIGEN_API
 Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_GetFoliageMesh(TRIGEN_HANDLE Trigen_Session session);
-
-TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_GetLeafPositions_PRIVATE(
+Trigen_GetFoliageMesh(
     TRIGEN_HANDLE Trigen_Session session,
-    TRIGEN_INOUT tg_usize *count,
-    TRIGEN_OUT tg_f32 *buf);
+    TRIGEN_OUT Trigen_Mesh *mesh);
 
 #ifdef __cplusplus
 }

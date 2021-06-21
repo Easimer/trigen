@@ -737,73 +737,24 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
     return Trigen_OK;
 }
 
-static std::vector<glm::vec3>
-GetLeafPositions(TRIGEN_HANDLE Trigen_Session session) {
-    auto &simulation = session->simulation;
-    assert(simulation != nullptr);
-
-    if (simulation == nullptr) {
-        return {};
-    }
-
-    auto *plant = simulation->get_extension_plant_simulation();
-    assert(plant != nullptr);
-
-    if (plant == nullptr) {
-        return {};
-    }
-
-    auto leaf_buds = plant->get_leaf_buds();
-    auto leaf_bud_set = std::unordered_set<sb::index_t>(leaf_buds.cbegin(), leaf_buds.cend());
-
-    std::vector<glm::vec3> ret;
-
-    for (auto iter = simulation->get_particles(); !iter->ended();
-         iter->step()) {
-        auto particle = iter->get();
-        if (leaf_bud_set.count(particle.id)) {
-            ret.emplace_back(particle.position);
-        }
-    }
-
-    return ret;
-}
-
 TRIGEN_RETURN_CODE TRIGEN_API
 Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session) {
     if (session == nullptr) {
         return Trigen_InvalidArguments;
     }
 
-
     return Trigen_OK;
 }
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_GetLeafPositions_PRIVATE(
+Trigen_GetFoliageMesh(
     TRIGEN_HANDLE Trigen_Session session,
-    TRIGEN_INOUT tg_usize *count,
-    TRIGEN_OUT tg_f32 *buf) {
-    if (session == nullptr || count == nullptr) {
+    TRIGEN_OUT Trigen_Mesh* mesh) {
+    if (session == nullptr || mesh == nullptr) {
         return Trigen_InvalidArguments;
     }
 
-    if (*count != 0 && buf == nullptr) {
-        return Trigen_InvalidArguments;
-    }
-
-    auto pos = GetLeafPositions(session);
-
-    auto bufSize = *count;
-
-    *count = pos.size();
-
-    if (bufSize >= pos.size() && buf != nullptr) {
-        memcpy(buf, pos.data(), pos.size() * sizeof(glm::vec3));
-    }
-
-    return Trigen_OK;
+    return Trigen_Failure;
 }
-
 }
 

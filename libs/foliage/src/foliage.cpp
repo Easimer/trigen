@@ -5,6 +5,7 @@
 
 #include <foliage.hpp>
 
+#include <cstring>
 #include <optional>
 #include <random>
 #include <unordered_set>

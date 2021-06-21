@@ -70,19 +70,6 @@ private:
     std::vector<glm::vec3> _lines;
 };
 
-class Render_Leaves_Command : public gfx::IRender_Command {
-public:
-    Render_Leaves_Command(std::vector<glm::vec3> &&points)
-        : _points(std::move(points)) { }
-
-    void execute(gfx::IRenderer *renderer) override {
-        renderer->draw_points(_points.size(), _points.data(), glm::vec3());
-    }
-
-private:
-    std::vector<glm::vec3> _points;
-};
-
 Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
     Unwrapped_Mesh ret;
 
@@ -172,19 +159,6 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
             // TODO: for each vertex, draw the normal
             gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
         }
-
-        auto session
-            = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-        std::vector<glm::vec3> leaf_positions;
-        tg_usize count = 0;
-        Trigen_GetLeafPositions_PRIVATE(session->handle(), &count, nullptr);
-        leaf_positions.resize(count);
-        Trigen_GetLeafPositions_PRIVATE(
-            session->handle(), &count, (tg_f32 *)leaf_positions.data());
-
-        gfx::allocate_command_and_initialize<Render_Leaves_Command>(
-            rq, std::move(leaf_positions));
-
     }
 }
 
