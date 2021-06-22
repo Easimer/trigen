@@ -56,6 +56,9 @@ struct Trigen_Session_t {
     tg_u32 _outputWidth;
     tg_u32 _outputHeight;
     PSP::Output_Material _outputMaterial;
+
+    std::unique_ptr<IFoliage_Generator> foliageGenerator;
+    std::vector<tg_u64> foliageIndexBuffer;
 };
 
 #define TEXSLOTDESC_INIT_RGB888(slot, r, g, b) \
@@ -743,6 +746,20 @@ Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session) {
         return Trigen_InvalidArguments;
     }
 
+    auto foliageGenerator = make_foliage_generator(session->simulation);
+    if (!foliageGenerator->generate()) {
+        return Trigen_Failure;
+    }
+
+    session->foliageGenerator = std::move(foliageGenerator);
+
+    // Convert indices from u32 to u64
+    auto elements = session->foliageGenerator->elements();
+    session->foliageIndexBuffer.resize(foliageGenerator->numElements());
+    for (uint32_t i = 0; i < session->foliageGenerator->numElements(); i++) {
+        session->foliageIndexBuffer[i] = static_cast<tg_u64>(elements[i]);
+    }
+
     return Trigen_OK;
 }
 
@@ -754,7 +771,19 @@ Trigen_GetFoliageMesh(
         return Trigen_InvalidArguments;
     }
 
-    return Trigen_Failure;
+    if (session->foliageGenerator == nullptr) {
+        return Trigen_NotReady;
+    }
+
+    mesh->positions = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->positions());
+    mesh->normals = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->normals());
+    mesh->uvs = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->texcoords());
+    mesh->position_count = session->foliageGenerator->numVertices();
+    mesh->normal_count = session->foliageGenerator->numVertices();
+    mesh->indices = session->foliageIndexBuffer.data();
+    mesh->triangle_count = session->foliageIndexBuffer.size() / 3;
+
+    return Trigen_OK;
 }
 }
 
