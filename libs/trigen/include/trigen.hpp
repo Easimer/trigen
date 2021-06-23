@@ -115,7 +115,35 @@ private:
     Trigen_Collider _handle;
 };
 
-class Mesh {
+template<typename T>
+class Base_Mesh {
+public:
+    Trigen_Mesh const &operator->() const noexcept {
+        return _mesh;
+    }
+
+    Trigen_Mesh const &operator*() const noexcept {
+        return _mesh;
+    }
+
+    ~Base_Mesh() {
+        if (Trigen_Mesh_FreeMesh(&_mesh) != Trigen_OK) {
+            std::abort();
+        }
+        if (static_cast<T*>(this)->Free(_mesh) != Trigen_OK) {
+            std::abort();
+        }
+    }
+
+protected:
+    Base_Mesh(Trigen_Mesh &mesh) : _mesh(mesh) {
+    }
+
+private:
+    Trigen_Mesh _mesh;
+};
+
+class Mesh : public Base_Mesh<Mesh> {
 public:
     static Mesh make(Session &session) {
         return make(session.handle());
@@ -131,26 +159,40 @@ public:
         return Mesh(mesh);
     }
 
-    Trigen_Mesh const &operator->() const noexcept {
-        return _mesh;
-    }
-
-    Trigen_Mesh const &operator*() const noexcept {
-        return _mesh;
-    }
-
-    ~Mesh() {
-        if (Trigen_Mesh_FreeMesh(&_mesh) != Trigen_OK) {
-            std::abort();
-        }
+    Trigen_Status
+    Free(Trigen_Mesh &mesh) {
+        return Trigen_Mesh_FreeMesh(&mesh);
     }
 
 protected:
-    Mesh(Trigen_Mesh &mesh) : _mesh(mesh) {
+    Mesh(Trigen_Mesh &mesh)
+        : Base_Mesh(mesh) { }
+};
+
+class Foliage_Mesh : public Base_Mesh<Foliage_Mesh> {
+public:
+    static Foliage_Mesh make(Session &session) {
+        return make(session.handle());
     }
 
-private:
-    Trigen_Mesh _mesh;
+    static Foliage_Mesh make(Trigen_Session session) {
+        Trigen_Mesh mesh;
+        Trigen_Status rc;
+        if ((rc = Trigen_Foliage_GetMesh(session, &mesh)) != Trigen_OK) {
+            throw Exception(rc);
+        }
+
+        return Foliage_Mesh(mesh);
+    }
+
+    Trigen_Status
+    Free(Trigen_Mesh &mesh) {
+        return Trigen_Foliage_FreeMesh(&mesh);
+    }
+
+protected:
+    Foliage_Mesh(Trigen_Mesh &mesh)
+        : Base_Mesh(mesh) { }
 };
 
 }

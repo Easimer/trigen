@@ -429,20 +429,20 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
     TRIGEN_IN Trigen_Texture_Slot_Descriptor *descriptor);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_SetFoliageParameters(
+Trigen_Foliage_SetParameters(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_IN Trigen_Foliage_Parameters const *params);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session);
+Trigen_Foliage_Regenerate(TRIGEN_HANDLE Trigen_Session session);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_GetFoliageMesh(
+Trigen_Foliage_GetMesh(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_OUT Trigen_Mesh *mesh);
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_FreeFoliageMesh(TRIGEN_INOUT Trigen_Mesh *mesh);
+Trigen_Foliage_FreeMesh(TRIGEN_INOUT Trigen_Mesh *mesh);
 
 #ifdef __cplusplus
 }

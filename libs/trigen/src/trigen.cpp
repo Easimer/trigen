@@ -741,7 +741,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
 }
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session) {
+Trigen_Foliage_Regenerate(TRIGEN_HANDLE Trigen_Session session) {
     if (session == nullptr) {
         return Trigen_InvalidArguments;
     }
@@ -755,7 +755,7 @@ Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session) {
 
     // Convert indices from u32 to u64
     auto elements = session->foliageGenerator->elements();
-    session->foliageIndexBuffer.resize(foliageGenerator->numElements());
+    session->foliageIndexBuffer.resize(session->foliageGenerator->numElements());
     for (uint32_t i = 0; i < session->foliageGenerator->numElements(); i++) {
         session->foliageIndexBuffer[i] = static_cast<tg_u64>(elements[i]);
     }
@@ -764,7 +764,7 @@ Trigen_RegenerateFoliage(TRIGEN_HANDLE Trigen_Session session) {
 }
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_GetFoliageMesh(
+Trigen_Foliage_GetMesh(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_OUT Trigen_Mesh* mesh) {
     if (session == nullptr || mesh == nullptr) {
@@ -804,7 +804,7 @@ Trigen_GetFoliageMesh(
 }
 
 TRIGEN_RETURN_CODE TRIGEN_API
-Trigen_FreeFoliageMesh(TRIGEN_INOUT Trigen_Mesh* mesh) {
+Trigen_Foliage_FreeMesh(TRIGEN_INOUT Trigen_Mesh* mesh) {
     if (mesh == nullptr) {
         return Trigen_InvalidArguments;
     }
