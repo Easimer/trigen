@@ -36,11 +36,24 @@ struct Input_Texture {
     Trigen_Texture info;
 };
 
+class IMeshgen_Statusbar {
+public:
+    virtual ~IMeshgen_Statusbar() = default;
+
+    virtual void
+    setMessage(char const *message)
+        = 0;
+
+    virtual void
+    setBusy(bool isBusy)
+        = 0;
+};
+
 class VM_Meshgen : public QObject {
     Q_OBJECT;
 
 public:
-    VM_Meshgen(QWorld const *world, Entity_Handle ent);
+    VM_Meshgen(QWorld const *world, Entity_Handle ent, IMeshgen_Statusbar *statusBar);
 
     bool checkEntity() const;
     void onRender(gfx::Render_Queue *rq);
@@ -133,4 +146,5 @@ private:
     bool _renderNormals = false;
 
     Trigen_Controller _controller;
+    IMeshgen_Statusbar *_statusBar;
 };

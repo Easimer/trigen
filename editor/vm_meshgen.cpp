@@ -100,14 +100,15 @@ Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
     return ret;
 }
 
-VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent)
+VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent, IMeshgen_Statusbar *statusBar)
     : _world(world)
     , _ent(ent)
     , _texOutBase{}
     , _texOutNormal{}
     , _texOutHeight{}
     , _texOutRoughness{}
-    , _texOutAo{} {
+    , _texOutAo{}
+    , _statusBar(statusBar) {
     connect(&_controller, &Trigen_Controller::onResult, this, &VM_Meshgen::onStageDone);
     printf("VM_Meshgen on thread %p\n", QThread::currentThread());
 }
@@ -318,6 +319,11 @@ void VM_Meshgen::regenerateMetaballs() {
         return;
     }
 
+    if (_statusBar) {
+        _statusBar->setBusy(true);
+        _statusBar->setMessage("Generating plant surface...");
+    }
+
     _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
     _controller.execute(Stage_Tag::Metaballs, [](Trigen_Session session) {
         return Trigen_Metaballs_Regenerate(session);
@@ -329,6 +335,11 @@ void VM_Meshgen::regenerateMesh() {
     
     if (!checkEntity()) {
         return;
+    }
+
+    if (_statusBar) {
+        _statusBar->setBusy(true);
+        _statusBar->setMessage("Generating plant mesh...");
     }
 
     _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
@@ -343,6 +354,11 @@ VM_Meshgen::regenerateFoliage() {
     
     if (!checkEntity()) {
         return;
+    }
+
+    if (_statusBar) {
+        _statusBar->setBusy(true);
+        _statusBar->setMessage("Generating plant foliage mesh...");
     }
 
     _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
@@ -403,12 +419,22 @@ void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session 
             _texOutNormalHandle = nullptr;
             _texturesDestroying.push_back(_texOutBaseHandle);
             _texOutBaseHandle = nullptr;
+
+            if (_statusBar) {
+                _statusBar->setBusy(false);
+            }
             break;
         }
     }
 }
 
 void VM_Meshgen::repaintMesh() {
+
+    if (_statusBar) {
+        _statusBar->setBusy(true);
+        _statusBar->setMessage("Painting the plant's surface...");
+    }
+
     _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
     _controller.execute(Stage_Tag::Painting, [](Trigen_Session session) {
         return Trigen_Painting_Regenerate(session);

@@ -14,6 +14,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QStatusBar>
 
 #include <ui_dlg_meshgen.h>
 
@@ -48,14 +49,15 @@ private:
     QPushButton _btnBrowse;
 };
 
-class Dialog_Meshgen : public Base_Dialog_Meshgen {
+class Dialog_Meshgen : public Base_Dialog_Meshgen, public IMeshgen_Statusbar {
     Q_OBJECT;
 
 public:
     Dialog_Meshgen(QWorld const *world, Entity_Handle entity, QWidget *parent)
         : Base_Dialog_Meshgen(parent)
-        , _vm(world, entity)
-        , _ui{} {
+        , _vm(world, entity, this)
+        , _ui{}
+        , _statusBar(this) {
         setAttribute(Qt::WA_DeleteOnClose);
         _ui.setupUi(this);
 
@@ -101,12 +103,27 @@ public:
         _vm.metaballRadiusChanged(_ui.sbMetaballRadius->value());
 
         connect(_ui.actionInspectUV, &QAction::triggered, &_vm, &VM_Meshgen::inspectUV);
+
+        _ui.topLayout->addWidget(&_statusBar);
     }
 
     ~Dialog_Meshgen() override = default;
 
     void onRender(gfx::Render_Queue *rq) override {
         _vm.onRender(rq);
+    }
+
+    void
+    setMessage(char const *message) override {
+        _statusBar.showMessage(tr(message));
+    }
+
+    void
+    setBusy(bool isBusy) override {
+        // TODO(danielm): spinner
+        if (!isBusy) {
+            _statusBar.clearMessage();
+        }
     }
 
 protected slots:
@@ -117,6 +134,7 @@ protected slots:
 
 private:
     VM_Meshgen _vm;
+    QStatusBar _statusBar;
 
     Ui::Dialog_Meshgen _ui;
 };
