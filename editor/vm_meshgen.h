@@ -95,6 +95,8 @@ signals:
 protected:
     void regenerateMetaballs();
     void regenerateMesh();
+    void
+    regenerateFoliage();
     void repaintMesh();
 
     void destroyModel(gfx::Model_ID handle);
@@ -108,6 +110,7 @@ private:
     Entity_Handle _ent;
 
     std::optional<Unwrapped_Mesh> _unwrappedMesh;
+    std::optional<Unwrapped_Mesh> _foliageMesh;
 
     Input_Texture _texBase;
     Input_Texture _texNormal;

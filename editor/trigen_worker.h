@@ -11,6 +11,7 @@
 enum class Stage_Tag {
     Metaballs,
     Mesh,
+    Foliage,
     Painting,
 };
 

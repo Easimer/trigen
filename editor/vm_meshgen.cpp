@@ -150,7 +150,15 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
         }
+    }
 
+    if (_foliageMesh) {
+        if (_foliageMesh->renderer_handle != nullptr) {
+            auto *cmd = gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _foliageMesh->renderer_handle, renderTransform);
+            cmd->tint() = glm::vec4(0, 1, 0, 1);
+        } else {
+            gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_foliageMesh->renderer_handle, &*_foliageMesh);
+        }
     }
 
     if (_unwrappedMesh.has_value()) {
@@ -329,6 +337,20 @@ void VM_Meshgen::regenerateMesh() {
     });
 }
 
+void
+VM_Meshgen::regenerateFoliage() {
+    assert(checkEntity());
+    
+    if (!checkEntity()) {
+        return;
+    }
+
+    _controller.session = _world->getMapForComponent<Plant_Component>().at(_ent).session->handle();
+    _controller.execute(Stage_Tag::Foliage, [](Trigen_Session session) {
+        return Trigen_Foliage_Regenerate(session);
+    });
+}
+
 static void clear(Trigen_Texture &tex) {
     tex.image = nullptr;
     tex.width = tex.height = 0;
@@ -346,6 +368,15 @@ void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session 
             try {
                 auto mesh = trigen::Mesh::make(session);
                 _unwrappedMesh = convertMesh(*mesh);
+                regenerateFoliage();
+            } catch(trigen::Exception const &ex) {
+            }
+            break;
+        }
+        case Stage_Tag::Foliage: {
+            try {
+                auto mesh = trigen::Foliage_Mesh::make(session);
+                _foliageMesh = convertMesh(*mesh);
                 repaintMesh();
             } catch(trigen::Exception const &ex) {
             }
