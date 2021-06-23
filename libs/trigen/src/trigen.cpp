@@ -775,15 +775,49 @@ Trigen_GetFoliageMesh(
         return Trigen_NotReady;
     }
 
-    mesh->positions = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->positions());
-    mesh->normals = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->normals());
-    mesh->uvs = reinterpret_cast<tg_f32 const *>(session->foliageGenerator->texcoords());
-    mesh->position_count = session->foliageGenerator->numVertices();
-    mesh->normal_count = session->foliageGenerator->numVertices();
-    mesh->indices = session->foliageIndexBuffer.data();
-    mesh->triangle_count = session->foliageIndexBuffer.size() / 3;
+    auto numVertices = session->foliageGenerator->numVertices();
+    auto numElements = session->foliageGenerator->numElements();
+
+    mesh->positions = new tg_f32[numVertices * 3];
+    mesh->normals = new tg_f32[numVertices * 3];
+    mesh->uvs = new tg_f32[numVertices * 2];
+    mesh->indices = new tg_u64[numElements];
+
+    assert((numElements % 3) == 0);
+    mesh->triangle_count = numElements / 3;
+    mesh->position_count = mesh->normal_count = numVertices;
+
+    memcpy(
+        (void *)mesh->positions, session->foliageGenerator->positions(),
+        numVertices * 3 * sizeof(float));
+    memcpy(
+        (void *)mesh->normals, session->foliageGenerator->normals(),
+        numVertices * 3 * sizeof(float));
+    memcpy(
+        (void *)mesh->uvs, session->foliageGenerator->texcoords(),
+        numVertices * 2 * sizeof(float));
+    memcpy(
+        (void *)mesh->indices, session->foliageIndexBuffer.data(),
+        numElements * sizeof(tg_u64));
 
     return Trigen_OK;
 }
+
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_FreeFoliageMesh(TRIGEN_INOUT Trigen_Mesh* mesh) {
+    if (mesh == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    delete[] mesh->positions;
+    delete[] mesh->normals;
+    delete[] mesh->uvs;
+    delete[] mesh->indices;
+
+    memset(mesh, 0, sizeof(Trigen_Mesh));
+
+    return Trigen_OK;
+}
+
 }
 

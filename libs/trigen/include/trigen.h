@@ -441,6 +441,9 @@ Trigen_GetFoliageMesh(
     TRIGEN_HANDLE Trigen_Session session,
     TRIGEN_OUT Trigen_Mesh *mesh);
 
+TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_FreeFoliageMesh(TRIGEN_INOUT Trigen_Mesh *mesh);
+
 #ifdef __cplusplus
 }
 #endif
