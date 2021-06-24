@@ -159,7 +159,7 @@ compress_mesh(
 }
 
 static Foliage_Mesh_Arrays
-generate_quads(Foliage_Arrays const& foliage_arrays) {
+generate_quads(Foliage_Arrays const& foliage_arrays, float scale) {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texcoords;
@@ -176,6 +176,10 @@ generate_quads(Foliage_Arrays const& foliage_arrays) {
         auto right = R * glm::vec3(1, 0, 0)
             * conjugate(R);
         auto normal = cross(right, up);
+
+        up *= scale;
+        right *= scale;
+
         auto v0 = p + 0.5f * up - 0.5f * right;
         auto v1 = p - 0.5f * up - 0.5f * right;
         auto v2 = p - 0.5f * up + 0.5f * right;
@@ -209,8 +213,26 @@ generate_quads(Foliage_Arrays const& foliage_arrays) {
 class Foliage_Generator : public IFoliage_Generator {
 public:
     ~Foliage_Generator() override = default;
-    Foliage_Generator(Simulation_Ptr &simulation)
-        : _simulation(simulation) { }
+    Foliage_Generator(Simulation_Ptr &simulation, Foliage_Generator_Parameter const *parameters)
+        : _simulation(simulation) {
+        while (parameters != nullptr
+               && parameters->name
+                   != Foliage_Generator_Parameter_Name::EndOfList) {
+            switch (parameters->name) {
+            case Foliage_Generator_Parameter_Name::Scale: {
+                _scale = parameters->value.f;
+                assert(_scale > 0.0f);
+                break;
+            }
+            default: {
+                assert(!"Unhandled parameter");
+                break;
+            }
+            }
+
+            parameters++;
+        }
+    }
 
     bool
     generate() override {
@@ -219,7 +241,7 @@ public:
         foliage.orientations
             = generate_random_orientations(foliage.positions.size());
 
-        _mesh = generate_quads(foliage);
+        _mesh = generate_quads(foliage, _scale);
 
         return true;
     }
@@ -269,14 +291,17 @@ public:
 private:
     Simulation_Ptr &_simulation;
     std::optional<Foliage_Mesh_Arrays> _mesh;
+    float _scale = 1.0f;
 };
 
 FOLIAGE_IMPORT
 std::unique_ptr<IFoliage_Generator>
-make_foliage_generator(sb::Unique_Ptr<sb::ISoftbody_Simulation>& simulation) {
+make_foliage_generator(
+    sb::Unique_Ptr<sb::ISoftbody_Simulation> &simulation,
+    Foliage_Generator_Parameter const *parameters) {
     if (!simulation || !simulation->get_extension_plant_simulation()) {
         return nullptr;
     }
 
-    return std::make_unique<Foliage_Generator>(simulation);
+    return std::make_unique<Foliage_Generator>(simulation, parameters);
 }

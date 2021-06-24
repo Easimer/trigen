@@ -59,6 +59,7 @@ struct Trigen_Session_t {
 
     std::unique_ptr<IFoliage_Generator> foliageGenerator;
     std::vector<tg_u64> foliageIndexBuffer;
+    Trigen_Foliage_Parameters foliageParams;
 };
 
 #define TEXSLOTDESC_INIT_RGB888(slot, r, g, b) \
@@ -221,6 +222,8 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
     if (!(params->flags & Trigen_F_UseGeneralTexturingAPI)) {
         DefaultInitializeTextureSlots(s);
     }
+
+    s->foliageParams.scale = 1.0f;
 
     *session = s;
     return Trigen_OK;
@@ -741,12 +744,34 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateTextureSlot(
 }
 
 TRIGEN_RETURN_CODE TRIGEN_API
+Trigen_Foliage_SetParameters(
+    TRIGEN_HANDLE Trigen_Session session,
+    TRIGEN_IN Trigen_Foliage_Parameters const *params) {
+    if (session == nullptr || params == nullptr) {
+        return Trigen_InvalidArguments;
+    }
+
+    if (params->scale <= 0.0f) {
+        return Trigen_InvalidArguments;
+    }
+
+    session->foliageParams = *params;
+
+    return Trigen_OK;
+}
+
+TRIGEN_RETURN_CODE TRIGEN_API
 Trigen_Foliage_Regenerate(TRIGEN_HANDLE Trigen_Session session) {
     if (session == nullptr) {
         return Trigen_InvalidArguments;
     }
 
-    auto foliageGenerator = make_foliage_generator(session->simulation);
+    Foliage_Generator_Parameter params[]
+        = { { Foliage_Generator_Parameter_Name::Scale,
+              { session->foliageParams.scale } },
+            { Foliage_Generator_Parameter_Name::EndOfList, {} } };
+
+    auto foliageGenerator = make_foliage_generator(session->simulation, params);
     if (!foliageGenerator->generate()) {
         return Trigen_Failure;
     }

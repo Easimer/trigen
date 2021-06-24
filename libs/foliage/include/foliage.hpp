@@ -19,6 +19,18 @@
 #define FOLIAGE_IMPORT 
 #endif
 
+enum class Foliage_Generator_Parameter_Name {
+    EndOfList = 0,
+    Scale,
+};
+
+struct Foliage_Generator_Parameter {
+    Foliage_Generator_Parameter_Name name;
+    union {
+        float f;
+    } value;
+};
+
 class FOLIAGE_IMPORT IFoliage_Generator {
 public:
     virtual ~IFoliage_Generator() = default;
@@ -48,4 +60,4 @@ public:
 
 FOLIAGE_IMPORT
 std::unique_ptr<IFoliage_Generator>
-make_foliage_generator(sb::Unique_Ptr<sb::ISoftbody_Simulation> &simulation);
+make_foliage_generator(sb::Unique_Ptr<sb::ISoftbody_Simulation> &simulation, Foliage_Generator_Parameter const *parameters);
