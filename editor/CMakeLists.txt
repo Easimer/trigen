@@ -40,6 +40,8 @@ set(SRC
     vm_meshgen.h
     trigen_worker.cpp
     trigen_worker.h
+    widget_texture.cpp
+    widget_texture.h
 
     tiny_obj_loader.cpp
 
