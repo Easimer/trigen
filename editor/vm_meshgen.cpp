@@ -110,7 +110,6 @@ VM_Meshgen::VM_Meshgen(QWorld const *world, Entity_Handle ent, IMeshgen_Statusba
     , _texOutAo{}
     , _statusBar(statusBar) {
     connect(&_controller, &Trigen_Controller::onResult, this, &VM_Meshgen::onStageDone);
-    printf("VM_Meshgen on thread %p\n", QThread::currentThread());
 }
 
 bool VM_Meshgen::checkEntity() const {
@@ -171,12 +170,13 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
     }
 }
 
-void VM_Meshgen::foreachInputTexture(std::function<void(Trigen_Texture_Kind, char const *, Input_Texture &)> const &callback) {
-    callback(Trigen_Texture_BaseColor, "Base color", _texBase);
-    callback(Trigen_Texture_NormalMap, "Normal map", _texNormal);
-    callback(Trigen_Texture_HeightMap, "Height map", _texHeight);
-    callback(Trigen_Texture_RoughnessMap, "Roughness map", _texRoughness);
-    callback(Trigen_Texture_AmbientOcclusionMap, "AO", _texAo);
+void VM_Meshgen::foreachInputTexture(std::function<void(Meshgen_Texture_Kind, char const *, Input_Texture &)> const &callback) {
+    callback(Meshgen_Texture_Kind::BaseColor, "Base color", _texBase);
+    callback(Meshgen_Texture_Kind::NormalMap, "Normal map", _texNormal);
+    callback(Meshgen_Texture_Kind::HeightMap, "Height map", _texHeight);
+    callback(Meshgen_Texture_Kind::RoughnessMap, "Roughness map", _texRoughness);
+    callback(Meshgen_Texture_Kind::AmbientOcclusionMap, "AO", _texAo);
+    callback(Meshgen_Texture_Kind::LeafBaseColor, "Leaves", _texLeaves);
 }
 
 void VM_Meshgen::destroyModel(gfx::Model_ID handle) {
@@ -215,7 +215,7 @@ void VM_Meshgen::metaballRadiusChanged(float metaballRadius) {
     regenerateMetaballs();
 }
 
-void VM_Meshgen::loadTextureFromPath(Trigen_Texture_Kind kind, char const *path) {
+void VM_Meshgen::loadTextureFromPath(Meshgen_Texture_Kind kind, char const *path) {
     int channels, width, height;
     std::unique_ptr<uint8_t[]> data;
     stbi_uc *buffer;
@@ -232,20 +232,23 @@ void VM_Meshgen::loadTextureFromPath(Trigen_Texture_Kind kind, char const *path)
     Input_Texture *tex = nullptr;
 
     switch (kind) {
-    case Trigen_Texture_BaseColor:
+    case Meshgen_Texture_Kind::BaseColor:
         tex = &_texBase;
         break;
-    case Trigen_Texture_NormalMap:
+    case Meshgen_Texture_Kind::NormalMap:
         tex = &_texNormal;
         break;
-    case Trigen_Texture_HeightMap:
+    case Meshgen_Texture_Kind::HeightMap:
         tex = &_texHeight;
         break;
-    case Trigen_Texture_RoughnessMap:
+    case Meshgen_Texture_Kind::RoughnessMap:
         tex = &_texRoughness;
         break;
-    case Trigen_Texture_AmbientOcclusionMap:
+    case Meshgen_Texture_Kind::AmbientOcclusionMap:
         tex = &_texAo;
+        break;
+    case Meshgen_Texture_Kind::LeafBaseColor:
+        tex = &_texLeaves;
         break;
     }
 
@@ -255,10 +258,15 @@ void VM_Meshgen::loadTextureFromPath(Trigen_Texture_Kind kind, char const *path)
         tex->info.width = width;
         tex->info.height = height;
 
-        auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
-        Trigen_Painting_SetInputTexture(session->handle(), kind, &tex->info);
+        if(kind < Meshgen_Texture_Kind::LeafBaseColor) {
+            // The foliage is a separate mesh, so the leaf texture is not used
+            // during mesh painting.
+            auto trigen_kind = (Trigen_Texture_Kind)kind;
+            auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+            Trigen_Painting_SetInputTexture(session->handle(), trigen_kind, &tex->info);
 
-        repaintMesh();
+            repaintMesh();
+        }
     } else {
         assert(0);
     }

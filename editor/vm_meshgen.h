@@ -49,6 +49,15 @@ public:
         = 0;
 };
 
+enum class Meshgen_Texture_Kind {
+    BaseColor = Trigen_Texture_BaseColor,
+    NormalMap = Trigen_Texture_NormalMap,
+    HeightMap = Trigen_Texture_HeightMap,
+    RoughnessMap = Trigen_Texture_RoughnessMap,
+    AmbientOcclusionMap = Trigen_Texture_AmbientOcclusionMap,
+    LeafBaseColor,
+};
+
 class VM_Meshgen : public QObject {
     Q_OBJECT;
 
@@ -57,12 +66,12 @@ public:
 
     bool checkEntity() const;
     void onRender(gfx::Render_Queue *rq);
-    void foreachInputTexture(std::function<void(Trigen_Texture_Kind, char const *, Input_Texture &)> const &callback);
+    void foreachInputTexture(std::function<void(Meshgen_Texture_Kind, char const *, Input_Texture &)> const &callback);
 
 public slots:
     void numberOfSubdivionsChanged(int subdivisions);
     void metaballRadiusChanged(float metaballRadius);
-    void loadTextureFromPath(Trigen_Texture_Kind kind, char const *path);
+    void loadTextureFromPath(Meshgen_Texture_Kind kind, char const *path);
     void resolutionChanged(int resolution);
     void inspectUV();
 
@@ -130,6 +139,7 @@ private:
     Input_Texture _texHeight;
     Input_Texture _texRoughness;
     Input_Texture _texAo;
+    Input_Texture _texLeaves;
 
     Trigen_Texture _texOutBase;
     Trigen_Texture _texOutNormal;

@@ -22,6 +22,11 @@
 
 #include <ui_dlg_meshgen.h>
 
+/**
+ * A texture input widget.
+ * It features a textbox containing the path to the texture file, a "browse"
+ * button, a label for the name of the texture and a preview box.
+ */
 class QTextureWidget : public QWidget {
     Q_OBJECT;
 
@@ -51,6 +56,10 @@ public:
     }
 
 signals:
+    /**
+     * Signalled when the user changes the path to the texture file.
+     * \param path Path to the texture file
+     */
     void pathChanged(QString const &path);
 
 protected:
@@ -120,7 +129,7 @@ public:
         _ui.buttonBox->addButton(btnExport, QDialogButtonBox::ActionRole);
         connect(_ui.buttonBox, &QDialogButtonBox::rejected, this, &QDialog::rejected);
 
-        _vm.foreachInputTexture([&](Trigen_Texture_Kind kind, char const *name, Input_Texture &tex) {
+        _vm.foreachInputTexture([&](Meshgen_Texture_Kind kind, char const *name, Input_Texture &tex) {
             auto texWidget = new QTextureWidget(this);
             _ui.layoutTextures->addRow(name, texWidget);
             connect(texWidget, &QTextureWidget::pathChanged, [&, kind](QString const &path) {
@@ -162,7 +171,7 @@ public:
     }
 
 protected slots:
-    void pathToTextureChanged(Trigen_Texture_Kind kind, QString const &path) {
+    void pathToTextureChanged(Meshgen_Texture_Kind kind, QString const &path) {
         auto pathUtf8 = path.toUtf8();
         _vm.loadTextureFromPath(kind, pathUtf8.constData());
     }

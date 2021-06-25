@@ -1,6 +1,6 @@
 // === Copyright (c) 2020-2021 easimer.net. All rights reserved. ===
 //
-// Purpose: meshgen dialog
+// Purpose: Mesh generation dialog
 //
 
 #pragma once
@@ -11,6 +11,9 @@
 
 #include "world_qt.h"
 
+/**
+ * Base class for the mesh generation dialog
+ */
 class Base_Dialog_Meshgen : public QDialog {
     Q_OBJECT;
 
@@ -22,7 +25,20 @@ public:
     virtual ~Base_Dialog_Meshgen() = default;
 
 public slots:
+    /**
+     * Renders the generated mesh
+     * \param[inout] rq Render queue
+     */
     virtual void onRender(gfx::Render_Queue *rq) = 0;
 };
 
+/**
+ * Instantiates a new mesh generation dialog for a specific entity.
+ * That entity lives in the `world` world and must have a plant component.
+ * 
+ * \param world The world
+ * \param entity Handle to the plant entity
+ * \param parent Parent of the dialog
+ * \return Pointer to the dialog
+ */
 Base_Dialog_Meshgen *make_meshgen_dialog(QWorld const *world, Entity_Handle entity, QWidget *parent);
