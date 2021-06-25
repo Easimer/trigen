@@ -17,7 +17,7 @@ public:
 		_ui.setupUi(this);
 
 		connect(_ui.actionBrowse, &QAction::triggered, [&]() {
-            auto path = QFileDialog::getOpenFileName(this, tr("Choose a collider mesh..."), QString(), "Autodesk FBX mesh (*.fbx);;Wavefront mesh (*.obj);;All files (*.*)");
+            auto path = QFileDialog::getOpenFileName(this, tr("Choose a collider mesh..."), QString(), "Wavefront mesh (*.obj);;All files (*.*)");
 
             if (path.isEmpty()) {
                 return false;
