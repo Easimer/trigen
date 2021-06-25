@@ -29,3 +29,13 @@ struct Trigen_Material {
 };
 
 bool fbx_try_save(char const *path, Trigen_Mesh const &mesh, Trigen_Material const &material);
+
+struct Export_Model {
+    Trigen_Mesh mesh;
+    Trigen_Material material;
+
+    Trigen_Mesh foliageMesh;
+    Trigen_Texture const *leafTexture;
+};
+
+bool fbx_try_save(char const *path, Export_Model const &model);
