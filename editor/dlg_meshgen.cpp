@@ -9,8 +9,12 @@
 #include "vm_meshgen.h"
 
 #include <QBoxLayout>
+#include <QColorSpace>
 #include <QDialog>
 #include <QFileDialog>
+#include <QImage>
+#include <QImageReader>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
@@ -25,8 +29,10 @@ public:
     QTextureWidget(QWidget *parent)
         : QWidget(parent)
         , _layout(QBoxLayout::Direction::LeftToRight, this)
+        , _imageLabel(this)
         , _editPath(this)
-        , _btnBrowse("Browse...", this) {
+        , _btnBrowse(tr("Browse..."), this) {
+        _layout.addWidget(&_imageLabel);
         _layout.addWidget(&_editPath);
         _layout.addWidget(&_btnBrowse);
         connect(&_btnBrowse, &QPushButton::clicked, [&]() {
@@ -36,17 +42,46 @@ public:
             }
 
             _editPath.setText(path);
+            loadImage(path);
             emit pathChanged(path);
         });
+
+        _imageLabel.setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        _imageLabel.setFixedSize(IMAGE_WIDTH, IMAGE_HEIGHT);
     }
 
 signals:
     void pathChanged(QString const &path);
 
+protected:
+    void
+    loadImage(QString const &path) {
+        QImageReader reader(path);
+        reader.setAutoTransform(true);
+        auto const newImage = reader.read();
+
+        if (newImage.isNull()) {
+            QMessageBox::information(
+                this, QGuiApplication::applicationDisplayName(),
+                tr("Cannot preview texture '%1': %2")
+                    .arg(QDir::toNativeSeparators(path), reader.errorString()));
+            return;
+        }
+
+        _previewImage = newImage.scaled(IMAGE_WIDTH, IMAGE_HEIGHT);
+        _imageLabel.setPixmap(QPixmap::fromImage(_previewImage));
+        _imageLabel.adjustSize();
+    }
+
 private:
     QBoxLayout _layout;
+    QLabel _imageLabel;
+    QImage _previewImage;
     QLineEdit _editPath;
     QPushButton _btnBrowse;
+
+    static constexpr int IMAGE_WIDTH = 64;
+    static constexpr int IMAGE_HEIGHT = 64;
 };
 
 class Dialog_Meshgen : public Base_Dialog_Meshgen, public IMeshgen_Statusbar {
