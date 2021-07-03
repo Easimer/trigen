@@ -323,6 +323,8 @@ make_context() {
     FbxManager *sdkManager;
     FbxIOSettings *ioSettings;
     FbxScene *scene;
+    FbxImplementation *implementation;
+    FbxBindingTable *bindingTable;
     bool ret = false;
 
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
@@ -335,12 +337,12 @@ make_context() {
         goto err_scene;
     }
 
-    auto implementation = fbx_standard_surface_create_implementation(scene);
+    implementation = fbx_standard_surface_create_implementation(scene);
     if (implementation == nullptr) {
         goto err_implementation;
     }
 
-    auto bindingTable = fbx_standard_surface_create_binding_table(implementation);
+    bindingTable = fbx_standard_surface_create_binding_table(implementation);
     if (bindingTable == nullptr) {
         goto err_bindingTable;
     }
