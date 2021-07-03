@@ -33,7 +33,9 @@ formatLabelAndApply(char const* name, char const* suffix, GLenum type, GLint han
     delete[] labelBuf;
 }
 
-G_Buffer::G_Buffer(char const *name, unsigned width, unsigned height) {
+G_Buffer::G_Buffer(char const *name, unsigned width, unsigned height)
+    : _width(width)
+    , _height(height) {
     if (glObjectLabel) {
         formatLabelAndApply(name, "", GL_FRAMEBUFFER, _fb);
         formatLabelAndApply(name, "base color", GL_TEXTURE, _bufBaseColor);
@@ -142,7 +144,13 @@ void G_Buffer::activate() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void G_Buffer::draw(G_Buffer_Draw_Params const &params, GLint readFramebuffer, GLint drawFramebuffer) {
+void
+G_Buffer::draw(
+    G_Buffer_Draw_Params const &params,
+    GLint readFramebuffer,
+    GLint drawFramebuffer,
+    unsigned screenWidth,
+    unsigned screenHeight) {
     if (!_program) {
         return;
     }
@@ -175,20 +183,29 @@ void G_Buffer::draw(G_Buffer_Draw_Params const &params, GLint readFramebuffer, G
 
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, _bufBaseColor);
-    glTexParameteri(
-        GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glActiveTexture(GL_TEXTURE0 + 1);
-    glBindTexture(GL_TEXTURE_2D, _bufNormal);
-    glTexParameteri(
-        GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_2D, _bufPosition);
-    glTexParameteri(
-        GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, _bufNormal);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_2D, _bufPosition);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    gl::SetUniformLocation(_program->texBaseColor, 0);
+    gl::SetUniformLocation(_program->texNormal, 1);
+    gl::SetUniformLocation(_program->texPosition, 2);
+
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, _fb);
+    glBlitFramebuffer(
+        0, 0, _width, _height, 0, 0, screenWidth, screenHeight,
+        GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
     glDepthMask(GL_TRUE);
 }

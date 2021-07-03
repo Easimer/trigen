@@ -35,8 +35,16 @@ public:
     G_Buffer(char const *name, unsigned width, unsigned height);
 
     void activate();
-    void draw(G_Buffer_Draw_Params const &params, GLint readFramebuffer, GLint drawFramebuffer);
+    void
+    draw(
+        G_Buffer_Draw_Params const &params,
+        GLint readFramebuffer,
+        GLint drawFramebuffer,
+        unsigned screenWidth,
+        unsigned screenHeight);
 private:
+    unsigned _width;
+    unsigned _height;
     gl::Framebuffer _fb;
     gl::Texture _bufBaseColor;
     gl::Texture _bufNormal;
