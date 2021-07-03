@@ -992,7 +992,7 @@ public:
             return;
         }
 
-        fb->buffer.draw(g_params, _originalFramebuffer->fbRead, _originalFramebuffer->fbDraw);
+        fb->buffer.draw(g_params, _originalFramebuffer->fbRead, _originalFramebuffer->fbDraw, surf_width, surf_height);
     }
 
     void
