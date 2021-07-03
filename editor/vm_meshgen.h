@@ -149,6 +149,7 @@ private:
 
     gfx::Texture_ID _texOutBaseHandle = nullptr;
     gfx::Texture_ID _texOutNormalHandle = nullptr;
+    gfx::Texture_ID _texLeavesHandle = nullptr;
 
     std::vector<gfx::Model_ID> _modelsDestroying;
     std::vector<gfx::Texture_ID> _texturesDestroying;

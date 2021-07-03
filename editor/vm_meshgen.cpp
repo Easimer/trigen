@@ -138,6 +138,12 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutNormalHandle, _texOutNormal.image, _texOutNormal.width, _texOutNormal.height, gfx::Texture_Format::RGB888);
     }
 
+    if (_texLeaves.data != nullptr && _texLeavesHandle == nullptr) {
+        gfx::allocate_command_and_initialize<Upload_Texture_Command>(
+            rq, &_texLeavesHandle, _texLeaves.data.get(), _texLeaves.info.width,
+            _texLeaves.info.height, gfx::Texture_Format::RGBA8888);
+    }
+
     if (_unwrappedMesh.has_value()) {
         if (_unwrappedMesh->renderer_handle != nullptr) {
             // Render mesh
@@ -154,8 +160,16 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
 
     if (_foliageMesh) {
         if (_foliageMesh->renderer_handle != nullptr) {
-            auto *cmd = gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _foliageMesh->renderer_handle, renderTransform);
-            cmd->tint() = glm::vec4(0, 1, 0, 1);
+            if (_texLeavesHandle != nullptr) {
+                gfx::allocate_command_and_initialize<Render_Model>(
+                    rq, _foliageMesh->renderer_handle, _texLeavesHandle,
+                    renderTransform);
+            } else {
+                auto cmd = gfx::allocate_command_and_initialize<
+                    Render_Untextured_Model>(
+                    rq, _foliageMesh->renderer_handle, renderTransform);
+                cmd->tint() = glm::vec4(0, 1, 0, 1);
+            }
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_foliageMesh->renderer_handle, &*_foliageMesh);
         }
@@ -219,8 +233,15 @@ void VM_Meshgen::loadTextureFromPath(Meshgen_Texture_Kind kind, char const *path
     int channels, width, height;
     std::unique_ptr<uint8_t[]> data;
     stbi_uc *buffer;
-    if ((buffer = stbi_load(path, &width, &height, &channels, 3)) != nullptr) {
-        auto size = size_t(width) * size_t(height) * 3;
+    auto numComponents = 3;
+
+    if (kind == Meshgen_Texture_Kind::LeafBaseColor) {
+        // Leaf texture is RGBA
+        numComponents = 4;
+    }
+
+    if ((buffer = stbi_load(path, &width, &height, &channels, numComponents)) != nullptr) {
+        auto size = size_t(width) * size_t(height) * numComponents;
         data = std::make_unique<uint8_t[]>(size);
         memcpy(data.get(), buffer, size);
         stbi_image_free(buffer);
