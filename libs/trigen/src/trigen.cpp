@@ -430,7 +430,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Mesh_Regenerate(
     pspMesh.normal = std::move(mesh.normal);
     std::transform(mesh.indices.begin(), mesh.indices.end(), std::back_inserter(pspMesh.elements), [&](unsigned idx) { return (size_t)idx; });
 
-    session->_pspMesh.emplace(std::move(pspMesh));
+    session->_pspMesh = std::move(pspMesh);
 
     // Regenerate UVs
     session->_pspMesh->uv.clear();
@@ -772,9 +772,7 @@ Trigen_Foliage_Regenerate(TRIGEN_HANDLE Trigen_Session session) {
             { Foliage_Generator_Parameter_Name::EndOfList, {} } };
 
     auto foliageGenerator = make_foliage_generator(session->simulation, params);
-    if (!foliageGenerator->generate()) {
-        return Trigen_Failure;
-    }
+    foliageGenerator->generate();
 
     session->foliageGenerator = std::move(foliageGenerator);
 

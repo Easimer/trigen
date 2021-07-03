@@ -238,6 +238,11 @@ public:
     generate() override {
         Foliage_Arrays foliage;
         foliage.positions = collect_leaf_positions(_simulation);
+
+        if (foliage.positions.size() == 0) {
+            return false;
+        }
+
         foliage.orientations
             = generate_random_orientations(foliage.positions.size());
 
