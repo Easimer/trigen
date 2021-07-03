@@ -9,6 +9,8 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_SOURCE_DIR}/shaders/points.fsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/deferred.vsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/deferred.fsh.glsl
+    ${CMAKE_SOURCE_DIR}/shaders/transparent.vsh.glsl
+    ${CMAKE_SOURCE_DIR}/shaders/transparent.fsh.glsl
 )
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})

@@ -247,6 +247,14 @@ public:
         backend->clear(color);
     }
 
+    void
+    draw_transparent_model(
+        gfx::Model_ID model,
+        gfx::Texture_ID diffuse,
+        gfx::Transform const &transform) override {
+        backend->draw_transparent_model(model, diffuse, transform);
+    }
+
 private:
     std::unique_ptr<gfx::IRenderer> backend;
     int m_width, m_height;

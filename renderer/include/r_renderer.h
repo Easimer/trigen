@@ -160,6 +160,13 @@ namespace gfx {
         virtual void
         clear(glm::vec4 color)
             = 0;
+
+        virtual void
+        draw_transparent_model(
+            Model_ID model,
+            Texture_ID diffuse,
+            Transform const &transform)
+            = 0;
     };
 
     enum class Renderer_Backend {

@@ -42,6 +42,8 @@ extern "C" {
     extern char const* lines_fsh_glsl;
     extern char const* points_vsh_glsl;
     extern char const* points_fsh_glsl;
+    extern char const* transparent_vsh_glsl;
+    extern char const* transparent_fsh_glsl;
 }
 
 struct Texture {
@@ -142,6 +144,17 @@ public:
             auto locColor1 = gl::Uniform_Location<Vec3>(program, "vColor1");
             m_line_shader = { std::move(program), locMVP, locColor0, locColor1 };
         });
+
+        LoadShaderFromStrings(
+            "Transparent", transparent_vsh_glsl, transparent_fsh_glsl, {},
+            discard, [&](gl::Shader_Program &program) {
+                auto locMVP = gl::Uniform_Location<Mat4>(program, "matMVP");
+                auto locTint = gl::Uniform_Location<Vec4>(program, "tintColor");
+                auto locTexDiffuse
+                    = gl::Uniform_Location<GLint>(program, "texDiffuse");
+                _transparent_shader
+                    = { std::move(program), locMVP, locTint, locTexDiffuse };
+            });
         
         m_element_model_shader = Shader_Generic();
         try_build(*m_element_model_shader);
@@ -989,6 +1002,48 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
+    void
+    draw_transparent_model(
+        gfx::Model_ID model_handle,
+        gfx::Texture_ID diffuse,
+        gfx::Transform const &transform) override {
+        ZoneScoped;
+        assert(model_handle);
+        assert(diffuse);
+        if (!_transparent_shader) {
+            printf("renderer: can't draw transparent model: no shader!\n");
+            return;
+        }
+
+        auto model = (Model *)model_handle;
+        glBindVertexArray(model->vao);
+
+        auto& shader = *_transparent_shader;
+        glUseProgram(shader.program);
+
+        auto matModel = glm::mat4_cast(transform.rotation) * glm::scale(transform.scale);
+        auto matTransform = glm::translate(transform.position) * matModel;
+
+        auto matMVP = m_proj * m_view * matTransform;
+        gl::SetUniformLocation(shader.locMatMVP, matMVP);
+
+        auto matNormal =
+            scale(1.0f / transform.scale) *
+            mat4_cast(inverse(transform.rotation)) *
+            translate(-transform.position);
+
+        gl::SetUniformLocation(shader.locTint, { 1, 1, 1, 1 });
+
+        auto texDiffuse = (Texture *)diffuse;
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, texDiffuse->texture);
+        gl::SetUniformLocation(shader.locTexDiffuse, 0);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model->elements);
+        glDrawElements(GL_TRIANGLES, model->num_elements,
+            model->index_type, nullptr);
+    }
+
 private:
     Mat4 m_proj, m_view;
     unsigned surf_width = 256, surf_height = 256;
@@ -1020,12 +1075,20 @@ private:
         gl::Uniform_Location<Vec3> locColor;
     };
 
+    struct Transparent_Shader {
+        gl::Shader_Program program;
+        gl::Uniform_Location<Mat4> locMatMVP;
+        gl::Uniform_Location<Vec4> locTint;
+        gl::Uniform_Location<GLint> locTexDiffuse;
+    };
+
     std::optional<Line_Shader> m_line_shader;
     std::optional<Point_Cloud_Shader> m_point_cloud_shader;
     std::optional<Shader_Generic> m_element_model_shader;
     std::optional<Shader_Generic_With_Vertex_Colors> m_element_model_shader_with_vtx_color;
     std::optional<Shader_Generic_Textured_Unlit> m_element_model_shader_textured;
     std::optional<Shader_Generic_Textured_Lit> m_element_model_shader_textured_lit;
+    std::optional<Transparent_Shader> _transparent_shader;
 
     std::list<Texture> _textures;
     std::list<Model> _models;
