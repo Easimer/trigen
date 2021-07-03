@@ -76,6 +76,21 @@ struct Material {
     ITexture const *ao;
 };
 
+struct FBX_Context {
+    FbxManager *sdkManager = nullptr;
+    FbxIOSettings *ioSettings = nullptr;
+    FbxScene *scene = nullptr;
+    /** Implementation of the Arnold surface */
+    FbxImplementation *implementation = nullptr;
+
+    void
+    Destroy() {
+        sdkManager->Destroy();
+        memset(this, 0, sizeof(*this));
+    }
+};
+
+
 static bool write_texture(ITexture const *tex, std::string const &name, std::string &path) {
     auto tmpdir_path = std::filesystem::temp_directory_path();
     auto filename = std::filesystem::path("trigen_" + std::string(name) + ".png");
@@ -130,11 +145,13 @@ static bool get_winding_order(IMesh const *mesh, int i0, int i1, int i2) {
     return abs(1 - (c.DotProduct(faceNormal))) < 0.001f;
 }
 
-static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &material) {
+using Build_Mesh_Callback = std::function<void(std::string const &uuid, FbxNode *node, FbxMesh *mesh)>;
+
+static void build_mesh(FBX_Context &ctx, IMesh const *mesh, Build_Mesh_Callback const &then) {
     auto const uuid = uuids::to_string(uuids::uuid_system_generator {}());
 
     auto const meshName = uuid + ".mesh";
-    auto meshNode = FbxMesh::Create(scene, meshName.c_str());
+    auto meshNode = FbxMesh::Create(ctx.scene, meshName.c_str());
 
     auto num_control_points = mesh->numPositions();
 
@@ -210,31 +227,14 @@ static void build_mesh(FbxScene *scene, IMesh const *mesh, Material const &mater
     meshNode->GenerateTangentsData(UV_ELEMENT_NAME);
 
     auto const nodeName = uuid + ".node";
-    auto node = FbxNode::Create(scene, nodeName.c_str());
+    auto node = FbxNode::Create(ctx.scene, nodeName.c_str());
     node->SetNodeAttribute(meshNode);
     node->SetShadingMode(FbxNode::eTextureShading);
 
-    auto implementation = fbx_standard_surface_create_implementation(scene);
-    auto bindingTable = fbx_standard_surface_create_binding_table(implementation);
-
-    auto surfName = uuid + ".surf";
-    auto surf = FbxArnoldStandardSurface(scene, surfName.c_str());
-    surf.material()->AddImplementation(implementation);
-    surf.material()->SetDefaultImplementation(implementation);
-
-    create_texture(scene, material.base, uuid, "base_color", surf.get_baseColor());
-    create_texture(scene, material.normal, uuid, "normal", surf.get_normalCamera());
-    create_texture(scene, material.roughness, uuid, "roughness", surf.get_specularRoughness());
-    create_texture(scene, material.ao, uuid, "ao");
-    create_texture(scene, material.height, uuid, "height");
-
-    node->AddMaterial(surf.material());
-
-    // Fill inMaterial array
-    mat_element->GetIndexArray().Add(0);
-
-    auto rootNode = scene->GetRootNode();
+    auto rootNode = ctx.scene->GetRootNode();
     rootNode->AddChild(node);
+
+    then(uuid, node, meshNode);
 }
 
 static FbxExporter *configure_exporter(FbxManager *manager, FbxIOSettings *ios, char const *path) {
@@ -281,13 +281,13 @@ static FbxExporter *configure_exporter(FbxManager *manager, FbxIOSettings *ios, 
     return exporter;
 }
 
-static bool save_scene(FbxManager *manager, FbxIOSettings *ios, FbxDocument *scene, char const *path) {
+static bool save_scene(FBX_Context &ctx, char const *path) {
     bool status = false;
 
-    auto exporter = configure_exporter(manager, ios, path);
+    auto exporter = configure_exporter(ctx.sdkManager, ctx.ioSettings, path);
 
     if (exporter != nullptr) {
-        status = exporter->Export(scene);
+        status = exporter->Export(ctx.scene);
         exporter->Destroy();
     }
 
@@ -318,33 +318,44 @@ static bool create_sdk_objects(FbxManager **out_sdkManager, FbxIOSettings **out_
     return true;
 }
 
-static bool fbx_try_save(char const *path, IMesh const *mesh, Material const &material) {
+static std::optional<FBX_Context>
+make_context() {
     FbxManager *sdkManager;
     FbxIOSettings *ioSettings;
     FbxScene *scene;
     bool ret = false;
 
     if (!create_sdk_objects(&sdkManager, &ioSettings)) {
-        goto err_ret;
+        return std::nullopt;
     }
 
     scene = FbxScene::Create(sdkManager, "scene");
 
-    if (scene == NULL) {
-        goto err_sdk;
+    if (scene == nullptr) {
+        goto err_scene;
     }
 
+    auto implementation = fbx_standard_surface_create_implementation(scene);
+    if (implementation == nullptr) {
+        goto err_implementation;
+    }
 
-    build_mesh(scene, mesh, material);
-    save_scene(sdkManager, ioSettings, scene, path);
-    ret = true;
+    auto bindingTable = fbx_standard_surface_create_binding_table(implementation);
+    if (bindingTable == nullptr) {
+        goto err_bindingTable;
+    }
 
+    return FBX_Context { sdkManager, ioSettings, scene, implementation };
+
+err_bindingTable:
+    implementation->Destroy();
+err_implementation:
     scene->Destroy();
-err_sdk:
+err_scene:
     ioSettings->Destroy();
     sdkManager->Destroy();
 err_ret:
-    return ret;
+    return std::nullopt;
 }
 
 class TrigenMesh : public IMesh {
@@ -419,13 +430,14 @@ private:
     Trigen_Texture const *_tex;
 };
 
-bool fbx_try_save(char const *path, Trigen_Mesh const &inMesh, Trigen_Material const &inMaterial) {
-    TrigenMesh mesh(&inMesh);
-    TrigenTexture texBase(inMaterial.base);
-    TrigenTexture texNormal(inMaterial.normal);
-    TrigenTexture texHeight(inMaterial.height);
-    TrigenTexture texRoughness(inMaterial.roughness);
-    TrigenTexture texAo(inMaterial.ao);
+static void
+add_tree_mesh(FBX_Context &ctx, Export_Model const &model) {
+    auto mesh = TrigenMesh(&model.mesh);
+    TrigenTexture texBase(model.material.base);
+    TrigenTexture texNormal(model.material.normal);
+    TrigenTexture texHeight(model.material.height);
+    TrigenTexture texRoughness(model.material.roughness);
+    TrigenTexture texAo(model.material.ao);
 
     Material material = {
         &texBase,
@@ -435,5 +447,51 @@ bool fbx_try_save(char const *path, Trigen_Mesh const &inMesh, Trigen_Material c
         &texAo,
     };
 
-    return fbx_try_save(path, &mesh, material);
+    build_mesh(ctx, &mesh, [&](std::string const &uuid, FbxNode *node, FbxMesh *mesh) {
+        auto surfName = uuid + ".surf";
+        auto surf = FbxArnoldStandardSurface(ctx.scene, surfName.c_str());
+        surf.material()->AddImplementation(ctx.implementation);
+        surf.material()->SetDefaultImplementation(ctx.implementation);
+
+        create_texture(ctx.scene, material.base, uuid, "base_color", surf.get_baseColor());
+        create_texture(ctx.scene, material.normal, uuid, "normal", surf.get_normalCamera());
+        create_texture(ctx.scene, material.roughness, uuid, "roughness", surf.get_specularRoughness());
+        create_texture(ctx.scene, material.ao, uuid, "ao");
+        create_texture(ctx.scene, material.height, uuid, "height");
+
+        node->AddMaterial(surf.material());
+        mesh->GetElementMaterial()->GetIndexArray().Add(0);
+    });
+}
+
+static void
+add_foliage_mesh(FBX_Context& ctx, Export_Model const& model) {
+    auto mesh = TrigenMesh(&model.foliageMesh);
+    TrigenTexture texDiffuse(model.leafTexture);
+
+    build_mesh(ctx, &mesh, [&](std::string const &uuid, FbxNode *node, FbxMesh *mesh) {
+        auto surfName = uuid + ".surf";
+        auto surf = FbxSurfacePhong::Create(ctx.scene, surfName.c_str());
+
+        create_texture(ctx.scene, &texDiffuse, uuid, "base_color", surf->Diffuse);
+
+        node->AddMaterial(surf);
+        mesh->GetElementMaterial()->GetIndexArray().Add(0);
+    });
+}
+
+bool
+fbx_try_save(char const *path, Export_Model const &model) {
+    auto maybeCtx = make_context();
+    if (!maybeCtx) {
+        return false;
+    }
+
+    add_tree_mesh(*maybeCtx, model);
+    add_foliage_mesh(*maybeCtx, model);
+    auto ret = save_scene(*maybeCtx, path);
+
+    maybeCtx->Destroy();
+
+    return ret;
 }

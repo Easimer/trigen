@@ -28,8 +28,6 @@ struct Trigen_Material {
     Trigen_Texture const *ao;
 };
 
-bool fbx_try_save(char const *path, Trigen_Mesh const &mesh, Trigen_Material const &material);
-
 struct Export_Model {
     Trigen_Mesh mesh;
     Trigen_Material material;
