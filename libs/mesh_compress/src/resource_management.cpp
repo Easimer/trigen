@@ -89,7 +89,7 @@ TMC_CreateBuffer(
     TMC_HANDLE_ACQUIRE TMC_Buffer *buffer,
     TMC_IN const void *data,
     TMC_Size size) {
-    if (context == nullptr || buffer == nullptr || data == nullptr || size == 0) {
+    if (context == nullptr || buffer == nullptr || (data == nullptr && size != 0)) {
         return k_ETMCStatus_InvalidArguments;
     }
 

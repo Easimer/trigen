@@ -17,12 +17,13 @@
 
 #define TMC_VERSION_MAJOR    (1)
 #define TMC_VERSION_MINOR    (0)
-#define TMC_VERSION_REVISION (0)
+#define TMC_VERSION_REVISION (1)
 #define TMC_VERSION                                                            \
     HEDLEY_VERSION_ENCODE(                                                     \
         TMC_VERSION_MAJOR, TMC_VERSION_MINOR, TMC_VERSION_REVISION)
 
 #define TMC_VERSION_1_0 HEDLEY_VERSION_ENCODE(1, 0, 0)
+#define TMC_VERSION_1_0_1 HEDLEY_VERSION_ENCODE(1, 0, 1)
 
 #if !defined(TMC_TARGET_VERSION)
 #define TMC_TARGET_VERSION TMC_VERSION
@@ -33,6 +34,12 @@
 #else
 #define TMC_AVAILABLE_SINCE_1_0
 #endif /* TMC_TARGET_VERSION < 1.0.0 */
+
+#if TMC_TARGET_VERSION < TMC_VERSION_1_0_1
+#define TMC_AVAILABLE_SINCE_1_0_1 HEDLEY_UNAVAILABLE(1.0.1)
+#else
+#define TMC_AVAILABLE_SINCE_1_0_1
+#endif /* TMC_TARGET_VERSION < 1.0.1 */
 
 /*!
   \def TMC_IN
@@ -325,11 +332,14 @@ TMC_GetIndexArrayType(
  * \param size Specifies the size in bytes of the buffer's data store.
  *
  * \returns ::k_ETMCStatus_InvalidArguments if \p context is invalid, \p buffer
- * is nullptr, \p data is nullptr or \p size is zero;
+ * is nullptr, \p data is nullptr or \p size is zero; <SMALL>until 1.0.1</SMALL>
+ * \returns ::k_ETMCStatus_InvalidArguments if \p context is invalid, \p buffer
+ * is nullptr or \p data is nullptr while \p size is not zero; <SMALL>since 1.0.1</SMALL>
  * \returns ::k_ETMCStatus_OutOfMemory if the compressor has run out of memory.
  * 
  * \note This is analogous to a call to glCreateBuffers() and glBufferData() in
  * OpenGL.
+ * \note \p data can be nullptr if \p size is zero. <SMALL>since 1.0.1</SMALL>
  */
 TMC_API
 TMC_AVAILABLE_SINCE_1_0
