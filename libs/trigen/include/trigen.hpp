@@ -127,9 +127,6 @@ public:
     }
 
     ~Base_Mesh() {
-        if (Trigen_Mesh_FreeMesh(&_mesh) != Trigen_OK) {
-            std::abort();
-        }
         if (static_cast<T*>(this)->Free(_mesh) != Trigen_OK) {
             std::abort();
         }
