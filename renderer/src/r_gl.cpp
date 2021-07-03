@@ -520,6 +520,11 @@ public:
         case gfx::Texture_Format::SRGB888:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
             break;
+        case gfx::Texture_Format::RGBA8888:
+            glTexImage2D(
+                GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA,
+                GL_UNSIGNED_BYTE, image);
+            break;
         }
 
         glGenerateMipmap(GL_TEXTURE_2D);

@@ -52,6 +52,7 @@ namespace gfx {
     enum class Texture_Format {
         RGB888,
         SRGB888,
+        RGBA8888,
     };
 
     struct Material_Unlit {
