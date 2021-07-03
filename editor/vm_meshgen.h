@@ -66,6 +66,7 @@ public:
 
     bool checkEntity() const;
     void onRender(gfx::Render_Queue *rq);
+    void onRenderTransparent(gfx::Render_Queue *rq);
     void foreachInputTexture(std::function<void(Meshgen_Texture_Kind, char const *, Input_Texture &)> const &callback);
 
 public slots:

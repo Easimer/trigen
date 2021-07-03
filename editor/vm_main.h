@@ -36,7 +36,11 @@ public slots:
 signals:
 	void cameraUpdated();
 	void currentSessionChanged(Session *session);
+        /** Emitted when we're rendering opaque objects */
 	void rendering(gfx::Render_Queue *rq);
+        /** Emitted when we're rendering transparent (NOT translucent!) objects
+         */
+	void renderingTransparent(gfx::Render_Queue *rq);
     void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
 
 private:

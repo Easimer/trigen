@@ -158,10 +158,34 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         }
     }
 
+    if (_unwrappedMesh.has_value()) {
+        if (_renderNormals) {
+            std::vector<glm::vec3> lines;
+            // TODO: for each vertex, draw the normal
+            gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
+        }
+    }
+}
+
+void
+VM_Meshgen::onRenderTransparent(gfx::Render_Queue *rq) {
+    gfx::Transform renderTransform {
+        { 0, 0, 0 },
+        { 1, 0, 0, 0 },
+        { 1, 1, 1 }
+    };
+    auto &transforms = _world->getMapForComponent<Transform_Component>();
+    if (transforms.count(_ent)) {
+        auto &transform = transforms.at(_ent);
+        renderTransform.position = transform.position;
+        renderTransform.rotation = transform.rotation;
+        renderTransform.scale = transform.scale;
+    }
+
     if (_foliageMesh) {
         if (_foliageMesh->renderer_handle != nullptr) {
             if (_texLeavesHandle != nullptr) {
-                gfx::allocate_command_and_initialize<Render_Model>(
+                gfx::allocate_command_and_initialize<Render_Transparent_Model>(
                     rq, _foliageMesh->renderer_handle, _texLeavesHandle,
                     renderTransform);
             } else {
@@ -172,14 +196,6 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
             }
         } else {
             gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_foliageMesh->renderer_handle, &*_foliageMesh);
-        }
-    }
-
-    if (_unwrappedMesh.has_value()) {
-        if (_renderNormals) {
-            std::vector<glm::vec3> lines;
-            // TODO: for each vertex, draw the normal
-            gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
         }
     }
 }

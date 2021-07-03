@@ -64,6 +64,19 @@ void Render_Model::execute(gfx::IRenderer *renderer) {
     }
 }
 
+Render_Transparent_Model::Render_Transparent_Model(
+    gfx::Model_ID model,
+    gfx::Texture_ID diffuse,
+    gfx::Transform const &transform)
+    : _model(model)
+    , _diffuse(diffuse)
+    , _transform(transform) { }
+
+void
+Render_Transparent_Model::execute(gfx::IRenderer *renderer) {
+    renderer->draw_transparent_model(_model, _diffuse, _transform);
+}
+
 Render_Untextured_Model::Render_Untextured_Model(
     gfx::Model_ID model,
     gfx::Transform const &transform)

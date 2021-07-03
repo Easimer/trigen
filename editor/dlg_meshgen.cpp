@@ -78,8 +78,14 @@ public:
 
     ~Dialog_Meshgen() override = default;
 
-    void onRender(gfx::Render_Queue *rq) override {
+    void
+    onRender(gfx::Render_Queue *rq) override {
         _vm.onRender(rq);
+    }
+
+    void
+    onRenderTransparent(gfx::Render_Queue *rq) override {
+        _vm.onRenderTransparent(rq);
     }
 
     void

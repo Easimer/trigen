@@ -74,6 +74,7 @@ void VM_Main::createMeshgenDialog(QWidget *parent) {
             auto dlg = make_meshgen_dialog(_currentSession->world(), selectedEntity, parent);
             dlg->show();
             connect(this, &VM_Main::rendering, dlg, &Base_Dialog_Meshgen::onRender);
+            connect(this, &VM_Main::renderingTransparent, dlg, &Base_Dialog_Meshgen::onRenderTransparent);
 		}
 	}
 }
@@ -100,6 +101,8 @@ void VM_Main::onRender(gfx::Render_Queue *rq) {
         gfx::allocate_command_and_initialize<Draw_Framebuffer_Command>(
             rq, _framebuffer);
     }
+
+	emit renderingTransparent(rq);
 }
 
 void VM_Main::setRunning(bool isRunning) {
