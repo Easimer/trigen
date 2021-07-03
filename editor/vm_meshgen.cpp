@@ -311,9 +311,16 @@ void VM_Meshgen::onExportPathAvailable(QString const &path) {
         &_texOutAo,
     };
 
-    auto mesh = trigen::Mesh::make(*session);
+    auto mesh = trigen::Mesh::make(session->handle());
+    auto foliageMesh = trigen::Foliage_Mesh::make(session->handle());
 
-    if (fbx_try_save(pathu8.constData(), *mesh, outputMaterial)) {
+    Export_Model model;
+    model.mesh = *mesh;
+    model.material = outputMaterial;
+    model.foliageMesh = *foliageMesh;
+    model.leafTexture = &_texLeaves.info;
+
+    if (fbx_try_save(pathu8.constData(), model)) {
         emit exported();
     } else {
         emit exportError("Couldn't save FBX file!");
