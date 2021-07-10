@@ -445,6 +445,15 @@ private:
     void generate_collision_constraints(System_State& s) override {
         compute_ref->generate_collision_constraints(s);
     }
+
+    void
+    check_intersections(
+        System_State const &s,
+        Vector<unsigned> &result,
+        Vector<Vec3> const &from,
+        Vector<Vec3> const &to) override {
+        compute_ref->check_intersections(s, result, from, to);
+    }
 };
 
 #undef LOG

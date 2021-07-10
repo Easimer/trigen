@@ -4,6 +4,7 @@
 //
 
 #include "stdafx.h"
+#include <iterator>
 #include "system_state.h"
 #include "softbody.h"
 #include "s_ext.h"
@@ -48,35 +49,35 @@ static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
     Plant_Simulation(sb::Config const &params, ICompute_Backend *compute)
-        : params(params)
-        , compute(compute) {
+        : _params(params)
+        , _compute(compute) {
         if (params.extra.plant_sim != nullptr) {
-            extra = *params.extra.plant_sim;
+            _extra = *params.extra.plant_sim;
         } else {
             // NOTE(danielm): plant_sim will be null when we're deserializing
             // a simulation image (we don't save ext params).
             // TODO(danielm): fix this
-            extra = {};
+            _extra = {};
         }
     }
 private:
-    sb::Config params;
-    ICompute_Backend *compute;
-    sb::Plant_Simulation_Extension_Extra extra;
-    Rand_Float rnd;
-    Map<index_t, index_t> parents;
-    Map<index_t, index_t> apical_child;
-    Map<index_t, index_t> lateral_bud;
-    Map<index_t, Vec4> anchor_points;
-    Map<index_t, float> lifetime;
-    Dequeue<index_t> growing;
-    Vector<index_t> leaf_bud;
+    sb::Config _params;
+    ICompute_Backend *_compute;
+    sb::Plant_Simulation_Extension_Extra _extra;
+    Rand_Float _rnd;
+    Map<index_t, index_t> _parents;
+    Map<index_t, index_t> _apical_child;
+    Map<index_t, index_t> _lateral_bud;
+    Map<index_t, Vec4> _anchor_points;
+    Map<index_t, float> _lifetime;
+    Dequeue<index_t> _growing;
+    Vector<index_t> _leaf_bud;
 
     void init(IParticle_Manager_Deferred* pman, System_State& s, float dt) override {
         // Create root
         pman->defer([&](IParticle_Manager* pman, System_State&) {
             constexpr auto new_size = Vec3(0.5f, 0.5f, 2.0f);
-            auto o = extra.seed_position;
+            auto o = _extra.seed_position;
             auto root0 = pman->add_init_particle(o - Vec3(0, 0.5, 0), new_size, 1);
             auto root1 = pman->add_init_particle(o, new_size, 1);
             pman->connect_particles(root0, root1);
@@ -95,13 +96,13 @@ private:
         // For all particles
         for (index_t i = 0; i < s.position.size(); i++) {
             auto const p = s.predicted_position[i];
-            if (anchor_points.count(i)) {
-                auto ap = anchor_points[i];
+            if (_anchor_points.count(i)) {
+                auto ap = _anchor_points[i];
                 auto dist = distance(p, ap);
                 if (dist <= attachment_min_dist) {
-                    s.predicted_position[i] += dt * extra.attachment_strength * (ap - s.predicted_position[i]);
+                    s.predicted_position[i] += dt * _extra.attachment_strength * (ap - s.predicted_position[i]);
                 } else {
-                    anchor_points.erase(i);
+                    _anchor_points.erase(i);
                 }
             } else {
                 SDF_Slot const* surface = NULL;
@@ -128,24 +129,24 @@ private:
                     auto normal = sdf::normal(surface_fun, p);
                     auto surface = p - surface_dist * normal;
 
-                    s.predicted_position[i] += dt * extra.surface_adaption_strength * (surface - s.predicted_position[i]);
+                    s.predicted_position[i] += dt * _extra.surface_adaption_strength * (surface - s.predicted_position[i]);
 
                     if (surface_dist < attachment_min_dist) {
-                        anchor_points[i] = surface;
+                        _anchor_points[i] = surface;
                     }
                 } else {
                     // No anchor point found, move towards light source
-                    s.predicted_position[i] += dt * extra.phototropism_response_strength * s.light_source_direction;
+                    s.predicted_position[i] += dt * _extra.phototropism_response_strength * s.light_source_direction;
                 }
             }
 
-            if (lifetime.count(i) != 0) {
-                lifetime[i] += dt;
+            if (_lifetime.count(i) != 0) {
+                _lifetime[i] += dt;
             } else {
-                lifetime[i] = dt;
+                _lifetime[i] = dt;
             }
 
-            if (lifetime[i] > 3) {
+            if (_lifetime[i] > 3) {
                 s.fixed_particles.insert(i);
             }
         }
@@ -155,57 +156,152 @@ private:
         growth(pman_defer, s, dt);
     }
 
-    bool try_grow_branch(index_t pidx, IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
-        if (length(s.velocity[pidx]) > 2) return false;
-
-        bool ret = false;
-
-        auto lateral_chance = rnd.normal();
+    void
+    try_grow_branches(
+        Vector<index_t> const &particleIndices,
+        Vector<index_t> &couldntGrow,
+        IParticle_Manager_Deferred *pman_defer,
+        System_State &s,
+        float dt) {
         constexpr auto new_size = Vec3(0.25f, 0.25f, 2.0f);
-        auto longest_axis = longest_axis_normalized(s.size[pidx]);
-        auto new_longest_axis = longest_axis_normalized(new_size);
 
-        auto parent = parents[pidx];
-        auto branch_dir = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
-        auto branch_len = 1.0f;
+        struct Lateral_Branch_To_Grow {
+            index_t pidx;
+            Vec4 branch_dir;
+            float branch_len;
+        };
 
-        if (lateral_chance < extra.branching_probability) {
-            auto angle = rnd.central() * extra.branch_angle_variance;
-            auto x = rnd.central();
-            auto y = rnd.central();
-            auto z = rnd.central();
-            auto axis = glm::normalize(Vec3(x, y, z));
-            auto bud_rot_offset = glm::angleAxis(angle, axis);
-            auto lateral_branch_dir = bud_rot_offset * branch_dir * glm::conjugate(bud_rot_offset);
+        struct Apical_Branch_To_Grow {
+            index_t pidx;
+            Vec4 branch_dir;
+            float branch_len;
+        };
 
-            auto pos = s.position[pidx] + branch_len * lateral_branch_dir;
+        std::vector<Lateral_Branch_To_Grow> lateral_branches_to_grow;
+        std::vector<Apical_Branch_To_Grow> apical_branches_to_grow;
 
-            if (!checkIntersection(s, s.position[pidx], pos)) {
-                pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                    auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                    lateral_bud[pidx] = l_idx;
-                    parents[l_idx] = pidx;
-                });
-                ret = true;
+        // - Filter out particles that won't grow a branch
+        // - Gather information about particles that will grow lateral branches
+        // - Gather information about particles that will grow apical branches
+        for (index_t i = 0; i < particleIndices.size(); i++) {
+            auto pidx = particleIndices[i];
+            // Don't grow branches out of particles that are too fast
+            if (length(s.velocity[pidx]) > 2) {
+                couldntGrow.emplace_back(pidx);
+                continue;
             }
-        } else {
-            // This particle won't grow a lateral branch
-            // We're adding this particle to the list of leaf buds
-            leaf_bud.emplace_back(pidx);
+
+            auto lateral_chance = _rnd.normal();
+
+            // Compute the direction of the apical branch
+            auto parent = _parents[pidx];
+            auto branch_dir
+                = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
+            auto branch_len = 1.0f;
+
+            apical_branches_to_grow.push_back({ pidx, branch_dir, branch_len });
+
+            if (lateral_chance < _extra.branching_probability) {
+                lateral_branches_to_grow.push_back(
+                    { pidx, branch_dir, branch_len });
+            } else {
+                // This particle won't grow a lateral branch
+                // We're adding this particle to the list of leaf buds
+                _leaf_bud.emplace_back(pidx);
+            }
         }
 
-        auto pos = s.position[pidx] + branch_len * branch_dir;
+        // Gather all information needed to check whether the branch we want to
+        // create would intersect the world geometry or not.
+        //
+        // We're doing the intersection tests in two batches because we'll use
+        // the results in two different ways depending on what kind of branch
+        // we're talking about.
 
-        if (!checkIntersection(s, s.position[pidx], pos)) {
-            pman_defer->defer([&, pos, new_size, pidx](IParticle_Manager* pman, System_State& s) {
-                auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
-                apical_child[pidx] = a_idx;
-                parents[a_idx] = pidx;
-            });
-            ret = true;
+        struct Intersection_Test_Batch {
+            Vector<index_t> pidx;
+            Vector<unsigned> results;
+            Vector<Vec3> from;
+            Vector<Vec3> to;
+        };
+
+        Intersection_Test_Batch lateral_branch_intersection_test,
+            apical_branch_intersection_test;
+
+        for (auto &B : lateral_branches_to_grow) {
+            // Compute the direction of the lateral branch and the endpoint of
+            // the branch
+
+            auto angle = _rnd.central() * _extra.branch_angle_variance;
+            auto x = _rnd.central();
+            auto y = _rnd.central();
+            auto z = _rnd.central();
+            auto axis = normalize(Vec3(x, y, z));
+            auto bud_rot_offset = angleAxis(angle, axis);
+            auto lateral_branch_dir = bud_rot_offset * B.branch_dir * conjugate(bud_rot_offset);
+
+            auto pos = s.position[B.pidx] + B.branch_len * lateral_branch_dir;
+
+            lateral_branch_intersection_test.pidx.emplace_back(B.pidx);
+            lateral_branch_intersection_test.from.emplace_back(
+                s.position[B.pidx]);
+            lateral_branch_intersection_test.to.emplace_back(pos);
+            lateral_branch_intersection_test.results.emplace_back(0);
         }
 
-        return ret;
+        for (auto& B : apical_branches_to_grow) {
+            auto pos = s.position[B.pidx] + B.branch_len * B.branch_dir;
+
+            apical_branch_intersection_test.pidx.emplace_back(B.pidx);
+            apical_branch_intersection_test.from.emplace_back(
+                s.position[B.pidx]);
+            apical_branch_intersection_test.to.emplace_back(pos);
+            apical_branch_intersection_test.results.emplace_back(0);
+        }
+
+        _compute->check_intersections(
+            s, lateral_branch_intersection_test.results,
+            lateral_branch_intersection_test.from,
+            lateral_branch_intersection_test.to);
+
+        _compute->check_intersections(
+            s, apical_branch_intersection_test.results,
+            apical_branch_intersection_test.from,
+            apical_branch_intersection_test.to);
+
+        // Check the results of the intersection tests for the apical branches
+        for (index_t i = 0; i < apical_branch_intersection_test.results.size();
+             i++) {
+            if (!apical_branch_intersection_test.results[i]) {
+                auto pos = apical_branch_intersection_test.to[i];
+                auto pidx = apical_branch_intersection_test.pidx[i];
+
+                pman_defer->defer([&, pos, new_size, pidx](
+                                      IParticle_Manager *pman,
+                                      System_State &s) {
+                    auto a_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                    _apical_child[pidx] = a_idx;
+                    _parents[a_idx] = pidx;
+                });
+            }
+        }
+
+        // Check the results of the intersection tests for the lateral branches
+        for (index_t i = 0; i < lateral_branch_intersection_test.results.size();
+             i++) {
+            if (!lateral_branch_intersection_test.results[i]) {
+                auto pos = lateral_branch_intersection_test.to[i];
+                auto pidx = lateral_branch_intersection_test.pidx[i];
+
+                pman_defer->defer([&, pos, new_size, pidx](
+                                      IParticle_Manager *pman,
+                                      System_State &s) {
+                    auto l_idx = pman->add_particle(pos, new_size, 1.0f, pidx);
+                    _lateral_bud[pidx] = l_idx;
+                    _parents[l_idx] = pidx;
+                });
+            }
+        }
     }
 
     bool checkIntersection(System_State const &s, Vec3 from, Vec3 to) {
@@ -245,7 +341,7 @@ private:
         auto const N = s.position.size();
         auto const max_size = 1.5f;
 
-        if (N >= extra.particle_count_limit) return;
+        if (N >= _extra.particle_count_limit) return;
 
         for (index_t pidx = 1; pidx < N; pidx++) {
             auto r = s.size[pidx].x;
@@ -255,30 +351,34 @@ private:
                 r = s.size[pidx].x;
 
                 // Amint tullepjuk a reszecske meret limitet, novesszunk uj agat
-                if (r >= max_size && N < extra.particle_count_limit) {
+                if (r >= max_size && N < _extra.particle_count_limit) {
                     // don't grow if particle is underground
                     // TODO(danielm): here we assume that Y=0 is the ground plane
                     if (s.position[pidx].y >= 0) {
-                        growing.push_back(pidx);
+                        _growing.push_back(pidx);
                     }
 
                     s.bind_pose[pidx] = s.position[pidx];
+                    // TODO(danielm): don't we need to recalculate some
+                    // matrices here?
                 }
             }
         }
 
-        auto remain = growing.size();
-        while (remain--) {
-            auto pidx = growing.front();
-            growing.pop_front();
-            if (!try_grow_branch(pidx, pman_defer, s, dt)) {
-                growing.push_back(pidx);
-            }
-        }
+        // Move the contents of _growing into a vector
+        auto growing = std::vector<index_t>();
+        std::move(begin(_growing), end(_growing), back_inserter(growing));
+        _growing.clear();
+        Vector<index_t> couldntGrow;
+
+        try_grow_branches(growing, couldntGrow, pman_defer, s, dt);
+
+        std::move(
+            begin(couldntGrow), end(couldntGrow), back_inserter(_growing));
     }
 
     sb::Unique_Ptr<sb::Relation_Iterator> get_parental_relations() override {
-        auto get_map = [&]() -> decltype(parents)& { return parents; };
+        auto get_map = [&]() -> decltype(_parents)& { return _parents; };
         auto make_relation = [&](index_t child, index_t parent) {
             return sb::Relation {
                 parent,
@@ -293,7 +393,7 @@ private:
 
     std::vector<index_t>
     get_leaf_buds() override {
-        return leaf_bud;
+        return _leaf_bud;
     }
 
 #define MAX_POSSIBLE_CHUNK_COUNT (5)
@@ -315,11 +415,11 @@ private:
         serializer->write(&version, sizeof(version));
         serializer->write(&chunk_count, sizeof(chunk_count));
 
-        serialize(serializer, parents, CHUNK_PARENTS);
-        serialize(serializer, apical_child, CHUNK_APICAL_CHILD);
-        serialize(serializer, lateral_bud, CHUNK_LATERAL_BUD);
-        serialize(serializer, anchor_points, CHUNK_ANCHOR_POINTS);
-        serialize(serializer, leaf_bud, CHUNK_LEAF_BUD);
+        serialize(serializer, _parents, CHUNK_PARENTS);
+        serialize(serializer, _apical_child, CHUNK_APICAL_CHILD);
+        serialize(serializer, _lateral_bud, CHUNK_LATERAL_BUD);
+        serialize(serializer, _anchor_points, CHUNK_ANCHOR_POINTS);
+        serialize(serializer, _leaf_bud, CHUNK_LEAF_BUD);
 
         return true;
     }
@@ -345,11 +445,11 @@ private:
                 deserializer->read(&id, sizeof(id));
 
                 switch (id) {
-                case CHUNK_PARENTS: deserialize(deserializer, parents); break;
-                case CHUNK_APICAL_CHILD: deserialize(deserializer, apical_child); break;
-                case CHUNK_LATERAL_BUD: deserialize(deserializer, lateral_bud); break;
-                case CHUNK_ANCHOR_POINTS: deserialize(deserializer, anchor_points); break;
-                case CHUNK_LEAF_BUD: deserialize(deserializer, leaf_bud); break;
+                case CHUNK_PARENTS: deserialize(deserializer, _parents); break;
+                case CHUNK_APICAL_CHILD: deserialize(deserializer, _apical_child); break;
+                case CHUNK_LATERAL_BUD: deserialize(deserializer, _lateral_bud); break;
+                case CHUNK_ANCHOR_POINTS: deserialize(deserializer, _anchor_points); break;
+                case CHUNK_LEAF_BUD: deserialize(deserializer, _leaf_bud); break;
                 default: printf("UNKNOWN CHUNK ID %x\n", id); std::terminate(); break;
                 }
             }

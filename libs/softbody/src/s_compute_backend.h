@@ -34,6 +34,21 @@ public:
     virtual void on_collider_added(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
     virtual void on_collider_removed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
     virtual void on_collider_changed(System_State const& sim, sb::ISoftbody_Simulation::Collider_Handle handle) {}
+
+    /**
+     * Checks whether a line segment with two endpoints `from[i]` and `to[i]`
+     * intersects the world geometry and puts the result (1 if it does and 0
+     * otherwise) in `result[i]`.
+     *
+     * These three arrays must have equal lengths.
+     */
+    virtual void
+    check_intersections(
+        System_State const &sim,
+        Vector<unsigned> &result,
+        Vector<Vec3> const &from,
+        Vector<Vec3> const &to)
+        = 0;
 };
 
 sb::Unique_Ptr<ICompute_Backend> Make_Reference_Backend(ILogger* logger);

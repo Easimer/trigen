@@ -458,6 +458,76 @@ protected:
         PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }
 
+    void
+    check_intersections(
+        System_State const &s,
+        Vector<unsigned> &result,
+        Vector<Vec3> const &from,
+        Vector<Vec3> const &to) override {
+        assert(size(result) == size(from));
+        assert(size(from) == size(to));
+        auto const N = size(from);
+
+        // Zero out the result buffer
+        memset(result.data(), 0, sizeof(result[0]) * N);
+
+        // Cache the line direction vectors
+        Vector<Vec3> dir(N);
+
+        for (index_t lineIdx = 0; lineIdx < N; lineIdx++) {
+            dir[lineIdx] = to[lineIdx] - from[lineIdx];
+        }
+
+        // Vertices of a triangle in world space
+        struct Triangle_World_Space {
+            Vec4 v0, v1, v2;
+        };
+
+        // For each collider
+        for (index_t collIdx = 0; collIdx < s.colliders_mesh.size();
+            collIdx++) {
+            auto &coll = s.colliders_mesh[collIdx];
+            Vector<Triangle_World_Space> triangles;
+
+            // Cache world-space positions of the triangles
+            for (auto triIdx = 0ull; triIdx < coll.triangle_count; triIdx++) {
+                auto base = triIdx * 3;
+                auto [vi0, vi1, vi2] = get_vertex_indices(coll, triIdx);
+                auto [ni0, ni1, ni2] = get_normal_indices(coll, triIdx);
+                auto v0 = coll.transform * Vec4(coll.vertices[vi0], 1);
+                auto v1 = coll.transform * Vec4(coll.vertices[vi1], 1);
+                auto v2 = coll.transform * Vec4(coll.vertices[vi2], 1);
+                triangles.push_back({ v0, v1, v2 });
+            }
+
+            // For each line
+            for (index_t lineIdx = 0; lineIdx < N; lineIdx++) {
+                // We already know that this line intersects the world
+                if (result[lineIdx] != 0) {
+                    continue;
+                }
+
+                Vec3 xp;
+                float t;
+
+                // For each triangle
+                for (auto triIdx = 0ull; triIdx < coll.triangle_count;
+                     triIdx++) {
+                    auto &tri = triangles[triIdx];
+                    // Check collision; the `t > 1` condition makes sure that
+                    // the intersection point is an element of the line segment
+                    if (intersect::ray_triangle(
+                            xp, t, from[lineIdx], dir[lineIdx], tri.v0, tri.v1,
+                            tri.v2)
+                        || t > 1) {
+                        result[lineIdx] = 1;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
 protected:
     ILogger *_log;
     sb::IDebug_Visualizer *_visualizer;
