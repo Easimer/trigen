@@ -10,10 +10,6 @@
 #include "s_simulation.h"
 #include "logger.h"
 #include "collider_handles.h"
-#define SB_BENCHMARK 1
-#define SB_BENCHMARK_UNITS microseconds
-#define SB_BENCHMARK_UNITS_STR "us"
-#include "s_benchmark.h"
 #include <cstdlib>
 #include <cstdarg>
 #include <array>
@@ -86,10 +82,6 @@ struct Cache_Table {
         return slot.value;
     }
 };
-
-static float randf() {
-    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-}
 
 Softbody_Simulation::Softbody_Simulation(sb::Config const& configuration, sb::Debug_Proc dbg_msg_cb, void* dbg_msg_user)
     : assert_parallel(false), assert_init(true), debugproc(dbg_msg_cb), debugproc_user(dbg_msg_user) {
@@ -179,11 +171,6 @@ void Softbody_Simulation::constraint_resolution(float dt) {
     ext->pre_constraint(this, s, dt);
 
     for (auto iter = 0ul; iter < SOLVER_ITERATIONS; iter++) {
-        // If simulating plants, don't do shape matching
-        if (params.ext != sb::Extension::Plant_Simulation) {
-            compute->do_one_iteration_of_shape_matching_constraint_resolution(s, dt);
-        }
-        // do_one_iteration_of_collision_constraint_resolution(dt);
         do_one_iteration_of_distance_constraint_resolution(dt);
         do_one_iteration_of_fixed_constraint_resolution(dt);
         do_one_iteration_of_collision_constraint_resolution(dt);
@@ -597,8 +584,7 @@ void Softbody_Simulation::set_light_source_position(Vec3 const& pos) {
 }
 
 void Softbody_Simulation::step(float delta_time) {
-    DECLARE_BENCHMARK_BLOCK();
-    BEGIN_BENCHMARK();
+    ZoneScoped;
 
     if(s.position.size() == 0) {
         return;
@@ -633,9 +619,6 @@ void Softbody_Simulation::step(float delta_time) {
         time_accumulator -= phdt;
         // FrameMarkEnd("Softbody");
     }
-
-    END_BENCHMARK();
-    PRINT_BENCHMARK_RESULT(this);
 }
 
 void Softbody_Simulation::set_debug_visualizer(sb::IDebug_Visualizer *pVisualizer) {

@@ -13,13 +13,11 @@
 #include "collision_constraint.h"
 #include "l_iterators.h"
 #include "s_compute_backend.h"
-#define SB_BENCHMARK (1)
-#define SB_BENCHMARK_UNITS microseconds
-#define SB_BENCHMARK_UNITS_STR "us"
-#include "s_benchmark.h"
 #include "m_utils.h"
 #include <glm/gtx/matrix_operation.hpp>
 #include <intersect.h>
+
+#include <Tracy.hpp>
 
 #define NUMBER_OF_CLUSTERS(idx) (s.edges[(idx)].size() + 1)
 
@@ -70,6 +68,8 @@ protected:
     }
 
     void dampen(System_State& s, float dt) override {
+        ZoneScoped;
+
         auto const N = particle_count(s);
 
         // Reset internal forces
@@ -115,6 +115,7 @@ protected:
     }
 
     Vec4 get_predicted_center_of_mass(System_State &s) {
+        ZoneScoped;
         auto total_mass = 0.f;
         auto cm = Vec4();
 
@@ -130,8 +131,7 @@ protected:
     }
 
     void predict(System_State& s, float dt) override {
-        DECLARE_BENCHMARK_BLOCK();
-        BEGIN_BENCHMARK();
+        ZoneScoped;
 
         auto const N = particle_count(s);
 
@@ -165,13 +165,10 @@ protected:
         }
 
         s.global_center_of_mass /= total_mass;
-
-        END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT(_log);
     }
 
-
     void integrate(System_State& s, float dt) override {
+        ZoneScoped;
         auto const N = particle_count(s);
 
         for (unsigned i = 0; i < N; i++) {
@@ -199,8 +196,7 @@ protected:
             System_State& s,
             float phdt
             ) override {
-        DECLARE_BENCHMARK_BLOCK();
-        BEGIN_BENCHMARK();
+        ZoneScoped;
 
         // shape matching constraint
         for (index_t i = 0; i < particle_count(s); i++) {
@@ -281,9 +277,6 @@ protected:
 
             s.predicted_orientation[i] = R;
         }
-
-        END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT(_log);
     }
 
     void do_one_iteration_of_fixed_constraint_resolution(System_State& s, float phdt) override {
@@ -293,6 +286,7 @@ protected:
     }
 
     void do_one_iteration_of_distance_constraint_resolution(System_State& s, float phdt) override {
+        ZoneScoped;
         auto const N = particle_count(s);
         for (unsigned i = 0; i < N; i++) {
             auto& neighbors = s.edges[i];
@@ -319,8 +313,7 @@ protected:
     Vector<Collision_Constraint> collision_constraints;
 
     void generate_collision_constraints(System_State& s) override {
-        DECLARE_BENCHMARK_BLOCK();
-        BEGIN_BENCHMARK();
+        ZoneScoped;
         auto N = particle_count(s);
 
         collision_constraints.clear();
@@ -396,14 +389,10 @@ protected:
                 }
             }
         }
-
-        END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }
 
     void do_one_iteration_of_collision_constraint_resolution(System_State& s, float phdt) override {
-        DECLARE_BENCHMARK_BLOCK();
-        BEGIN_BENCHMARK();
+        ZoneScoped;
         for (auto& C : collision_constraints) {
             auto x = s.predicted_position[C.pidx] - C.intersect;
             auto n = C.normal;
@@ -454,9 +443,6 @@ protected:
 
             s.predicted_position[C.pidx] -= corr;
         }
-
-        END_BENCHMARK();
-        PRINT_BENCHMARK_RESULT_MASKED(_log, 0xF);
     }
 
     void
@@ -465,6 +451,7 @@ protected:
         Vector<unsigned> &result,
         Vector<Vec3> const &from,
         Vector<Vec3> const &to) override {
+        ZoneScoped;
         assert(size(result) == size(from));
         assert(size(from) == size(to));
         auto const N = size(from);
