@@ -11,6 +11,7 @@
 #include "l_random.h"
 #include "s_iterators.h"
 #include "f_serialization.internal.h"
+#include "s_compute_backend.h"
 #include <raymarching.h>
 #include <intersect.h>
 
@@ -46,7 +47,9 @@ static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
 
 class Plant_Simulation : public ISimulation_Extension, public sb::IPlant_Simulation {
 public:
-    Plant_Simulation(sb::Config const& params) : params(params) {
+    Plant_Simulation(sb::Config const &params, ICompute_Backend *compute)
+        : params(params)
+        , compute(compute) {
         if (params.extra.plant_sim != nullptr) {
             extra = *params.extra.plant_sim;
         } else {
@@ -58,6 +61,7 @@ public:
     }
 private:
     sb::Config params;
+    ICompute_Backend *compute;
     sb::Plant_Simulation_Extension_Extra extra;
     Rand_Float rnd;
     Map<index_t, index_t> parents;
@@ -361,6 +365,6 @@ private:
     }
 };
 
-sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params) {
-    return std::make_unique<Plant_Simulation>(params);
+sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Plant_Simulation(sb::Extension kind, sb::Config const& params, ICompute_Backend *compute) {
+    return std::make_unique<Plant_Simulation>(params, compute);
 }

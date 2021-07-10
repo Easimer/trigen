@@ -570,7 +570,8 @@ void Softbody_Simulation::add_connections(int N, long long* pairs) {
 }
 
 ISimulation_Extension* Softbody_Simulation::create_extension(sb::Extension kind, sb::Config const& config) {
-    ext = Create_Extension(kind, config);
+    assert(compute != nullptr);
+    ext = Create_Extension(kind, config, compute.get());
     params = config;
     params.ext = kind;
     ext->init(this, s, 0.0f);
