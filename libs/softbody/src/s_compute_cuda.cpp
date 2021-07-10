@@ -667,6 +667,15 @@ void Compute_CUDA::on_mesh_collider_changed(System_State const &sim, size_t idx)
     }
 }
 
+void
+Compute_CUDA::check_intersections(
+    System_State const &s,
+    Vector<unsigned> &result,
+    Vector<Vec3> const &from,
+    Vector<Vec3> const &to) {
+    compute_ref->check_intersections(s, result, from, to);
+}
+
 #undef LOG
 #define LOG(t, l, fmt, ...) logger->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
 

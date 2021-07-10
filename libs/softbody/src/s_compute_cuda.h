@@ -310,6 +310,13 @@ private:
     void on_mesh_collider_removed(System_State const &sim, size_t idx);
     void on_mesh_collider_changed(System_State const &sim, size_t idx);
 
+    void
+    check_intersections(
+        System_State const &s,
+        Vector<unsigned> &result,
+        Vector<Vec3> const &from,
+        Vector<Vec3> const &to);
+
 
 private:
     struct Collision_Constraints {

@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include <cassert>
+#include <cstring>
 #include <array>
 #include <algorithm>
 #include <raymarching.h>
