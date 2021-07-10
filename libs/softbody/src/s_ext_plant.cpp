@@ -14,26 +14,6 @@
 #include "f_serialization.internal.h"
 #include "s_compute_backend.h"
 #include <raymarching.h>
-#include <intersect.h>
-
-// TODO(danielm): duplicate of the implementation in s_compute_ref.cpp!!!
-static std::array<uint64_t, 3> get_vertex_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
-    auto base = triangle_index * 3;
-    return {
-        c.vertex_indices[base + 0],
-        c.vertex_indices[base + 1],
-        c.vertex_indices[base + 2]
-    };
-}
-
-static std::array<uint64_t, 3> get_normal_indices(Mesh_Collider_Slot const &c, size_t triangle_index) {
-    auto base = triangle_index * 3;
-    return {
-        c.normal_indices[base + 0],
-        c.normal_indices[base + 1],
-        c.normal_indices[base + 2]
-    };
-}
 
 static std::function<float(Vec3 const&)> make_sdf_ast_wrapper(
         sb::sdf::ast::Expression<float>* expr,
@@ -302,38 +282,6 @@ private:
                 });
             }
         }
-    }
-
-    bool checkIntersection(System_State const &s, Vec3 from, Vec3 to) {
-        for (auto const &coll : s.colliders_mesh) {
-            if (!coll.used)
-                continue;
-
-            auto const dir = to - from;
-
-            // for every triangle in coll: check intersection
-
-            // TODO(danielm): check each triangle but do a minimum search by
-            // `t` so that we only consider the nearest intersected surf?
-            // cuz rn this may create multiple collision constraints for a
-            // particle
-            for (auto j = 0ull; j < coll.triangle_count; j++) {
-                auto base = j * 3;
-                glm::vec3 xp;
-                float t;
-                // TODO(danielm): these matrix vector products could be cached
-                auto [vi0, vi1, vi2] = get_vertex_indices(coll, j);
-                auto [ni0, ni1, ni2] = get_normal_indices(coll, j);
-                auto v0 = coll.transform * Vec4(coll.vertices[vi0], 1);
-                auto v1 = coll.transform * Vec4(coll.vertices[vi1], 1);
-                auto v2 = coll.transform * Vec4(coll.vertices[vi2], 1);
-                if (intersect::ray_triangle(xp, t, from, dir, v0, v1, v2) || t > 1) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     void growth(IParticle_Manager_Deferred* pman_defer, System_State& s, float dt) {
