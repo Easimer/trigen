@@ -72,6 +72,12 @@ if(${BUILD_TESTING})
 	target_link_libraries(softbody_tests PRIVATE softbody)
 endif()
 
+option(SOFTBODY_BUILD_DEMO_EXTENSIONS OFF)
+
+if(${SOFTBODY_BUILD_DEMO_EXTENSIONS})
+    target_compile_definitions(softbody PRIVATE SOFTBODY_BUILD_DEMO_EXTENSIONS=1)
+endif()
+
 if(${SOFTBODY_ENABLE_CUDA})
     target_compile_definitions(softbody PRIVATE SOFTBODY_CUDA_ENABLED=1 _GLIBCXX_USE_CXX11_ABI=0)
     find_package(CUDAToolkit 11.0 REQUIRED)

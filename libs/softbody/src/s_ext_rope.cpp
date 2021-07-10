@@ -4,11 +4,13 @@
 //
 
 #include "stdafx.h"
-#include "system_state.h"
 #include "softbody.h"
 #include "s_ext.h"
-#include "m_utils.h"
 
+#if SOFTBODY_BUILD_DEMO_EXTENSIONS
+
+#include "system_state.h"
+#include "m_utils.h"
 #include <functional>
 
 class Rope_Demo : public ISimulation_Extension {
@@ -48,3 +50,11 @@ private:
 sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Rope_Demo(sb::Extension kind, sb::Config const& params) {
     return std::make_unique<Rope_Demo>(params);
 }
+
+#else // SOFTBODY_BUILD_DEMO_EXTENSIONS
+
+sb::Unique_Ptr<ISimulation_Extension> Create_Extension_Rope_Demo(sb::Extension kind, sb::Config const& params) {
+    return nullptr;
+}
+
+#endif // SOFTBODY_BUILD_DEMO_EXTENSIONS
