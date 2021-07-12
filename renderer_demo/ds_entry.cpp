@@ -143,6 +143,20 @@ main(int argc, char **argv) {
         renderables.emplace_back(renderable);
     }
 
+    std::vector<glm::vec3> lines;
+    topo::Renderable_ID linesRenderable;
+
+    lines.emplace_back(-1, 0, 0);
+    lines.emplace_back(1, 0, 0);
+    lines.emplace_back(1, 0, 0);
+    lines.emplace_back(1, 1, 0);
+    lines.emplace_back(1, 1, 0);
+    lines.emplace_back(2, 1, 0);
+
+    window->CreateRenderableLinesStreaming(
+        &linesRenderable, lines.data(), lines.size() / 2, { 1.0, 0, 0 },
+        { 1.0, 0, 0 });
+
     camera->set_screen_size(surf.width, surf.height);
 
     bool quit = false;
@@ -196,6 +210,7 @@ main(int argc, char **argv) {
         for (auto &renderable : renderables) {
             rq->Submit(renderable, transform);
         }
+        rq->Submit(linesRenderable, transform);
 
         window->FinishRendering();
 

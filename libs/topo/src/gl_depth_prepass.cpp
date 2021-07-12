@@ -53,7 +53,16 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
     glClear(GL_DEPTH_BUFFER_BIT);
     glUseProgram(_shader->Program());
 
+    _modelManager->BindMegabuffer();
+
+    std::vector<Renderable_ID> models;
+
     for (auto &cmd : renderQueue->GetCommands()) {
+        if (_renderableManager->GetRenderableKind(cmd.renderable)
+            != Renderable_Manager::RENDERABLE_MODEL) {
+            continue;
+        }
+
         Model_ID model;
         Material_ID material;
         _renderableManager->GetModelAndMaterial(
@@ -62,8 +71,7 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
         auto matTransform = glm::translate(cmd.transform.position)
             * glm::mat4_cast(cmd.transform.rotation)
             * glm::scale(cmd.transform.scale);
-        gl::SetUniformLocation(
-            _shader->locMVP(), matVP * matTransform);
+        gl::SetUniformLocation(_shader->locMVP(), matVP * matTransform);
 
         void *indexOffset;
         GLint baseVertex;
@@ -76,6 +84,44 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
         glDrawElementsBaseVertex(
             GL_TRIANGLES, numElements, elementType, indexOffset, baseVertex);
     }
+
+    GLuint vaoLines;
+    glGenVertexArrays(1, &vaoLines);
+    glBindVertexArray(vaoLines);
+
+    for (auto &cmd : renderQueue->GetCommands()) {
+        if (_renderableManager->GetRenderableKind(cmd.renderable)
+            != Renderable_Manager::RENDERABLE_LINES) {
+            continue;
+        }
+
+        glm::vec3 const *endpoints;
+        glm::vec3 color;
+        size_t lineCount;
+        _renderableManager->GetLines(
+            cmd.renderable, &endpoints, &lineCount, &color);
+        auto size = lineCount * 2 * sizeof(glm::vec3);
+
+        GLuint bufPosition = 0;
+
+        glGenBuffers(1, &bufPosition);
+        glBindBuffer(GL_ARRAY_BUFFER, bufPosition);
+        glBufferData(GL_ARRAY_BUFFER, size, endpoints, GL_STREAM_DRAW);
+
+        auto matTransform = glm::translate(cmd.transform.position)
+            * glm::mat4_cast(cmd.transform.rotation)
+            * glm::scale(cmd.transform.scale);
+        gl::SetUniformLocation(_shader->locMVP(), matVP * matTransform);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glDrawArrays(GL_LINES, 0, 2 * lineCount);
+
+        glDeleteBuffers(1, &bufPosition);
+    }
+
+    glDeleteVertexArrays(1, &vaoLines);
 }
 
 void

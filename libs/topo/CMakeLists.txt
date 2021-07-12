@@ -67,6 +67,8 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/depth_pass.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_color.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_color.fsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.vsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.fsh.glsl
 )
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})

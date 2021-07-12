@@ -230,6 +230,17 @@ public:
         _instance->SetEyeViewMatrix(matView);
     }
 
+    bool
+    CreateRenderableLinesStreaming(
+        Renderable_ID *outHandle,
+        glm::vec3 const *endpoints,
+        size_t lineCount,
+        glm::vec3 const &colorBegin,
+        glm::vec3 const &colorEnd) override {
+        return _instance->CreateRenderableLinesStreaming(
+            outHandle, endpoints, lineCount, colorBegin, colorEnd);
+    }
+
 private:
     ::SDL_Window *_window;
     SDL_Renderer *_renderer;

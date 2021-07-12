@@ -48,7 +48,14 @@ public:
     Instance(void *glctx, void *imguiContext)
         : _glCtx(glctx)
         , _imguiCtx(imguiContext)
-        , _colorPass(&_modelManager, &_renderableManager, &_materialManager, &_textureManager, &_shaderTexturedUnlit, &_shaderSolidColor) {
+        , _colorPass(
+              &_modelManager,
+              &_renderableManager,
+              &_materialManager,
+              &_textureManager,
+              &_shaderTexturedUnlit,
+              &_shaderSolidColor,
+              &_shaderLines) {
         ImGui::SetCurrentContext(ImguiContext());
         ImGui_ImplOpenGL3_Init("#version 130");
 
@@ -63,6 +70,7 @@ public:
         _shaderTexturedUnlit.build();
         _shaderDepthPass.build();
         _shaderSolidColor.Build();
+        _shaderLines.Build();
 
         _matView = glm::mat4(1.0f);
         _matProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
@@ -267,6 +275,17 @@ public:
         RecalculateVP();
     }
 
+    bool
+    CreateRenderableLinesStreaming(
+        Renderable_ID *outHandle,
+        glm::vec3 const *endpoints,
+        size_t lineCount,
+        glm::vec3 const &colorBegin,
+        glm::vec3 const &colorEnd) override {
+        return _renderableManager.CreateRenderableLinesStreaming(
+            outHandle, endpoints, lineCount, colorBegin, colorEnd);
+    }
+
     void
     RecalculateVP() {
         _matVP = _matProj * _matView;
@@ -286,6 +305,7 @@ private:
     Shader_Generic_Textured_Unlit _shaderTexturedUnlit;
     Shader_Generic_Textured_Lit _shaderTexturedLit;
     Shader_Solid_Color _shaderSolidColor;
+    Shader_Lines _shaderLines;
 
     std::optional<G_Buffer> _gbuffer;
 

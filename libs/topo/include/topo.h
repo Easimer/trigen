@@ -147,6 +147,15 @@ public:
         Material_ID material)
         = 0;
 
+    virtual bool
+    CreateRenderableLinesStreaming(
+        Renderable_ID *outHandle,
+        glm::vec3 const *endpoints,
+        size_t lineCount,
+        glm::vec3 const &colorBegin,
+        glm::vec3 const &colorEnd)
+        = 0;
+
     virtual void
     DestroyRenderable(Renderable_ID renderable)
         = 0;
