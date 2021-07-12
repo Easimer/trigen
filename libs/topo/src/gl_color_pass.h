@@ -7,6 +7,8 @@
 
 #include <topo.h>
 
+#include <unordered_map>
+
 #include "gl_model_manager.h"
 #include "gl_texture_manager.h"
 #include "glres.h"
@@ -91,6 +93,13 @@ public:
     Execute(Render_Queue *renderQueue, glm::mat4 const &matVP);
 
 protected:
+    struct Instance {
+        Model_ID model;
+        Transform transform;
+    };
+
+    using Material_Instances = std::unordered_map<Material_ID, std::vector<Instance>>;
+
     void
     RenderModels(
         std::vector<Render_Queue::Command> const &commands,
@@ -103,16 +112,12 @@ protected:
 
     void
     RenderUnlit(
-        Model_ID model,
-        Material_ID material,
-        Transform const &transform,
+        Material_Instances const &cmds,
         glm::mat4 const &matVP);
 
     void
     RenderSolidColor(
-        Model_ID model,
-        Material_ID material,
-        Transform const &transform,
+        Material_Instances const &cmds,
         glm::mat4 const &matVP);
 
 private:

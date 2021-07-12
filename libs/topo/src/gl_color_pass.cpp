@@ -3,7 +3,6 @@
 // Purpose:
 //
 
-
 #include "gl_color_pass.h"
 
 #include "glres.h"
@@ -12,8 +11,8 @@
 extern "C" {
 extern char const *solid_color_vsh_glsl;
 extern char const *solid_color_fsh_glsl;
-extern char const* lines2_vsh_glsl;
-extern char const* lines2_fsh_glsl;
+extern char const *lines2_vsh_glsl;
+extern char const *lines2_fsh_glsl;
 }
 
 namespace topo {
@@ -60,6 +59,9 @@ GL_Color_Pass::RenderModels(
     glm::mat4 const &matVP) {
     _modelManager->BindMegabuffer();
 
+    Material_Instances cmdUnlit;
+    Material_Instances cmdSolidColor;
+
     for (auto &cmd : commands) {
         assert(
             _renderableManager->GetRenderableKind(cmd.renderable)
@@ -72,13 +74,27 @@ GL_Color_Pass::RenderModels(
 
         switch (_materialManager->GetType(material)) {
         case topo::MAT_UNLIT:
-            RenderUnlit(model, material, cmd.transform, matVP);
+            if (cmdUnlit.count(material) == 0) {
+                cmdUnlit[material] = {};
+            }
+
+            cmdUnlit[material].push_back({ model, cmd.transform });
             break;
         case topo::MAT_SOLID_COLOR:
-            RenderSolidColor(model, material, cmd.transform, matVP);
+            if (cmdSolidColor.count(material) == 0) {
+                cmdSolidColor[material] = {};
+            }
+
+            cmdSolidColor[material].push_back({ model, cmd.transform });
             break;
         }
     }
+
+    glUseProgram(_shaderTexturedUnlit->program());
+    RenderUnlit(cmdUnlit, matVP);
+
+    glUseProgram(_shaderSolidColor->Program());
+    RenderSolidColor(cmdSolidColor, matVP);
 }
 
 void
@@ -115,7 +131,8 @@ GL_Color_Pass::RenderLines(
         gl::SetUniformLocation(_shaderLines->locMatMVP(), matVP * matTransform);
         gl::SetUniformLocation(_shaderLines->locColor(), color);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glVertexAttribPointer(
+            0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
 
         glDrawArrays(GL_LINES, 0, 2 * lineCount);
@@ -128,76 +145,98 @@ GL_Color_Pass::RenderLines(
 
 void
 GL_Color_Pass::RenderUnlit(
-    Model_ID model,
-    Material_ID material,
-    Transform const &transform, glm::mat4 const &matVP) {
-    glUseProgram(_shaderTexturedUnlit->program());
+    Material_Instances const &cmds,
+    glm::mat4 const &matVP) {
 
-    auto matTransform = glm::translate(transform.position)
-        * glm::mat4_cast(transform.rotation) * glm::scale(transform.scale);
-    gl::SetUniformLocation(_shaderTexturedUnlit->locMVP(), matVP * matTransform);
+    for (auto &kv : cmds) {
+        auto material = kv.first;
 
-    auto *materialData = (topo::Material_Unlit *)_materialManager->GetMaterialData(material);
+        auto *materialData
+            = (topo::Material_Unlit *)_materialManager->GetMaterialData(
+                material);
 
-    auto texDiffuse = _textureManager->GetHandle(materialData->diffuse);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texDiffuse);
-    gl::SetUniformLocation(_shaderTexturedUnlit->locTexDiffuse(), 0);
+        auto texDiffuse = _textureManager->GetHandle(materialData->diffuse);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texDiffuse);
+        gl::SetUniformLocation(_shaderTexturedUnlit->locTexDiffuse(), 0);
 
-    gl::SetUniformLocation(
-        _shaderTexturedUnlit->locTintColor(), { 1, 1, 1, 1 });
+        gl::SetUniformLocation(
+            _shaderTexturedUnlit->locTintColor(), { 1, 1, 1, 1 });
 
-    void *indexOffset;
-    GLint baseVertex;
-    GLenum elementType;
-    size_t numElements;
+        for (auto &cmd : kv.second) {
+            auto &transform = cmd.transform;
+            auto model = cmd.model;
 
-    _modelManager->GetDrawParameters(
-        model, &indexOffset, &baseVertex, &elementType, &numElements);
+            auto matTransform = glm::translate(transform.position)
+                * glm::mat4_cast(transform.rotation)
+                * glm::scale(transform.scale);
+            gl::SetUniformLocation(
+                _shaderTexturedUnlit->locMVP(), matVP * matTransform);
 
-    glDrawElementsBaseVertex(
-        GL_TRIANGLES, numElements, elementType, indexOffset, baseVertex);
+            void *indexOffset;
+            GLint baseVertex;
+            GLenum elementType;
+            size_t numElements;
+
+            _modelManager->GetDrawParameters(
+                model, &indexOffset, &baseVertex, &elementType, &numElements);
+
+            glDrawElementsBaseVertex(
+                GL_TRIANGLES, numElements, elementType, indexOffset,
+                baseVertex);
+        }
+    }
 }
 
 void
 GL_Color_Pass::RenderSolidColor(
-    Model_ID model,
-    Material_ID material,
-    Transform const &transform, glm::mat4 const &matVP) {
-    glUseProgram(_shaderSolidColor->Program());
+    Material_Instances const &cmds,
+    glm::mat4 const &matVP) {
 
-    auto matTransform = glm::translate(transform.position)
-        * glm::mat4_cast(transform.rotation) * glm::scale(transform.scale);
+    for (auto &kv : cmds) {
+        auto material = kv.first;
 
-    auto *materialData = (topo::Material_Solid_Color *)_materialManager->GetMaterialData(material);
+        auto *materialData
+            = (topo::Material_Solid_Color *)_materialManager->GetMaterialData(
+                material);
 
-    gl::SetUniformLocation(
-        _shaderSolidColor->locMatMVP(), matVP * matTransform);
-    gl::SetUniformLocation(_shaderSolidColor->locMatModel(), matTransform);
-    gl::SetUniformLocation(
-        _shaderSolidColor->locColor(),
-        { materialData->color[0], materialData->color[1],
-          materialData->color[2] });
+        gl::SetUniformLocation(
+            _shaderSolidColor->locColor(),
+            { materialData->color[0], materialData->color[1],
+              materialData->color[2] });
 
-    void *indexOffset;
-    GLint baseVertex;
-    GLenum elementType;
-    size_t numElements;
+        for (auto &cmd : kv.second) {
+            auto &transform = cmd.transform;
+            auto model = cmd.model;
+            auto matTransform = glm::translate(transform.position)
+                * glm::mat4_cast(transform.rotation)
+                * glm::scale(transform.scale);
 
-    _modelManager->GetDrawParameters(
-        model, &indexOffset, &baseVertex, &elementType, &numElements);
+            gl::SetUniformLocation(
+                _shaderSolidColor->locMatMVP(), matVP * matTransform);
+            gl::SetUniformLocation(
+                _shaderSolidColor->locMatModel(), matTransform);
 
-    glDrawElementsBaseVertex(
-        GL_TRIANGLES, numElements, elementType, indexOffset, baseVertex);
+            void *indexOffset;
+            GLint baseVertex;
+            GLenum elementType;
+            size_t numElements;
+
+            _modelManager->GetDrawParameters(
+                model, &indexOffset, &baseVertex, &elementType, &numElements);
+
+            glDrawElementsBaseVertex(
+                GL_TRIANGLES, numElements, elementType, indexOffset,
+                baseVertex);
+        }
+    }
 }
 
 void
 Shader_Solid_Color::Build() {
     printf("[ topo ] building shader 'solid color'\n");
-    auto vsh
-        = FromStringLoadShader<GL_VERTEX_SHADER>(solid_color_vsh_glsl);
-    auto fsh
-        = FromStringLoadShader<GL_FRAGMENT_SHADER>(solid_color_fsh_glsl);
+    auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(solid_color_vsh_glsl);
+    auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(solid_color_fsh_glsl);
 
     auto builder = gl::Shader_Program_Builder();
     auto program = builder.Attach(vsh).Attach(fsh).Link();
@@ -215,10 +254,8 @@ Shader_Solid_Color::Build() {
 void
 Shader_Lines::Build() {
     printf("[ topo ] building shader 'lines'\n");
-    auto vsh
-        = FromStringLoadShader<GL_VERTEX_SHADER>(lines2_vsh_glsl);
-    auto fsh
-        = FromStringLoadShader<GL_FRAGMENT_SHADER>(lines2_fsh_glsl);
+    auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(lines2_vsh_glsl);
+    auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(lines2_fsh_glsl);
 
     auto builder = gl::Shader_Program_Builder();
     auto program = builder.Attach(vsh).Attach(fsh).Link();
