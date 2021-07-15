@@ -14,6 +14,8 @@ uniform mat4 matModel;
 out vec3 vPosition;
 out vec3 vNormal;
 
+invariant gl_Position;
+
 void
 main() {
     gl_Position = matMVP * vec4(aPosition.xyz, 1.0);

@@ -296,7 +296,7 @@ GL_Model_Manager::Regenerate() {
     auto vertexBuffer = (uint8_t *)glMapBufferRange(GL_ARRAY_BUFFER, 0, totalVertexDataSize, flags);
 
     // Compute vertex bases
-    size_t baseVertex = 0;
+    GLuint baseVertex = 0;
     for (auto& model : _models) {
         model.baseVertex = baseVertex;
         baseVertex += model.numVertices;
@@ -358,38 +358,46 @@ GL_Model_Manager::Regenerate() {
 
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), vertexBufferBitangentOffset);
     glEnableVertexAttribArray(4);
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Create buffer for the indices
 
     glGenBuffers(1, &_buffer->bufElements);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _buffer->bufElements);
-    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, totalVertexDataSize, nullptr, flags);
+    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, indexDataSize, nullptr, flags);
 
     auto indexBuffer = (uint8_t *)glMapBufferRange(GL_ELEMENT_ARRAY_BUFFER, 0, indexDataSize, flags);
-    size_t indexBufferWritePtr = 0;
+    GLuint indexBufferWritePtr = 0;
 
     // Copy indices
     for (auto &model : _models) {
         size_t idxSize;
+        size_t elementSize;
 
         switch (model.elementType) {
         case GL_UNSIGNED_INT:
-            idxSize = model.numElements * sizeof(GLuint);
+            elementSize = sizeof(GLuint);
             break;
         case GL_UNSIGNED_SHORT:
-            idxSize = model.numElements * sizeof(GLushort);
+            elementSize = sizeof(GLushort);
             break;
         default:
             std::abort();
         }
 
+        idxSize = model.numElements * elementSize;
+
         memcpy(&indexBuffer[indexBufferWritePtr], model.elements.get(), idxSize);
 
-        model.indexOffset = (void *)indexBufferWritePtr;
-        indexBufferWritePtr += idxSize;
+        // Aligned on a 4-byte boundary
+        assert((indexBufferWritePtr & 0x3) == 0);
+        model.indexOffset = (GLuint)indexBufferWritePtr;
+        model.firstIndex = GLuint(indexBufferWritePtr / elementSize);
+        indexBufferWritePtr = (indexBufferWritePtr + idxSize + 3) & 0xFFFF'FFFC;
+        assert((indexBufferWritePtr & 0x3) == 0);
     }
 
-    glUnmapBuffer(GL_ARRAY_BUFFER);
     glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 }
 
@@ -399,15 +407,17 @@ GL_Model_Manager::BindMegabuffer() {
         return;
 
     glBindVertexArray(_buffer->vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _buffer->bufElements);
 }
 
 void
 GL_Model_Manager::GetDrawParameters(
     Model_ID model,
-    void **indexOffset,
-    GLint *baseVertex,
+    GLuint *indexOffset,
+    GLuint *baseVertex,
     GLenum *elementType,
-    size_t *numElements) {
+    size_t *numElements,
+    GLuint *firstIndex) {
     if (model == nullptr || indexOffset == nullptr || baseVertex == nullptr
         || elementType == nullptr || numElements == nullptr) {
         std::abort();
@@ -419,6 +429,7 @@ GL_Model_Manager::GetDrawParameters(
     *baseVertex = meshData->baseVertex;
     *elementType = meshData->elementType;
     *numElements = meshData->numElements;
+    *firstIndex = meshData->firstIndex;
 }
 
 }

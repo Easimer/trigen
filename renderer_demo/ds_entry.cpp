@@ -115,7 +115,7 @@ main(int argc, char **argv) {
 
     for (int x = -10; x < 10; x++) {
         for (int y = -10; y < 10; y++) {
-            for (int z = 0; z > -2; z--) {
+            for (int z = 0; z > -10; z--) {
                 positions[0] = glm::vec3(x, y, z) + positionOffsets[0];
                 positions[1] = glm::vec3(x, y, z) + positionOffsets[1];
                 positions[2] = glm::vec3(x, y, z) + positionOffsets[2];

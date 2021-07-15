@@ -24,7 +24,7 @@ CompileShaderFromString(
     isMesaGPU |= (strcmp(vendor, "Intel Open Source Technology Center") == 0);
     isMesaGPU |= (strcmp(vendor, "VMware, Inc.") == 0);
 
-    char const *version = "#version 330 core\n";
+    char const *version = "#version 460 core\n";
     char const *lineReset = "#line -1\n";
 
     if (isMesaGPU) {

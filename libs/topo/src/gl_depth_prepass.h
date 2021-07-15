@@ -25,13 +25,13 @@ public:
     }
 
     gl::Uniform_Location<glm::mat4> &
-    locMVP() {
-        return _locMVP;
+    locVP() {
+        return _locVP;
     }
 
 private:
     gl::Shader_Program _program;
-    gl::Uniform_Location<glm::mat4> _locMVP;
+    gl::Uniform_Location<glm::mat4> _locVP;
 };
 
 class GL_Depth_Prepass {

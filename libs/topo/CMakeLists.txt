@@ -69,6 +69,8 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/solid_color.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.fsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.vsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.fsh.glsl
 )
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})

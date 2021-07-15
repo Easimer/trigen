@@ -29,8 +29,9 @@ struct Mesh_Data {
     std::unique_ptr<uint8_t[]> elements;
     GLenum elementType;
 
-    void *indexOffset;
-    GLint baseVertex;
+    GLuint indexOffset;
+    GLuint firstIndex;
+    GLuint baseVertex;
 };
 
 struct Megabuffer {
@@ -55,10 +56,11 @@ public:
     void
     GetDrawParameters(
         Model_ID model,
-        void **indexOffset,
-        GLint *baseVertex,
+        GLuint *indexOffset,
+        GLuint *baseVertex,
         GLenum *elementType,
-        size_t *numElements);
+        size_t *numElements,
+        GLuint *firstIndex);
 
 private:
     std::list<Mesh_Data> _models;

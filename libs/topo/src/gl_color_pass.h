@@ -78,6 +78,39 @@ private:
     gl::Uniform_Location<glm::vec3> _locColor;
 };
 
+class Shader_Textured_Unlit {
+public:
+    void
+    Build();
+
+    gl::Shader_Program &
+    Program() {
+        return _program;
+    }
+
+    gl::Uniform_Location<glm::mat4> &
+    locMatVP() {
+        return _locMatVP;
+    }
+
+    gl::Uniform_Location<glm::mat4> &
+    locMatModel() {
+        return _locMatModel;
+    }
+
+    gl::Uniform_Location<GLint>
+    locTexDiffuse() {
+        return _locTexDiffuse;
+    }
+
+private:
+    gl::Shader_Program _program;
+
+    gl::Uniform_Location<glm::mat4> _locMatVP;
+    gl::Uniform_Location<glm::mat4> _locMatModel;
+    gl::Uniform_Location<GLint> _locTexDiffuse;
+};
+
 class GL_Color_Pass {
 public:
     GL_Color_Pass(
@@ -85,7 +118,7 @@ public:
         Renderable_Manager *renderableManager,
         Material_Manager *materialManager,
         GL_Texture_Manager *textureManager,
-        Shader_Generic_Textured_Unlit *shaderTexturedUnlit,
+        Shader_Textured_Unlit *shaderTexturedUnlit,
         Shader_Solid_Color *shaderSolidColor,
         Shader_Lines *shaderLines);
 
@@ -126,8 +159,7 @@ private:
     Material_Manager *_materialManager;
     GL_Texture_Manager *_textureManager;
 
-    Shader_Generic_Textured_Unlit *_shaderTexturedUnlit;
-    Shader_Generic_Textured_Lit *_shaderTexturedLit;
+    Shader_Textured_Unlit *_shaderTexturedUnlit;
     Shader_Solid_Color *_shaderSolidColor;
     Shader_Lines *_shaderLines;
 };

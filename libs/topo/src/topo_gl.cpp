@@ -39,7 +39,9 @@ static void GLMessageCallback
     } else if (severity == GL_DEBUG_SEVERITY_LOW) {
         printf("[ topo ] %s\n", message);
     } else if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+#if 0
         printf("[ topo ] %s\n", message);
+#endif
     }
 }
 
@@ -67,13 +69,13 @@ public:
             printf("[ topo ] BACKEND WARNING: no messages will be received from the driver!\n");
         }
 
-        _shaderTexturedUnlit.build();
+        _shaderTexturedUnlit.Build();
         _shaderDepthPass.build();
         _shaderSolidColor.Build();
         _shaderLines.Build();
 
         _matView = glm::mat4(1.0f);
-        _matProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
+        _matProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10000.0f);
 
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
@@ -244,11 +246,26 @@ public:
 
         _modelManager.BindMegabuffer();
 
-        _depthPrepass->Execute(_renderQueue.get(), _matVP);
+        static bool doDepthPrepass = true;
+
+        if (ImGui::Begin("Renderer")) {
+            ImGui::Checkbox("Enable depth prepass", &doDepthPrepass);
+        }
+        ImGui::End();
+
+        if (doDepthPrepass) {
+            _depthPrepass->Execute(_renderQueue.get(), _matVP);
+        }
 
         _gbuffer->activate();
         // Copy result of the depth prepass into the G-buffer
-        _depthPrepass->BlitDepth(_gbuffer->GetFramebuffer());
+
+        if (doDepthPrepass) {
+            _depthPrepass->BlitDepth(_gbuffer->GetFramebuffer());
+
+            glDepthFunc(GL_LEQUAL);
+            glDepthMask(GL_FALSE);
+        }
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -302,8 +319,7 @@ private:
     Material_Manager _materialManager;
     Renderable_Manager _renderableManager;
 
-    Shader_Generic_Textured_Unlit _shaderTexturedUnlit;
-    Shader_Generic_Textured_Lit _shaderTexturedLit;
+    Shader_Textured_Unlit _shaderTexturedUnlit;
     Shader_Solid_Color _shaderSolidColor;
     Shader_Lines _shaderLines;
 
