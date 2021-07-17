@@ -212,6 +212,15 @@ main(int argc, char **argv) {
         }
         rq->Submit(linesRenderable, transform);
 
+        rq->AddLight(
+            { 1, 0, 0, 1 }, { { -100, 100, -100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+        rq->AddLight(
+            { 0, 1, 0, 1 }, { { +100, 100, -100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+        rq->AddLight(
+            { 0, 0, 1, 1 }, { { +100, 100, +100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+        rq->AddLight(
+            { 1, 0, 1, 1 }, { { -100, 100, +100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+
         window->FinishRendering();
 
         if (ImGui::Begin("Test")) {

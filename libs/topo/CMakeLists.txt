@@ -58,12 +58,8 @@ tri_builddir(topo)
 set(SRC_SHADER_SOURCES
     ${CMAKE_SOURCE_DIR}/shaders/generic.vsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/generic.fsh.glsl
-    ${CMAKE_SOURCE_DIR}/shaders/lines.vsh.glsl
-    ${CMAKE_SOURCE_DIR}/shaders/lines.fsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/points.vsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/points.fsh.glsl
-    ${CMAKE_SOURCE_DIR}/shaders/deferred.vsh.glsl
-    ${CMAKE_SOURCE_DIR}/shaders/deferred.fsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/transparent.vsh.glsl
     ${CMAKE_SOURCE_DIR}/shaders/transparent.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/depth_pass.vsh.glsl
@@ -74,6 +70,8 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.fsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.vsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.fsh.glsl
 )
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})

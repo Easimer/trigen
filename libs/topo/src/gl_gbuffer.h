@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "glres.h"
+#include "render_queue.h"
 
 namespace topo {
 struct G_Buffer_Shader_Program {
@@ -16,9 +17,6 @@ struct G_Buffer_Shader_Program {
     gl::Uniform_Location<GLint> texBaseColor;
     gl::Uniform_Location<GLint> texNormal;
     gl::Uniform_Location<GLint> texPosition;
-
-    gl::Uniform_Location<glm::vec3> viewPosition;
-    gl::Uniform_Location<GLint> numLights;
 };
 
 struct G_Buffer_Light {
@@ -39,7 +37,8 @@ public:
     activate();
     void
     draw(
-        G_Buffer_Draw_Params const &params,
+        Render_Queue *rq,
+        glm::vec3 const &viewPosition,
         GLint readFramebuffer,
         GLint drawFramebuffer,
         unsigned screenWidth,

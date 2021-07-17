@@ -279,9 +279,7 @@ public:
 
         _colorPass.Execute(_renderQueue.get(), multiDraw, _matVP);
 
-        G_Buffer_Draw_Params drawParams;
-        drawParams.viewPosition = _matView[3];
-        _gbuffer->draw(drawParams, _prevFbRead, _prevFbDraw, _width, _height);
+        _gbuffer->draw(_renderQueue.get(), _matView[3], _prevFbRead, _prevFbDraw, _width, _height);
 
         _renderQueue.reset();
     }
