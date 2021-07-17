@@ -26,6 +26,8 @@
 #include <imgui_impl_opengl3.h>
 #include <trigen/mesh_compress.h>
 
+#include <Tracy.hpp>
+
 namespace topo {
 
 static void GLMessageCallback
@@ -98,6 +100,7 @@ public:
 
     void
     NewFrame() override {
+        FrameMark;
         ImGui::SetCurrentContext(ImguiContext());
         ImGui_ImplOpenGL3_NewFrame();
     }
@@ -236,6 +239,7 @@ public:
 
     void
     FinishRendering() override {
+        ZoneScoped;
         if (!_renderQueue) {
             fprintf(
                 stderr,
@@ -253,8 +257,12 @@ public:
         }
         ImGui::End();
 
+        auto multiDraw = GL_Multidraw(
+            _renderQueue.get(), &_renderableManager, &_materialManager,
+            &_modelManager);
+
         if (doDepthPrepass) {
-            _depthPrepass->Execute(_renderQueue.get(), _matVP);
+            _depthPrepass->Execute(_renderQueue.get(), multiDraw, _matVP);
         }
 
         _gbuffer->activate();
@@ -269,7 +277,7 @@ public:
 
         glClear(GL_COLOR_BUFFER_BIT);
 
-        _colorPass.Execute(_renderQueue.get(), _matVP);
+        _colorPass.Execute(_renderQueue.get(), multiDraw, _matVP);
 
         G_Buffer_Draw_Params drawParams;
         drawParams.viewPosition = _matView[3];

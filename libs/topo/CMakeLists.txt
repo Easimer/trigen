@@ -30,6 +30,8 @@ target_sources(topo
         src/gl_gbuffer.h
         src/gl_color_pass.cpp
         src/gl_color_pass.h
+        src/gl_multidraw.cpp
+        src/gl_multidraw.h
 
         include/topo.h
         include/topo_sdl.h
@@ -39,6 +41,7 @@ target_compile_definitions(topo
     PRIVATE
         TOPO_BUILDING=1
         GLRES_GLM=1
+        TRACY_ENABLE=1
 )
 
 target_link_libraries(topo
@@ -47,7 +50,7 @@ target_link_libraries(topo
         SDL::SDL2
         imgui
     PRIVATE
-        glad mesh_compress virtfs
+        glad mesh_compress virtfs tracy_client
 )
 
 tri_builddir(topo)

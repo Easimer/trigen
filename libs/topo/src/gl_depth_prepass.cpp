@@ -11,6 +11,8 @@
 
 #include <unordered_map>
 
+#include <Tracy.hpp>
+
 extern "C" {
     extern char const* depth_pass_vsh_glsl;
     extern char const* depth_pass_fsh_glsl;
@@ -58,7 +60,13 @@ GL_Depth_Prepass::GL_Depth_Prepass(
 }
 
 void
-GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
+GL_Depth_Prepass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::mat4 matVP) {
+    ZoneScoped;
+
+    if (glPushDebugGroup) {
+        glPushDebugGroup(GL_DEBUG_SOURCE_THIRD_PARTY, 1, -1, "Depth prepass");
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
     glClear(GL_DEPTH_BUFFER_BIT);
     glDepthFunc(GL_LESS);
@@ -69,106 +77,13 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
 
     _modelManager->BindMegabuffer();
 
-    auto &commands = renderQueue->GetCommands();
-    auto cmdIt = commands.cbegin();
-    auto cmdEnd = commands.cend();
+    auto setupShader = [&](topo::Material_Type) {
+    };
 
-    std::unordered_map<GLenum, std::vector<glm::mat4>> modelMatrices;
-    std::unordered_map<GLenum, std::vector<GL_Indirect>> elementTypeIndirectMap;
+    auto setupMaterial = [&](topo::Material_Type, topo::Material_ID) {
+    };
 
-    for (auto &cmd : renderQueue->GetCommands()) {
-        auto &transform = cmd.transform;
-        auto renderable = cmd.renderable;
-        if (_renderableManager->GetRenderableKind(renderable)
-            != Renderable_Manager::RENDERABLE_MODEL) {
-            continue;
-        }
-
-        Model_ID model;
-        Material_ID material;
-        _renderableManager->GetModelAndMaterial(renderable, &model, &material);
-
-        GLuint indexOffset;
-        GLuint firstIndex;
-        GLuint baseVertex;
-        GLenum elementType;
-        size_t numElements;
-
-        _modelManager->GetDrawParameters(
-            model, &indexOffset, &baseVertex, &elementType, &numElements,
-            &firstIndex);
-
-        if (elementTypeIndirectMap.count(elementType) == 0) {
-            elementTypeIndirectMap[elementType] = {};
-            modelMatrices[elementType] = {};
-        }
-
-        GL_Indirect indirect;
-        indirect.baseInstance = 0;
-        indirect.baseVertex = baseVertex;
-        indirect.count = numElements;
-        indirect.instanceCount = 1;
-        indirect.firstIndex = firstIndex;
-        elementTypeIndirectMap[elementType].push_back(indirect);
-
-        auto matTransform = glm::translate(cmd.transform.position)
-            * glm::mat4_cast(cmd.transform.rotation)
-            * glm::scale(cmd.transform.scale);
-        modelMatrices[elementType].push_back(matTransform);
-    }
-
-    std::vector<GLuint> buffers;
-
-    for (auto &eti : elementTypeIndirectMap) {
-        auto &modelMatricesVec = modelMatrices[eti.first];
-        auto &indirects = eti.second;
-        size_t cmdNext = 0;
-        size_t cmdRemain = eti.second.size();
-
-        const size_t BATCH_SIZE = 256;
-
-        while (cmdRemain > 0) {
-            auto currentBatchSize = (cmdRemain > BATCH_SIZE) ? BATCH_SIZE : cmdRemain;
-
-            GLuint bufIndirect, bufUniformMatrices;
-
-            glGenBuffers(1, &bufIndirect);
-            glBindBuffer(GL_DRAW_INDIRECT_BUFFER, bufIndirect);
-
-            glGenBuffers(1, &bufUniformMatrices);
-            glBindBuffer(GL_UNIFORM_BUFFER, bufUniformMatrices);
-            glBufferData(
-                GL_UNIFORM_BUFFER,
-                currentBatchSize * sizeof(modelMatricesVec[0]),
-                modelMatricesVec.data() + cmdNext, GL_STREAM_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 0, bufUniformMatrices);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-            auto flags = GL_MAP_WRITE_BIT;
-
-            auto size = currentBatchSize * sizeof(GL_Indirect);
-            glBufferStorage(
-                GL_DRAW_INDIRECT_BUFFER, size,
-                nullptr, flags);
-            auto indirectsDevice = glMapBufferRange(GL_DRAW_INDIRECT_BUFFER, 0, size, flags);
-            auto indirectsHost = indirects.data() + cmdNext;
-            memcpy(indirectsDevice, indirectsHost, size);
-            glUnmapBuffer(GL_DRAW_INDIRECT_BUFFER);
-
-            glMultiDrawElementsIndirect(
-                GL_TRIANGLES, eti.first, nullptr, currentBatchSize, 0);
-
-            cmdNext += currentBatchSize;
-            cmdRemain -= currentBatchSize;
-
-            buffers.push_back(bufIndirect);
-            buffers.push_back(bufUniformMatrices);
-        }
-    }
-
-    glDeleteBuffers(buffers.size(), buffers.data());
-
-    return;
+    multiDraw.Execute(setupShader, setupMaterial);
 
     // Draw lines
 
@@ -209,6 +124,10 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, glm::mat4 matVP) {
     }
 
     glDeleteVertexArrays(1, &vaoLines);
+
+    if (glPushDebugGroup) {
+        glPopDebugGroup();
+    }
 }
 
 void

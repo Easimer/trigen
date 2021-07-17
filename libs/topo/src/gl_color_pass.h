@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "gl_model_manager.h"
+#include "gl_multidraw.h"
 #include "gl_texture_manager.h"
 #include "glres.h"
 #include "material_manager.h"
@@ -30,13 +31,8 @@ public:
     }
 
     gl::Uniform_Location<glm::mat4> &
-    locMatMVP() {
-        return _locMatMVP;
-    }
-
-    gl::Uniform_Location<glm::mat4> &
-    locMatModel() {
-        return _locMatModel;
+    locMatVP() {
+        return _locMatVP;
     }
 
     gl::Uniform_Location<glm::vec3> &
@@ -47,8 +43,7 @@ public:
 private:
     gl::Shader_Program _program;
 
-    gl::Uniform_Location<glm::mat4> _locMatMVP;
-    gl::Uniform_Location<glm::mat4> _locMatModel;
+    gl::Uniform_Location<glm::mat4> _locMatVP;
     gl::Uniform_Location<glm::vec3> _locColor;
 };
 
@@ -123,7 +118,7 @@ public:
         Shader_Lines *shaderLines);
 
     void
-    Execute(Render_Queue *renderQueue, glm::mat4 const &matVP);
+    Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::mat4 const &matVP);
 
 protected:
     struct Instance {
@@ -135,22 +130,12 @@ protected:
 
     void
     RenderModels(
-        std::vector<Render_Queue::Command> const &commands,
+        GL_Multidraw &mutliDraw,
         glm::mat4 const &matVP);
 
     void
     RenderLines(
         std::vector<Render_Queue::Command> const &commands,
-        glm::mat4 const &matVP);
-
-    void
-    RenderUnlit(
-        Material_Instances const &cmds,
-        glm::mat4 const &matVP);
-
-    void
-    RenderSolidColor(
-        Material_Instances const &cmds,
         glm::mat4 const &matVP);
 
 private:

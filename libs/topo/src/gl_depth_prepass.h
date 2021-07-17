@@ -8,6 +8,7 @@
 #include <topo.h>
 
 #include "gl_model_manager.h"
+#include "gl_multidraw.h"
 #include "glres.h"
 #include "render_queue.h"
 #include "renderable_manager.h"
@@ -39,7 +40,7 @@ public:
     GL_Depth_Prepass(GL_Model_Manager *modelManager, Renderable_Manager *renderableManager, unsigned width, unsigned height, GL_Depth_Pass_Shader *shader);
 
     void
-    Execute(Render_Queue *renderQueue, glm::mat4 matVP);
+    Execute(Render_Queue *rq, GL_Multidraw &multiDraw, glm::mat4 matVP);
 
     void
     BlitDepth(GLuint destFramebuffer);
