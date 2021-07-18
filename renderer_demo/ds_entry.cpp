@@ -16,23 +16,23 @@
 #include <stb_image.h>
 
 static glm::vec3 positionOffsets[] = { {
-                                           1.0f,
-                                           1.0f,
+                                           0.25f,
+                                           0.25f,
                                            0.0f,
                                        },
                                        {
-                                           1.0f,
-                                           -1.0f,
+                                           0.25f,
+                                           -0.25f,
                                            0.0f,
                                        },
                                        {
-                                           -1.0f,
-                                           -1.0f,
+                                           -0.25f,
+                                           -0.25f,
                                            0.0f,
                                        },
                                        {
-                                           -1.0f,
-                                           1.0f,
+                                           -0.25f,
+                                           0.25f,
                                            0.0f,
                                        } };
 
@@ -51,7 +51,10 @@ static unsigned elements[] = {
 };
 
 static uint8_t diffuse[] = {
-    255, 128, 128,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
+    0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
 static void
@@ -206,7 +209,7 @@ main(int argc, char **argv) {
     window->FinishModelManagement();
 
     window->CreateTexture(
-        &texDiffuse, 1, 1, topo::Texture_Format::RGB888, diffuse);
+        &texDiffuse, 4, 4, topo::Texture_Format::RGB888, diffuse);
     window->CreateUnlitMaterial(&material, texDiffuse);
 
     for (auto &model : models) {
@@ -297,7 +300,7 @@ main(int argc, char **argv) {
 
         for (auto& mesh : backpack) {
             topo::Transform backpackTransform;
-            backpackTransform.position = { 0, 10, 0 };
+            backpackTransform.position = { 0, 10, 10 };
             backpackTransform.rotation = { 1, 0, 0, 0 };
             backpackTransform.scale = { 1, 1, 1 };
             rq->Submit(mesh, backpackTransform);
