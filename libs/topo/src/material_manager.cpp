@@ -3,6 +3,8 @@
 // Purpose: 
 //
 
+#include <algorithm>
+
 #include "material_manager.h"
 
 namespace topo {

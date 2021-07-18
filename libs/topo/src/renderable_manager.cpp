@@ -3,6 +3,8 @@
 // Purpose: 
 //
 
+#include <algorithm>
+
 #include "renderable_manager.h"
 
 namespace topo {

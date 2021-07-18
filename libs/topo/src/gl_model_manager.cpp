@@ -3,6 +3,7 @@
 // Purpose: 
 //
 
+#include <algorithm>
 #include <array>
 #include <vector>
 

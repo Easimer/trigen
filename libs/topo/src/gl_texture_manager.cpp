@@ -3,6 +3,8 @@
 // Purpose: 
 //
 
+#include <algorithm>
+
 #include "gl_texture_manager.h"
 
 namespace topo {
