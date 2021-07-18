@@ -31,13 +31,15 @@ struct GL_Indirect {
     GLuint baseInstance;
 };
 
-GL_Depth_Prepass::GL_Depth_Prepass(
+GL_Depth_Pass::GL_Depth_Pass(
+    std::string const &name,
     GL_Model_Manager *modelManager,
     Renderable_Manager *renderableManager,
     unsigned width,
     unsigned height,
     GL_Depth_Pass_Shader *shader)
-    : _modelManager(modelManager)
+    : _name(name)
+    , _modelManager(modelManager)
     , _renderableManager(renderableManager)
     , _shader(shader)
     , _width(width)
@@ -60,11 +62,11 @@ GL_Depth_Prepass::GL_Depth_Prepass(
 }
 
 void
-GL_Depth_Prepass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::mat4 matVP) {
+GL_Depth_Pass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::mat4 matVP) {
     ZoneScoped;
 
     if (glPushDebugGroup) {
-        glPushDebugGroup(GL_DEBUG_SOURCE_THIRD_PARTY, 1, -1, "Depth prepass");
+        glPushDebugGroup(GL_DEBUG_SOURCE_THIRD_PARTY, 1, _name.size(), _name.c_str());
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
@@ -133,7 +135,7 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, gl
 }
 
 void
-GL_Depth_Prepass::BlitDepth(GLuint destFramebuffer) {
+GL_Depth_Pass::BlitDepth(GLuint destFramebuffer) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destFramebuffer);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, _framebuffer);
 

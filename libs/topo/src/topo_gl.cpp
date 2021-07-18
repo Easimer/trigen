@@ -121,8 +121,8 @@ public:
         glViewport(0, 0, width, height);
 
         _gbuffer = G_Buffer("main", width, height);
-        _depthPrepass = GL_Depth_Prepass(
-            &_modelManager, &_renderableManager, width, height,
+        _depthPrepass = GL_Depth_Pass(
+            "Depth prepass", &_modelManager, &_renderableManager, width, height,
             &_shaderDepthPass);
 
         _width = width;
@@ -335,7 +335,7 @@ private:
     std::optional<G_Buffer> _gbuffer;
 
     GL_Depth_Pass_Shader _shaderDepthPass;
-    std::optional<GL_Depth_Prepass> _depthPrepass;
+    std::optional<GL_Depth_Pass> _depthPrepass;
 
     GL_Color_Pass _colorPass;
 
