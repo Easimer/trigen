@@ -10,6 +10,11 @@
 #include <imgui.h>
 #include <arcball_camera.h>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
+#include <stb_image.h>
+
 static glm::vec3 positionOffsets[] = { {
                                            1.0f,
                                            1.0f,
@@ -80,6 +85,70 @@ make_floor(topo::UPtr<topo::ISDL_Window> &instance, topo::Renderable_ID *floorWh
     instance->CreateRenderable(floorGreen, handle, matSolidGreen);
 }
 
+static void
+create_backpack(topo::UPtr<topo::ISDL_Window> &instance, std::vector<topo::Renderable_ID> &renderables) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string err;
+    if (!tinyobj::LoadObj(
+        &attrib, &shapes, &materials, &err, "assets/backpack.obj",
+        "assets/")) {
+        std::abort();
+    }
+
+    topo::Texture_ID texDiffuse = nullptr, texNormal = nullptr;
+    topo::Material_ID material = nullptr;
+
+    int diffW, diffH, diffN;
+    auto diffPtr = stbi_load("assets/diffuse.jpg", &diffW, &diffH, &diffN, 3);
+    instance->CreateTexture(&texDiffuse, diffW, diffH, topo::Texture_Format::SRGB888, diffPtr);
+    stbi_image_free(diffPtr);
+
+    int normW, normH, normN;
+    auto normPtr = stbi_load("assets/normal.png", &normW, &normH, &normN, 3);
+    instance->CreateTexture(&texNormal, normW, normH, topo::Texture_Format::RGB888, normPtr);
+    stbi_image_free(normPtr);
+
+    instance->CreateLitMaterial(&material, texDiffuse, texNormal);
+
+    for (auto &shape : shapes) {
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec3> normals;
+        std::vector<glm::vec2> uvs;
+        std::vector<unsigned> elements;
+
+        unsigned currentElement = 0;
+        for (auto &idx : shape.mesh.indices) {
+            auto *pos = &attrib.vertices[idx.vertex_index * 3];
+            auto *normal = &attrib.normals[idx.normal_index * 3];
+            auto *uv = &attrib.texcoords[idx.texcoord_index * 2];
+            positions.push_back({ pos[0], pos[1], pos[2] });
+            normals.push_back({ normal[0], normal[1], normal[2] });
+            uvs.push_back({ uv[0], 1 - uv[1] });
+            elements.push_back(currentElement);
+            currentElement++;
+        }
+
+        topo::Model_Descriptor descriptor;
+        descriptor.elements = elements.data();
+        descriptor.element_count = elements.size();
+        descriptor.normals = normals.data();
+        descriptor.uv = uvs.data();
+        descriptor.vertices = positions.data();
+        descriptor.vertex_count = positions.size();
+
+        topo::Model_ID model;
+        if (!instance->CreateModel(&model, &descriptor)) {
+            std::abort();
+        }
+
+        topo::Renderable_ID renderable = nullptr;
+        instance->CreateRenderable(&renderable, model, material);
+        renderables.push_back(renderable);
+    }
+}
+
 int
 main(int argc, char **argv) {
     topo::Surface_Config surf;
@@ -131,6 +200,9 @@ main(int argc, char **argv) {
     topo::Renderable_ID floorWhite, floorGreen;
     make_floor(window, &floorWhite, &floorGreen);
 
+    std::vector<topo::Renderable_ID> backpack;
+    create_backpack(window, backpack);
+
     window->FinishModelManagement();
 
     window->CreateTexture(
@@ -157,7 +229,11 @@ main(int argc, char **argv) {
         &linesRenderable, lines.data(), lines.size() / 2, { 1.0, 0, 0 },
         { 1.0, 0, 0 });
 
+
     camera->set_screen_size(surf.width, surf.height);
+
+    float t = 0;
+    bool renderCPUStressors = true;
 
     bool quit = false;
     while (!quit) {
@@ -206,29 +282,34 @@ main(int argc, char **argv) {
         transform.rotation = { 1, 0, 0, 0 };
         transform.scale = { 1, 1, 1 };
 
-        rq->Submit(floorWhite, transform);
-        for (auto &renderable : renderables) {
-            rq->Submit(renderable, transform);
-        }
-        rq->Submit(linesRenderable, transform);
-
-        rq->AddLight(
-            { 1, 0, 0, 1 }, { { -100, 100, -100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
-        rq->AddLight(
-            { 0, 1, 0, 1 }, { { +100, 100, -100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
-        rq->AddLight(
-            { 0, 0, 1, 1 }, { { +100, 100, +100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
-        rq->AddLight(
-            { 1, 0, 1, 1 }, { { -100, 100, +100 }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
-
-        window->FinishRendering();
-
-        if (ImGui::Begin("Test")) {
-
+        if (ImGui::Begin("Settings")) {
+            ImGui::Checkbox("Render CPU stressors", &renderCPUStressors);
         }
         ImGui::End();
 
+        rq->Submit(floorWhite, transform);
+        if (renderCPUStressors) {
+            for (auto &renderable : renderables) {
+                rq->Submit(renderable, transform);
+            }
+            rq->Submit(linesRenderable, transform);
+        }
+
+        for (auto& mesh : backpack) {
+            topo::Transform backpackTransform;
+            backpackTransform.position = { 0, 10, 0 };
+            backpackTransform.rotation = { 1, 0, 0, 0 };
+            backpackTransform.scale = { 1, 1, 1 };
+            rq->Submit(mesh, backpackTransform);
+        }
+
+        rq->AddLight(
+            { 1, 1, 1, 1 }, { { 20 * glm::cos(t), 20, 20 * glm::sin(t) }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+
+        window->FinishRendering();
+
         window->Present();
+        t += 1 / 60.0f;
     }
 
     return 0;

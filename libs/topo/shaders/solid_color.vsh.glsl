@@ -18,8 +18,9 @@ invariant gl_Position;
 
 void
 main() {
-    gl_Position = matVP * matModel[gl_DrawID] * vec4(aPosition.xyz, 1.0);
-    vPosition = gl_Position.xyz;
+    vec4 worldPosition = matModel[gl_DrawID] * vec4(aPosition.xyz, 1.0);
+    gl_Position = matVP * worldPosition;
+    vPosition = worldPosition.xyz;
     mat3 matModelRot = mat3(matModel[gl_DrawID]);
     vNormal = normalize(matModelRot * aNormal);
 }

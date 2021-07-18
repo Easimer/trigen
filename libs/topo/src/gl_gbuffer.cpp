@@ -12,6 +12,8 @@
 #include "gl_shadercompiler.h"
 #include "shader_program_builder.h"
 
+#include <imgui.h>
+
 extern "C" {
     extern char const* gbuffer_merge_vsh_glsl;
     extern char const* gbuffer_merge_fsh_glsl;

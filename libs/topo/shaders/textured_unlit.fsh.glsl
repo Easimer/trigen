@@ -7,12 +7,13 @@ VAO_LAYOUT(1) out vec4 outNormal;
 VAO_LAYOUT(2) out vec4 outPosition;
 
 in vec3 vPosition;
-
 in vec2 vUV;
+in vec3 vNormal;
+
 uniform sampler2D texDiffuse;
 
 void main() {
     outBaseColor = texture(texDiffuse, vUV);
-    outNormal = vec4(0, 0, 1, 1);
+    outNormal = vec4(vNormal, 1);
     outPosition = vec4(vPosition, 1);
 }

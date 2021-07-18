@@ -58,6 +58,7 @@ public:
               &_materialManager,
               &_textureManager,
               &_shaderTexturedUnlit,
+              &_shaderTexturedLit,
               &_shaderSolidColor,
               &_shaderLines) {
         ImGui::SetCurrentContext(ImguiContext());
@@ -72,6 +73,7 @@ public:
         }
 
         _shaderTexturedUnlit.Build();
+        _shaderTexturedLit.Build();
         _shaderDepthPass.build();
         _shaderSolidColor.Build();
         _shaderLines.Build();
@@ -326,6 +328,7 @@ private:
     Renderable_Manager _renderableManager;
 
     Shader_Textured_Unlit _shaderTexturedUnlit;
+    Shader_Textured_Lit _shaderTexturedLit;
     Shader_Solid_Color _shaderSolidColor;
     Shader_Lines _shaderLines;
 

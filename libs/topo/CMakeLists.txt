@@ -70,6 +70,8 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lines2.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_unlit.fsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_lit.vsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_lit.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.fsh.glsl
 )

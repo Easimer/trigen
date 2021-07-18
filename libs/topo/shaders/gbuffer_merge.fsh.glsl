@@ -34,6 +34,7 @@ void main() {
 
     vec3 viewDir = normalize(viewPosition.xyz - position);
     vec3 surfaceColor = 0.1 * baseColor;
+
     for(int i = 0; i < numLights; i++) {
         vec3 lightColor = lights[i].color.rgb;
         vec3 lightDir = normalize(lights[i].position.xyz - position);
@@ -43,8 +44,9 @@ void main() {
         vec3 diffuse = attenuation * max(dot(normal, lightDir), 0) * baseColor * lightColor;
 
         vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
-        vec3 specular = lightColor * spec;
+        float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+        // vec3 specular = lightColor * spec;
+        vec3 specular = vec3(0, 0, 0);
 
         surfaceColor += diffuse + specular;
     }

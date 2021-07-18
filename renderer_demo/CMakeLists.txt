@@ -15,3 +15,8 @@ target_link_libraries(renderer_demo
 )
 
 tri_builddir(renderer_demo)
+
+add_custom_target(renderer_assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/assets ${CMAKE_BINARY_DIR}/assets
+)
+add_dependencies(renderer_demo renderer_assets)

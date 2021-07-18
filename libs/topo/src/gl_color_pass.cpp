@@ -18,6 +18,8 @@ extern char const *lines2_fsh_glsl;
 
 extern char const *textured_unlit_vsh_glsl;
 extern char const *textured_unlit_fsh_glsl;
+extern char const *textured_lit_vsh_glsl;
+extern char const *textured_lit_fsh_glsl;
 }
 
 namespace topo {
@@ -36,11 +38,13 @@ GL_Color_Pass::GL_Color_Pass(
     Material_Manager *materialManager,
     GL_Texture_Manager *textureManager,
     Shader_Textured_Unlit *shaderTexturedUnlit,
+    Shader_Textured_Lit *shaderTexturedLit,
     Shader_Solid_Color *shaderSolidColor,
     Shader_Lines *shaderLines)
     : _modelManager(modelManager)
     , _renderableManager(renderableManager)
     , _shaderTexturedUnlit(shaderTexturedUnlit)
+    , _shaderTexturedLit(shaderTexturedLit)
     , _shaderSolidColor(shaderSolidColor)
     , _shaderLines(shaderLines)
     , _materialManager(materialManager)
@@ -87,6 +91,10 @@ GL_Color_Pass::RenderModels(
             glUseProgram(_shaderTexturedUnlit->Program());
             gl::SetUniformLocation(_shaderTexturedUnlit->locMatVP(), matVP);
             break;
+        case topo::MAT_LIT:
+            glUseProgram(_shaderTexturedLit->Program());
+            gl::SetUniformLocation(_shaderTexturedLit->locMatVP(), matVP);
+            break;
         case topo::MAT_SOLID_COLOR:
             glUseProgram(_shaderSolidColor->Program());
             gl::SetUniformLocation(_shaderSolidColor->locMatVP(), matVP);
@@ -114,6 +122,20 @@ GL_Color_Pass::RenderModels(
             gl::SetUniformLocation(
                 _shaderSolidColor->locColor(),
                 { msc->color[0], msc->color[1], msc->color[2] });
+            break;
+        }
+        case topo::MAT_LIT: {
+            auto *ml
+                = (Material_Lit *)_materialManager->GetMaterialData(
+                    material);
+            auto texDiffuse = _textureManager->GetHandle(ml->diffuse);
+            auto texNormal = _textureManager->GetHandle(ml->normal);
+            glActiveTexture(GL_TEXTURE0 + 0);
+            glBindTexture(GL_TEXTURE_2D, texDiffuse);
+            glActiveTexture(GL_TEXTURE0 + 1);
+            glBindTexture(GL_TEXTURE_2D, texNormal);
+            gl::SetUniformLocation(_shaderTexturedLit->locTexDiffuse(), 0);
+            gl::SetUniformLocation(_shaderTexturedLit->locTexNormal(), 1);
             break;
         }
         }
@@ -217,10 +239,28 @@ Shader_Textured_Unlit::Build() {
         _program = std::move(program.value());
 
         _locMatVP = gl::Uniform_Location<glm::mat4>(_program, "matVP");
-        _locMatModel = gl::Uniform_Location<glm::mat4>(_program, "matModel");
         _locTexDiffuse = gl::Uniform_Location<GLint>(_program, "texDiffuse");
     } else {
         throw Shader_Linker_Exception("textured unlit", builder.Error());
+    }
+}
+
+void
+Shader_Textured_Lit::Build() {
+    printf("[ topo ] building shader 'textured lit'\n");
+    auto vsh = FromStringLoadShader<GL_VERTEX_SHADER>(textured_lit_vsh_glsl);
+    auto fsh = FromStringLoadShader<GL_FRAGMENT_SHADER>(textured_lit_fsh_glsl);
+
+    auto builder = gl::Shader_Program_Builder();
+    auto program = builder.Attach(vsh).Attach(fsh).Link();
+    if (program) {
+        _program = std::move(program.value());
+
+        _locMatVP = gl::Uniform_Location<glm::mat4>(_program, "matVP");
+        _locTexDiffuse = gl::Uniform_Location<GLint>(_program, "texDiffuse");
+        _locTexNormal = gl::Uniform_Location<GLint>(_program, "texNormal");
+    } else {
+        throw Shader_Linker_Exception("textured lit", builder.Error());
     }
 }
 

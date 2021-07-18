@@ -54,16 +54,25 @@ CalculateTangentsAndBitangents(
         auto y2 = w2.y - w0.y;
 
         auto r = 1.0f / (x1 * y2 - x2 * y1);
-        assert(std::isfinite(r) && !std::isnan(r));
-        auto tangent = normalize((e1 * y2 - e2 * y1) * r);
-        auto bitangent = normalize((e2 * x1 - e1 * x2) * r);
-
-        tangents[t * 3 + 0] = tangent;
-        tangents[t * 3 + 1] = tangent;
-        tangents[t * 3 + 2] = tangent;
-        bitangents[t * 3 + 0] = bitangent;
-        bitangents[t * 3 + 1] = bitangent;
-        bitangents[t * 3 + 2] = bitangent;
+        if (std::isfinite(r) && !std::isnan(r)) {
+            auto tangent = normalize((e1 * y2 - e2 * y1) * r);
+            auto bitangent = normalize((e2 * x1 - e1 * x2) * r);
+            tangents[t * 3 + 0] = tangent;
+            tangents[t * 3 + 1] = tangent;
+            tangents[t * 3 + 2] = tangent;
+            bitangents[t * 3 + 0] = bitangent;
+            bitangents[t * 3 + 1] = bitangent;
+            bitangents[t * 3 + 2] = bitangent;
+        } else {
+            auto tangent = glm::vec3(0, 1, 0);
+            auto bitangent = glm::vec3(1, 0, 0);
+            tangents[t * 3 + 0] = tangent;
+            tangents[t * 3 + 1] = tangent;
+            tangents[t * 3 + 2] = tangent;
+            bitangents[t * 3 + 0] = bitangent;
+            bitangents[t * 3 + 1] = bitangent;
+            bitangents[t * 3 + 2] = bitangent;
+        }
     }
 }
 
@@ -165,7 +174,7 @@ CompressModel(
 }
 
 template<typename T>
-static void
+static void 
 CopyAttributeInto(std::unique_ptr<T[]>& arr, TMC_Context ctx, TMC_Attribute attr) {
     void const *data;
     TMC_Size size;
@@ -206,6 +215,11 @@ GL_Model_Manager::CreateModel(
     CopyAttributeInto(meshData.bitangents, compress_context, attr_bitangent);
     CopyAttributeInto(meshData.normals, compress_context, attr_normal);
 
+    void const *discard;
+    TMC_Size size;
+    TMC_GetDirectArray(compress_context, attr_uv, &discard, &size);
+    meshData.numVertices = size / (2 * sizeof(float));
+
     void const *elements_data = nullptr;
     TMC_Size elements_size = 0;
     TMC_Size elements_count = 0;
@@ -226,7 +240,6 @@ GL_Model_Manager::CreateModel(
         break;
     }
 
-    meshData.numVertices = model->vertex_count;
     meshData.numElements = elements_count;
 
     TMC_DestroyContext(compress_context);
@@ -234,7 +247,7 @@ GL_Model_Manager::CreateModel(
     _models.push_back(std::move(meshData));
     *outHandle = &_models.back();
 
-    return false;
+    return true;
 }
 
 void
