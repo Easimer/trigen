@@ -142,6 +142,7 @@ namespace gl {
     using Shader = Managed_Resource<GLuint, Shader_Allocator<kType>>;
     using Vertex_Shader = Shader<GL_VERTEX_SHADER>;
     using Fragment_Shader = Shader<GL_FRAGMENT_SHADER>;
+    using Compute_Shader = Shader<GL_COMPUTE_SHADER>;
     using Shader_Program = Managed_Resource<GLuint, Shader_Program_Allocator>;
     using Texture = Managed_Resource<GLuint, Texture_Allocator>;
     using Framebuffer = Managed_Resource<GLuint, Framebuffer_Allocator>;
@@ -177,6 +178,11 @@ namespace gl {
     template<>
     inline void SetUniformLocation<GLint>(Uniform_Location<GLint> const &uiLoc, GLint const& id) {
         glUniform1i(uiLoc, id);
+    }
+
+    template<>
+    inline void SetUniformLocation<GLuint>(Uniform_Location<GLuint> const &uiLoc, GLuint const& id) {
+        glUniform1ui(uiLoc, id);
     }
 
 #ifdef GLRES_GLM

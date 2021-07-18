@@ -74,6 +74,7 @@ set(SRC_SHADER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/textured_lit.fsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.vsh.glsl
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders/gbuffer_merge.fsh.glsl
+    ${CMAKE_CURRENT_SOURCE_DIR}/shaders/model_matrix_compute.glsl
 )
 
 embed_file(shaders.cpp ${SRC_SHADER_SOURCES})

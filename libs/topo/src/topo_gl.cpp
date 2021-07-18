@@ -77,6 +77,7 @@ public:
         _shaderDepthPass.build();
         _shaderSolidColor.Build();
         _shaderLines.Build();
+        _shaderModelMatrixCompute.Build();
 
         _matView = glm::mat4(1.0f);
         _matProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10000.0f);
@@ -261,7 +262,7 @@ public:
 
         auto multiDraw = GL_Multidraw(
             _renderQueue.get(), &_renderableManager, &_materialManager,
-            &_modelManager);
+            &_modelManager, &_shaderModelMatrixCompute);
 
         if (doDepthPrepass) {
             _depthPrepass->Execute(_renderQueue.get(), multiDraw, _matVP);
@@ -331,6 +332,7 @@ private:
     Shader_Textured_Lit _shaderTexturedLit;
     Shader_Solid_Color _shaderSolidColor;
     Shader_Lines _shaderLines;
+    Shader_Model_Matrix_Compute _shaderModelMatrixCompute;
 
     std::optional<G_Buffer> _gbuffer;
 

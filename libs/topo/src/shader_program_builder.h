@@ -17,6 +17,7 @@ public:
     Shader_Program_Builder(std::string const &name);
     Shader_Program_Builder &Attach(Vertex_Shader const &vsh);
     Shader_Program_Builder &Attach(Fragment_Shader const &fsh);
+    Shader_Program_Builder &Attach(Compute_Shader const &fsh);
 
     Optional<Shader_Program> Link();
 

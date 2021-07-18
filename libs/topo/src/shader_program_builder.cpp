@@ -32,6 +32,11 @@ Shader_Program_Builder &Shader_Program_Builder::Attach(Fragment_Shader const &fs
     return *this;
 }
 
+Shader_Program_Builder &Shader_Program_Builder::Attach(Compute_Shader const &csh) {
+    glAttachShader(_program, csh);
+    return *this;
+}
+
 Optional<Shader_Program> Shader_Program_Builder::Link() {
     glLinkProgram(_program);
     GLint bSuccess;
