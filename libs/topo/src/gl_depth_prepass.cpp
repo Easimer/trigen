@@ -104,23 +104,25 @@ GL_Depth_Prepass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, gl
             cmd.renderable, &endpoints, &lineCount, &color);
         auto size = lineCount * 2 * sizeof(glm::vec3);
 
-        GLuint bufPosition = 0;
+        gl::VBO bufPosition, bufUniformMatrices;
 
-        glGenBuffers(1, &bufPosition);
         glBindBuffer(GL_ARRAY_BUFFER, bufPosition);
         glBufferData(GL_ARRAY_BUFFER, size, endpoints, GL_STREAM_DRAW);
 
         auto matTransform = glm::translate(cmd.transform.position)
             * glm::mat4_cast(cmd.transform.rotation)
             * glm::scale(cmd.transform.scale);
-        gl::SetUniformLocation(_shader->locVP(), matVP);
+
+        glBindBuffer(GL_UNIFORM_BUFFER, bufUniformMatrices);
+        glBufferData(
+            GL_UNIFORM_BUFFER, sizeof(glm::mat4), glm::value_ptr(matTransform),
+            GL_STREAM_DRAW);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, bufUniformMatrices);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
         glDrawArrays(GL_LINES, 0, 2 * lineCount);
-
-        glDeleteBuffers(1, &bufPosition);
     }
 
     glDeleteVertexArrays(1, &vaoLines);
