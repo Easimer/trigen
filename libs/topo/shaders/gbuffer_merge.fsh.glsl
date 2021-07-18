@@ -40,7 +40,7 @@ void main() {
         vec3 lightDir = normalize(lights[i].position.xyz - position);
         float dist = length(lightDir);
 
-        float attenuation = 1.0 / (dist * dist);
+        float attenuation = lights[i].color.a / (dist * dist);
         vec3 diffuse = attenuation * max(dot(normal, lightDir), 0) * baseColor * lightColor;
 
         vec3 halfwayDir = normalize(lightDir + viewDir);
