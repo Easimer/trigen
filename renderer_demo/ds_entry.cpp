@@ -51,10 +51,7 @@ static unsigned elements[] = {
 };
 
 static uint8_t diffuse[] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
-    0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    68, 68, 68,
 };
 
 static void
@@ -209,7 +206,7 @@ main(int argc, char **argv) {
     window->FinishModelManagement();
 
     window->CreateTexture(
-        &texDiffuse, 4, 4, topo::Texture_Format::RGB888, diffuse);
+        &texDiffuse, 1, 1, topo::Texture_Format::SRGB888, diffuse);
     window->CreateUnlitMaterial(&material, texDiffuse);
 
     for (auto &model : models) {
@@ -237,6 +234,11 @@ main(int argc, char **argv) {
 
     float t = 0;
     bool renderCPUStressors = true;
+
+    float lightScale = 10;
+    float lightAlpha = 0.01f;
+    float lightHeight = 0.1f;
+    int lightDim = 10;
 
     bool quit = false;
     while (!quit) {
@@ -306,8 +308,27 @@ main(int argc, char **argv) {
             rq->Submit(mesh, backpackTransform);
         }
 
-        rq->AddLight(
-            { 1, 1, 1, 1 }, { { 20 * glm::cos(t), 20, 20 * glm::sin(t) }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+        if (ImGui::Begin("Lights")) {
+            ImGui::SliderFloat("Strength", &lightAlpha, 0, 1);
+            ImGui::SliderFloat("Spacing between lights", &lightScale, 0, 10);
+            ImGui::SliderFloat("Height", &lightHeight, 0, 0.5f);
+            ImGui::SliderInt("Dim", &lightDim, 0, 50);
+            ImGui::Text("Number of lights: %d", 4 * lightDim * lightDim);
+        }
+        ImGui::End();
+
+
+        #define LIGHTS_DIM (lightDim)
+        for (int x = -LIGHTS_DIM; x <= LIGHTS_DIM; x++) {
+            for (int y = -LIGHTS_DIM; y <= LIGHTS_DIM; y++) {
+                float lx = lightScale * (x * glm::cos(t) - y * glm::sin(t));
+                float ly = lightScale * (x * glm::sin(t) + y * glm::cos(t));
+                rq->AddLight(
+                    { (x + LIGHTS_DIM) / float(2 * LIGHTS_DIM), (x + y + 2 * LIGHTS_DIM) / float(4 * LIGHTS_DIM),
+                      (y + LIGHTS_DIM) / float(2 * LIGHTS_DIM), lightAlpha },
+                    { { lx, lightHeight, ly }, { 1, 0, 0, 0 }, { 1, 1, 1 } });
+            }
+        }
 
         window->FinishRendering();
 
