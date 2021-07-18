@@ -8,7 +8,7 @@ VAO_LAYOUT(2) in vec3 aNormal;
 VAO_LAYOUT(3) in vec3 aTangent;
 VAO_LAYOUT(4) in vec3 aBitangent;
 
-layout(std140, binding = 0) uniform Matrices { mat4 matModel[256]; };
+layout(std140, binding = 0) buffer Matrices { mat4 matModel[]; };
 uniform mat4 matVP;
 
 out vec3 vPosition;

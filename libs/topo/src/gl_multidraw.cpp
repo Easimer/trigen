@@ -35,10 +35,10 @@ GL_Multidraw::GL_Multidraw(
     ZoneScoped;
     std::vector<Render_Queue::Command> commands;
 
-    GLint maxUniformBlockSize;
-    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBlockSize);
+    GLint maxShaderStorageBlockSize;
+    glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &maxShaderStorageBlockSize);
 
-    _batchSize = maxUniformBlockSize / sizeof(glm::mat4);
+    _batchSize = maxShaderStorageBlockSize / sizeof(glm::mat4);
 
     for (auto &cmd : rq->GetCommands()) {
         if (renderableManager->GetRenderableKind(cmd.renderable)
@@ -119,20 +119,18 @@ GL_Multidraw::GL_Multidraw(
                     glGenBuffers(1, &bufModelMatrices);
                     glBindBuffer(
                         GL_SHADER_STORAGE_BUFFER, bufModelMatrices);
-                    glBufferData(
+                    glBufferStorage(
                         GL_SHADER_STORAGE_BUFFER,
-                        currentBatchSize * sizeof(glm::mat4), nullptr,
-                        GL_STATIC_DRAW);
+                        currentBatchSize * sizeof(glm::mat4), nullptr, 0);
 
                     // Create SSBOs for the inputs
                     for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
                          i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
                         glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
-                        glBufferData(
+                        glBufferStorage(
                             GL_SHADER_STORAGE_BUFFER,
-                            sizeof(glm::mat4) * currentBatchSize,
-                            matrixVectors[i]->data() + next,
-                            GL_STATIC_DRAW);
+                            currentBatchSize * sizeof(glm::mat4),
+                            matrixVectors[i]->data() + next, 0);
                     }
 
                     gl::SetUniformLocation(
@@ -235,7 +233,7 @@ GL_Multidraw::Execute(
                     auto &bufIndirect = indexType.second.indirectBuffers[i];
                     auto &bufUniformMatrices = indexType.second.modelMatrixBuffers[i];
                     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, bufIndirect);
-                    glBindBufferBase(GL_UNIFORM_BUFFER, 0, bufUniformMatrices);
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bufUniformMatrices);
                     auto batchSize = (i == N - 1)
                         ? indexType.second.lastBatchSize
                         : _batchSize;

@@ -4,8 +4,8 @@
 
 VAO_LAYOUT(0) in vec3 aPosition;
 
-layout(std140, binding = 0) uniform Matrices {
-    mat4 matModel[256];
+layout(std140, binding = 0) buffer Matrices {
+    mat4 matModel[];
 };
 
 uniform mat4 matVP;
