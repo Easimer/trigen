@@ -89,6 +89,9 @@ public:
 
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &_prevFbDraw);
         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &_prevFbRead);
+
+        glGetIntegerv(
+            GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &_maxShaderStorageBlockSize);
     }
 
     ~Instance() override {
@@ -262,7 +265,8 @@ public:
 
         auto multiDraw = GL_Multidraw(
             _renderQueue.get(), &_renderableManager, &_materialManager,
-            &_modelManager, &_shaderModelMatrixCompute);
+            &_modelManager, &_shaderModelMatrixCompute,
+            _maxShaderStorageBlockSize);
 
         if (doDepthPrepass) {
             _depthPrepass->Execute(_renderQueue.get(), multiDraw, _matVP);
@@ -350,6 +354,7 @@ private:
 
     unsigned _width, _height;
     GLint _prevFbDraw, _prevFbRead;
+    GLint _maxShaderStorageBlockSize;
 };
 
 UPtr<IInstance>

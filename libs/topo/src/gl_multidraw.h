@@ -44,7 +44,8 @@ public:
         Renderable_Manager *renderableManager,
         Material_Manager *materialManager,
         GL_Model_Manager *modelManager,
-        Shader_Model_Matrix_Compute *shaderModelMatrixCompute);
+        Shader_Model_Matrix_Compute *shaderModelMatrixCompute,
+        GLint maxShaderStorageBlockSize);
 
     ~GL_Multidraw();
 
@@ -66,11 +67,9 @@ public:
 
         GLuint lastBatchSize;
         Vector<GLuint> indirectBuffers;
-        Vector<GLuint> modelMatrixBuffers;
 
-        Vector<glm::mat4> modelScaleMatrices;
-        Vector<glm::mat4> modelRotateMatrices;
-        Vector<glm::mat4> modelTranslateMatrices;
+        Vector<GLuint> modelMatrixIndices;
+        Vector<GLuint> modelMatrixIndexBuffers;
     };
 
     struct Material_Instance {
@@ -87,6 +86,7 @@ public:
 
 private:
     size_t _batchSize = 256;
+    GLuint _modelMatrixBuffer;
     Map<Material_Type, Map<Material_ID, Material_Instance>> _drawData;
     Shader_Model_Matrix_Compute *_shaderModelMatrixCompute;
 };

@@ -8,7 +8,14 @@ VAO_LAYOUT(2) in vec3 aNormal;
 VAO_LAYOUT(3) in vec3 aTangent;
 VAO_LAYOUT(4) in vec3 aBitangent;
 
-layout(std140, binding = 0) buffer Matrices { mat4 matModel[]; };
+layout(std140, binding = 0) readonly buffer Matrices {
+    mat4 matModels[];
+};
+
+layout(std430, binding = 1) readonly buffer MatrixIndices {
+    uint idxMatModels[];
+};
+
 uniform mat4 matVP;
 
 out vec3 vPosition;
@@ -18,9 +25,10 @@ invariant gl_Position;
 
 void
 main() {
-    vec4 worldPosition = matModel[gl_DrawID] * vec4(aPosition.xyz, 1.0);
+    uint idxMatModel = idxMatModels[gl_DrawID];
+    vec4 worldPosition = matModels[idxMatModel] * vec4(aPosition.xyz, 1.0);
     gl_Position = matVP * worldPosition;
     vPosition = worldPosition.xyz;
-    mat3 matModelRot = mat3(matModel[gl_DrawID]);
+    mat3 matModelRot = mat3(matModels[idxMatModel]);
     vNormal = normalize(matModelRot * aNormal);
 }

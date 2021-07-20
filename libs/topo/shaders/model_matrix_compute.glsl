@@ -2,15 +2,15 @@
 
 layout(local_size_variable) in;
 
-layout(std140, binding = BINDING_TRANSLATE) buffer TranslateBuffer {
+layout(std140, binding = BINDING_TRANSLATE) readonly buffer TranslateBuffer {
     mat4 Translate[];
 };
 
-layout(std140, binding = BINDING_ROTATE) buffer RotateBuffer {
+layout(std140, binding = BINDING_ROTATE) readonly buffer RotateBuffer {
     mat4 Rotate[];
 };
 
-layout(std140, binding = BINDING_SCALE) buffer ScaleBuffer {
+layout(std140, binding = BINDING_SCALE) readonly buffer ScaleBuffer {
     mat4 Scale[];
 };
 

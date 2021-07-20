@@ -99,6 +99,7 @@ GL_Depth_Pass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::
             continue;
         }
 
+        GLuint zero(0);
         glm::vec3 const *endpoints;
         glm::vec3 color;
         size_t lineCount;
@@ -106,7 +107,7 @@ GL_Depth_Pass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::
             cmd.renderable, &endpoints, &lineCount, &color);
         auto size = lineCount * 2 * sizeof(glm::vec3);
 
-        gl::VBO bufPosition, bufUniformMatrices;
+        gl::VBO bufPosition, bufUniformMatrices, bufModelMatrixIndices;
 
         glBindBuffer(GL_ARRAY_BUFFER, bufPosition);
         glBufferData(GL_ARRAY_BUFFER, size, endpoints, GL_STREAM_DRAW);
@@ -115,11 +116,15 @@ GL_Depth_Pass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::
             * glm::mat4_cast(cmd.transform.rotation)
             * glm::scale(cmd.transform.scale);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, bufUniformMatrices);
-        glBufferData(
-            GL_UNIFORM_BUFFER, sizeof(glm::mat4), glm::value_ptr(matTransform),
-            GL_STREAM_DRAW);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, bufUniformMatrices);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufUniformMatrices);
+        glBufferStorage(
+            GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4),
+            glm::value_ptr(matTransform), 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bufUniformMatrices);
+
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, bufModelMatrixIndices);
+        glBufferStorage(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint), &zero, 0);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, bufModelMatrixIndices);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
