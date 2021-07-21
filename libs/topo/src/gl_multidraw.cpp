@@ -35,130 +35,11 @@ GL_Multidraw::GL_Multidraw(
     : _shaderModelMatrixCompute(shaderModelMatrixCompute)
     , _batchSize(maxShaderStorageBlockSize / sizeof(glm::mat4)) {
     ZoneScoped;
-    std::vector<Render_Queue::Command> commands;
 
-    auto numCommands = rq->GetCommands().size();
-
-    std::vector<glm::mat4> modelTranslateMatrices;
-    std::vector<glm::mat4> modelRotateMatrices;
-    std::vector<glm::mat4> modelScaleMatrices;
-
-    modelTranslateMatrices.reserve(numCommands);
-    modelRotateMatrices.reserve(numCommands);
-    modelScaleMatrices.reserve(numCommands);
-
-    for (auto &cmd : rq->GetCommands()) {
-        if (renderableManager->GetRenderableKind(cmd.renderable)
-            == Renderable_Manager::RENDERABLE_MODEL) {
-            Model_ID model;
-            Material_ID material;
-            renderableManager->GetModelAndMaterial(
-                cmd.renderable, &model, &material);
-
-            auto materialKind = materialManager->GetType(material);
-
-            if (_drawData.count(materialKind) == 0) {
-                _drawData[materialKind] = {};
-            }
-            auto &materialInstances = _drawData[materialKind];
-
-            if (materialInstances.count(material) == 0) {
-                materialInstances[material] = {};
-            }
-            auto &instancesByIndexType = materialInstances[material].instances;
-
-            GLuint indexOffset;
-            GLuint firstIndex;
-            GLuint baseVertex;
-            GLenum elementType;
-            size_t numElements;
-
-            modelManager->GetDrawParameters(
-                model, &indexOffset, &baseVertex, &elementType, &numElements,
-                &firstIndex);
-
-            if (instancesByIndexType.count(elementType) == 0) {
-                instancesByIndexType[elementType] = {};
-            }
-            auto &instances = instancesByIndexType[elementType];
-
-            GL_Indirect indirect;
-            indirect.baseInstance = 0;
-            indirect.instanceCount = 1;
-            indirect.firstIndex = firstIndex;
-            indirect.count = numElements;
-            indirect.baseVertex = baseVertex;
-
-            auto modelMatrixIndex = modelTranslateMatrices.size();
-            instances.modelMatrixIndices.emplace_back(GLuint(modelMatrixIndex));
-
-            modelTranslateMatrices.emplace_back(
-                glm::translate(cmd.transform.position));
-            modelRotateMatrices.emplace_back(
-                glm::mat4_cast(cmd.transform.rotation));
-            modelScaleMatrices.emplace_back(glm::scale(cmd.transform.scale));
-            instances.indirects.push_back(indirect);
-        }
-    }
-
-    // Calculate the multiplied model matrices on the GPU
-    glUseProgram(_shaderModelMatrixCompute->Program());
-    auto numMatrices = (GLuint)modelTranslateMatrices.size();
-    gl::VBO inputBuffers[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
-    // Create SSBO where the final matrices will be stored
-    glGenBuffers(1, &_modelMatrixBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, _modelMatrixBuffer);
-    glBufferStorage(
-        GL_SHADER_STORAGE_BUFFER, numMatrices * sizeof(glm::mat4), nullptr, 0);
-
-    // Create SSBOs for the inputs
-    std::vector<glm::mat4>
-        *matrixVectors[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
-        = { &modelTranslateMatrices, &modelRotateMatrices,
-            &modelScaleMatrices };
-    void *inputBufferMapView[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
-        = { 0, 0, 0 };
-    std::thread inputBufferCopyThreads[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
-    auto matrixVectorSize = numMatrices * sizeof(glm::mat4);
-
-    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
-         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
-        glBufferStorage(
-            GL_SHADER_STORAGE_BUFFER, matrixVectorSize, nullptr,
-            GL_MAP_WRITE_BIT);
-        inputBufferMapView[i] = glMapBufferRange(
-            GL_SHADER_STORAGE_BUFFER, 0, matrixVectorSize, GL_MAP_WRITE_BIT);
-
-        // TODO(danielm): pool these threads
-        inputBufferCopyThreads[i] = std::thread([&, i]() {
-            memcpy(
-                inputBufferMapView[i], matrixVectors[i]->data(),
-                matrixVectorSize);
-        });
-    }
-
-    gl::SetUniformLocation(
-        _shaderModelMatrixCompute->TotalItemCount(), numMatrices);
-
-    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
-         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i, inputBuffers[i]);
-    }
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _modelMatrixBuffer);
-
-    auto const numItems = 16;
-    auto numGroups = (numMatrices + numItems - 1) / numItems;
-
-    // Wait until all of the input data is transfered
-    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
-         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
-        inputBufferCopyThreads[i].join();
-        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-    }
-
-    glDispatchComputeGroupSizeARB(numGroups, 1, 1, numItems, 1, 1);
+    Model_Matrix_Info mmInfo;
+    MakeDrawData(
+        rq, { renderableManager, materialManager, modelManager }, mmInfo);
+    ComputeModelMatrices(mmInfo);
 
     // Upload the draw indirect and matrix index buffers
     for (auto &materialGroup : _drawData) {
@@ -254,6 +135,139 @@ GL_Multidraw::Execute(
             }
         }
     }
+}
+
+void
+GL_Multidraw::MakeDrawData(Render_Queue *rq, Managers const &managers, GL_Multidraw::Model_Matrix_Info &mmInfo) {
+    ZoneScoped;
+    auto numCommands = rq->GetCommands().size();
+    mmInfo.translate.reserve(numCommands);
+    mmInfo.rotateMatrix.reserve(numCommands);
+    mmInfo.scale.reserve(numCommands);
+
+    for (auto &cmd : rq->GetCommands()) {
+        if (managers.renderable->GetRenderableKind(cmd.renderable)
+            == Renderable_Manager::RENDERABLE_MODEL) {
+            Model_ID model;
+            Material_ID material;
+            managers.renderable->GetModelAndMaterial(
+                cmd.renderable, &model, &material);
+
+            auto materialKind = managers.material->GetType(material);
+
+            if (_drawData.count(materialKind) == 0) {
+                _drawData[materialKind] = {};
+            }
+            auto &materialInstances = _drawData[materialKind];
+
+            if (materialInstances.count(material) == 0) {
+                materialInstances[material] = {};
+            }
+            auto &instancesByIndexType = materialInstances[material].instances;
+
+            GLuint indexOffset;
+            GLuint firstIndex;
+            GLuint baseVertex;
+            GLenum elementType;
+            size_t numElements;
+
+            managers.model->GetDrawParameters(
+                model, &indexOffset, &baseVertex, &elementType, &numElements,
+                &firstIndex);
+
+            if (instancesByIndexType.count(elementType) == 0) {
+                instancesByIndexType[elementType] = {};
+            }
+            auto &instances = instancesByIndexType[elementType];
+
+            GL_Indirect indirect;
+            indirect.baseInstance = 0;
+            indirect.instanceCount = 1;
+            indirect.firstIndex = firstIndex;
+            indirect.count = numElements;
+            indirect.baseVertex = baseVertex;
+
+            auto modelMatrixIndex = mmInfo.translate.size();
+            instances.modelMatrixIndices.emplace_back(GLuint(modelMatrixIndex));
+
+            mmInfo.translate.emplace_back(glm::vec4(cmd.transform.position, 0));
+            mmInfo.rotateMatrix.emplace_back(
+                glm::mat4_cast(cmd.transform.rotation));
+            mmInfo.scale.emplace_back(glm::vec4(cmd.transform.scale, 0));
+            instances.indirects.push_back(indirect);
+        }
+    }
+}
+
+void
+GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
+    ZoneScoped;
+    // Calculate the multiplied model matrices on the GPU
+    auto numMatrices = (GLuint)mmInfo.translate.size();
+    GLuint inputBuffers[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
+    glGenBuffers(MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX, inputBuffers);
+
+    // Create SSBO where the final matrices will be stored
+    glGenBuffers(1, &_modelMatrixBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, _modelMatrixBuffer);
+    glBufferStorage(
+        GL_SHADER_STORAGE_BUFFER, numMatrices * sizeof(glm::mat4), nullptr, 0);
+
+    // Create SSBOs for the inputs
+    void const *inputBufferHost[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
+        = { mmInfo.translate.data(), mmInfo.rotateMatrix.data(),
+            mmInfo.scale.data() };
+    GLuint matrixVectorSize = numMatrices * sizeof(glm::mat4);
+    GLuint vectorVectorSize = numMatrices * sizeof(glm::vec4);
+    GLuint inputBufferSize[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
+        = { vectorVectorSize, matrixVectorSize, vectorVectorSize };
+
+    void *inputBufferMapView[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
+        = { 0, 0, 0 };
+    std::thread inputBufferCopyThreads[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
+
+    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
+         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
+        auto flags
+            = GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
+        glBufferStorage(
+            GL_SHADER_STORAGE_BUFFER, inputBufferSize[i], nullptr,
+            flags);
+        inputBufferMapView[i] = glMapBufferRange(
+            GL_SHADER_STORAGE_BUFFER, 0, inputBufferSize[i], flags);
+
+        // TODO(danielm): pool these threads
+        inputBufferCopyThreads[i] = std::thread([&, i]() {
+            memcpy(
+                inputBufferMapView[i], inputBufferHost[i], inputBufferSize[i]);
+        });
+    }
+
+    glUseProgram(_shaderModelMatrixCompute->Program());
+    gl::SetUniformLocation(
+        _shaderModelMatrixCompute->TotalItemCount(), numMatrices);
+
+    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
+         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i, inputBuffers[i]);
+    }
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, _modelMatrixBuffer);
+
+    auto const numItems = 16;
+    auto numGroups = (numMatrices + numItems - 1) / numItems;
+
+    // Wait until all of the input data is transfered
+    for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
+         i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
+        inputBufferCopyThreads[i].join();
+        glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+    }
+
+    glDispatchComputeGroupSizeARB(numGroups, 1, 1, numItems, 1, 1);
+
+    glDeleteBuffers(3, inputBuffers);
 }
 
 void

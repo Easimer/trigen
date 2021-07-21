@@ -5,6 +5,10 @@
 
 #pragma once
 
+#include <cassert>
+#include <queue>
+#include <vector>
+
 #include "glres.h"
 
 /**

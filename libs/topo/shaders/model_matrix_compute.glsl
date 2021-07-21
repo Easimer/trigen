@@ -3,7 +3,7 @@
 layout(local_size_variable) in;
 
 layout(std140, binding = BINDING_TRANSLATE) readonly buffer TranslateBuffer {
-    mat4 Translate[];
+    vec3 Translate[];
 };
 
 layout(std140, binding = BINDING_ROTATE) readonly buffer RotateBuffer {
@@ -11,10 +11,10 @@ layout(std140, binding = BINDING_ROTATE) readonly buffer RotateBuffer {
 };
 
 layout(std140, binding = BINDING_SCALE) readonly buffer ScaleBuffer {
-    mat4 Scale[];
+    vec3 Scale[];
 };
 
-layout(std140, binding = BINDING_OUTPUT) buffer OutputBuffer {
+layout(std140, binding = BINDING_OUTPUT) writeonly buffer OutputBuffer {
     mat4 Output[];
 };
 
@@ -27,5 +27,14 @@ void main() {
         return;
     }
 
-    Output[id] = Translate[id] * Rotate[id] * Scale[id];
+    mat4 matTranslate = mat4(1.0);
+    matTranslate[3] = vec4(Translate[id], 1);
+
+    mat4 matScale = mat4(1.0);
+    vec3 vecScale = Scale[id];
+    matScale[0].x = vecScale.x;
+    matScale[1].y = vecScale.y;
+    matScale[2].z = vecScale.z;
+
+    Output[id] = matTranslate * Rotate[id] * matScale;
 }

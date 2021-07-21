@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "gl_model_manager.h"
+#include "gl_utils.h"
 #include "glres.h"
 #include "material_manager.h"
 #include "render_queue.h"
@@ -85,9 +86,32 @@ public:
         Material_Setup_Callback const &setupMaterial);
 
 private:
+    using Draw_Data = Map<Material_Type, Map<Material_ID, Material_Instance>>;
+    struct Model_Matrix_Info {
+        std::vector<glm::vec4> translate;
+        std::vector<glm::mat4> rotateMatrix;
+        std::vector<glm::vec4> scale;
+    };
+
+    struct Managers {
+        Renderable_Manager *renderable;
+        Material_Manager *material;
+        GL_Model_Manager *model;
+    };
+
+    void
+    MakeDrawData(
+        Render_Queue *rq,
+        Managers const &managers,
+        Model_Matrix_Info &mmInfo);
+
+    void
+    ComputeModelMatrices(Model_Matrix_Info const &mmInfo);
+
     size_t _batchSize = 256;
     GLuint _modelMatrixBuffer;
     Map<Material_Type, Map<Material_ID, Material_Instance>> _drawData;
     Shader_Model_Matrix_Compute *_shaderModelMatrixCompute;
+    Array_Recycler<gl::VBO> *_vboRecycler;
 };
 }
