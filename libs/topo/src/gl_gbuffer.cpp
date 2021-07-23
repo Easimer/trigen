@@ -152,11 +152,17 @@ G_Buffer::G_Buffer(char const *name, unsigned width, unsigned height)
                 = gl::Uniform_Location<GLint>(*program, "texNormal");
             auto locTexPosition
                 = gl::Uniform_Location<GLint>(*program, "texPosition");
+            auto locTexShadowMap
+                = gl::Uniform_Location<GLint>(*program, "texShadowMap");
+            auto locShadowCasterViewProj
+                = gl::Uniform_Location<glm::mat4>(*program, "shadowCasterViewProj");
             _program = {
                 std::move(program.value()),
                 locTexBaseColor,
                 locTexNormal,
                 locTexPosition,
+                locTexShadowMap,
+                locShadowCasterViewProj,
             };
         }
     } catch (Shader_Compiler_Exception const &ex) {
@@ -178,7 +184,9 @@ G_Buffer::draw(
     GLint readFramebuffer,
     GLint drawFramebuffer,
     unsigned screenWidth,
-    unsigned screenHeight) {
+    unsigned screenHeight,
+    gl::Texture &shadowMap,
+    glm::mat4 const &shadowCasterViewProj) {
     if (!_program) {
         return;
     }
@@ -229,9 +237,16 @@ G_Buffer::draw(
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glActiveTexture(GL_TEXTURE0 + 3);
+    glBindTexture(GL_TEXTURE_2D, shadowMap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     gl::SetUniformLocation(_program->texBaseColor, 0);
     gl::SetUniformLocation(_program->texNormal, 1);
     gl::SetUniformLocation(_program->texPosition, 2);
+    gl::SetUniformLocation(_program->texShadowMap, 3);
+    gl::SetUniformLocation(_program->shadowCasterViewProj, shadowCasterViewProj);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, bufLights);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

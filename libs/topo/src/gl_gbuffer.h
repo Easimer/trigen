@@ -17,6 +17,8 @@ struct G_Buffer_Shader_Program {
     gl::Uniform_Location<GLint> texBaseColor;
     gl::Uniform_Location<GLint> texNormal;
     gl::Uniform_Location<GLint> texPosition;
+    gl::Uniform_Location<GLint> texShadowMap;
+    gl::Uniform_Location<glm::mat4> shadowCasterViewProj;
 };
 
 struct G_Buffer_Light {
@@ -42,7 +44,9 @@ public:
         GLint readFramebuffer,
         GLint drawFramebuffer,
         unsigned screenWidth,
-        unsigned screenHeight);
+        unsigned screenHeight,
+        gl::Texture &shadowMap,
+        glm::mat4 const &shadowCasterViewProj);
 
     gl::Framebuffer &
     GetFramebuffer() {

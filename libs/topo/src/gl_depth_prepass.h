@@ -40,10 +40,18 @@ public:
     GL_Depth_Pass(std::string const &name, GL_Model_Manager *modelManager, Renderable_Manager *renderableManager, unsigned width, unsigned height, GL_Depth_Pass_Shader *shader);
 
     void
+    Clear();
+
+    void
     Execute(Render_Queue *rq, GL_Multidraw &multiDraw, glm::mat4 matVP);
 
     void
     BlitDepth(GLuint destFramebuffer);
+
+    gl::Texture &
+    DepthMap() {
+        return _depthMap;
+    }
 
 private:
     GL_Model_Manager *_modelManager;

@@ -12,8 +12,8 @@ Render_Queue::Submit(Renderable_ID renderable, Transform const &transform) {
     _commands.push_back({ renderable, transform });
 }
 void
-Render_Queue::AddLight(glm::vec4 const &color, Transform const &transform) {
-    _lights.push_back({ color, transform });
+Render_Queue::AddLight(glm::vec4 const &color, Transform const &transform, bool castsShadows) {
+    _lights.push_back({ color, transform, castsShadows });
 }
 
 }

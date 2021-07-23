@@ -82,6 +82,8 @@ public:
         _matView = glm::mat4(1.0f);
         _matProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10000.0f);
 
+        _shadowPass = GL_Depth_Pass ("Shadow", &_modelManager, &_renderableManager, 2048, 2048, &_shaderDepthPass);
+
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         glLineWidth(2.0f);
@@ -268,6 +270,33 @@ public:
             &_modelManager, &_shaderModelMatrixCompute,
             _maxShaderStorageBlockSize);
 
+        glm::mat4 shadowCasterViewProj(1.0f);
+        bool foundShadowCaster = false;
+        for (auto& cmd : _renderQueue->GetLights()) {
+            if (cmd.castsShadows) {
+                auto matProj
+                    = glm::ortho(-16.0f, 16.0f, -16.0f, 16.0f, 1.0f, 256.0f);
+                auto matView = glm::translate(-cmd.transform.position)
+                    * glm::mat4_cast(inverse(cmd.transform.rotation))
+                    * glm::scale(cmd.transform.scale);
+                shadowCasterViewProj = matProj * matView;
+                glCullFace(GL_FRONT);
+                _shadowPass->Execute(_renderQueue.get(), multiDraw, shadowCasterViewProj);
+                glCullFace(GL_BACK);
+                foundShadowCaster = true;
+                break;
+            }
+        }
+
+        if (!foundShadowCaster) {
+            _shadowPass->Clear();
+        }
+
+        if (ImGui::Begin("Shadow map")) {
+            ImGui::Image((ImTextureID)(GLuint)_shadowPass->DepthMap(), ImVec2(2048, 2048));
+        }
+        ImGui::End();
+
         if (doDepthPrepass) {
             _depthPrepass->Execute(_renderQueue.get(), multiDraw, _matVP);
         }
@@ -286,7 +315,9 @@ public:
 
         _colorPass.Execute(_renderQueue.get(), multiDraw, _matVP);
 
-        _gbuffer->draw(_renderQueue.get(), _matView[3], _prevFbRead, _prevFbDraw, _width, _height);
+        _gbuffer->draw(
+            _renderQueue.get(), _matView[3], _prevFbRead, _prevFbDraw, _width,
+            _height, _shadowPass->DepthMap(), shadowCasterViewProj);
 
         _renderQueue.reset();
     }
@@ -342,6 +373,7 @@ private:
 
     GL_Depth_Pass_Shader _shaderDepthPass;
     std::optional<GL_Depth_Pass> _depthPrepass;
+    std::optional<GL_Depth_Pass> _shadowPass;
 
     GL_Color_Pass _colorPass;
 

@@ -18,7 +18,10 @@ public:
     Submit(Renderable_ID renderable, Transform const &transform) override;
 
     void
-    AddLight(glm::vec4 const &color, Transform const &transform) override;
+    AddLight(
+        glm::vec4 const &color,
+        Transform const &transform,
+        bool castsShadows) override;
 
     struct Command {
         Renderable_ID renderable;
@@ -28,6 +31,7 @@ public:
     struct Light {
         glm::vec4 light;
         Transform transform;
+        bool castsShadows;
     };
 
     std::vector<Command> const &

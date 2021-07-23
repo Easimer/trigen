@@ -229,7 +229,7 @@ GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
     for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
          i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
         auto flags
-            = GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT | GL_MAP_PERSISTENT_BIT;
+            = GL_MAP_WRITE_BIT;
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
         glBufferStorage(
             GL_SHADER_STORAGE_BUFFER, inputBufferSize[i], nullptr,
@@ -264,6 +264,7 @@ GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
         inputBufferCopyThreads[i].join();
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
     }
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     glDispatchComputeGroupSizeARB(numGroups, 1, 1, numItems, 1, 1);
 

@@ -233,12 +233,17 @@ main(int argc, char **argv) {
     camera->set_screen_size(surf.width, surf.height);
 
     float t = 0;
-    bool renderCPUStressors = true;
+    bool renderCPUStressors = false;
 
     float lightScale = 10;
     float lightAlpha = 0.01f;
     float lightHeight = 0.1f;
     int lightDim = 10;
+
+    glm::vec4 sunColor;
+    topo::Transform sunTransform;
+    float sunRotation[3];
+    sunTransform.position = { 8, 18, 12 };
 
     bool quit = false;
     while (!quit) {
@@ -314,9 +319,19 @@ main(int argc, char **argv) {
             ImGui::SliderFloat("Height", &lightHeight, 0, 0.5f);
             ImGui::SliderInt("Dim", &lightDim, 0, 50);
             ImGui::Text("Number of lights: %d", 4 * lightDim * lightDim);
+            ImGui::Separator();
+            ImGui::DragFloat4("Sun color", (float *)&sunColor);
+            ImGui::DragFloat3("Sun position", (float *)&sunTransform.position);
+            if (ImGui::DragFloat3("Sun rotation", sunRotation)) {
+                sunTransform.rotation = glm::quat(glm::vec3(
+                    glm::radians(sunRotation[0]), glm::radians(sunRotation[1]),
+                    glm::radians(sunRotation[2])));
+            }
+            ImGui::DragFloat3("Sun scale", (float *)&sunTransform.scale);
         }
         ImGui::End();
 
+        rq->AddLight(sunColor, sunTransform, true);
 
         #define LIGHTS_DIM (lightDim)
         for (int x = -LIGHTS_DIM; x <= LIGHTS_DIM; x++) {

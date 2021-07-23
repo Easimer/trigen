@@ -61,7 +61,10 @@ public:
         = 0;
 
     virtual void
-    AddLight(glm::vec4 const &color, Transform const &transform)
+    AddLight(
+        glm::vec4 const &color,
+        Transform const &transform,
+        bool castsShadows = false)
         = 0;
 };
 
