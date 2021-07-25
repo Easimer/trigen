@@ -32,6 +32,7 @@ target_sources(topo
         src/gl_color_pass.h
         src/gl_multidraw.cpp
         src/gl_multidraw.h
+        src/copy_workers.h
 
         include/topo.h
         include/topo_sdl.h

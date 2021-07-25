@@ -31,9 +31,11 @@ GL_Multidraw::GL_Multidraw(
     Material_Manager *materialManager,
     GL_Model_Manager *modelManager,
     Shader_Model_Matrix_Compute *shaderModelMatrixCompute,
-    GLint maxShaderStorageBlockSize)
+    GLint maxShaderStorageBlockSize,
+    Copy_Workers *copyWorkers)
     : _shaderModelMatrixCompute(shaderModelMatrixCompute)
-    , _batchSize(maxShaderStorageBlockSize / sizeof(glm::mat4)) {
+    , _batchSize(maxShaderStorageBlockSize / sizeof(glm::mat4))
+    , _copyWorkers(copyWorkers) {
     ZoneScoped;
 
     Model_Matrix_Info mmInfo;
@@ -222,10 +224,7 @@ GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
     GLuint inputBufferSize[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
         = { vectorVectorSize, matrixVectorSize, vectorVectorSize };
 
-    void *inputBufferMapView[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX]
-        = { 0, 0, 0 };
-    std::thread inputBufferCopyThreads[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
-
+    Copy_Workers::Task tasks[MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX];
     for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
          i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
         auto flags
@@ -234,15 +233,14 @@ GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
         glBufferStorage(
             GL_SHADER_STORAGE_BUFFER, inputBufferSize[i], nullptr,
             flags);
-        inputBufferMapView[i] = glMapBufferRange(
+        auto mapView = glMapBufferRange(
             GL_SHADER_STORAGE_BUFFER, 0, inputBufferSize[i], flags);
 
-        // TODO(danielm): pool these threads
-        inputBufferCopyThreads[i] = std::thread([&, i]() {
-            memcpy(
-                inputBufferMapView[i], inputBufferHost[i], inputBufferSize[i]);
-        });
+        tasks[i].destination = mapView;
+        tasks[i].source = inputBufferHost[i];
+        tasks[i].size = inputBufferSize[i];
     }
+    _copyWorkers->Push(MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX, tasks);
 
     glUseProgram(_shaderModelMatrixCompute->Program());
     gl::SetUniformLocation(
@@ -258,10 +256,10 @@ GL_Multidraw::ComputeModelMatrices(Model_Matrix_Info const &mmInfo) {
     auto numGroups = (numMatrices + numItems - 1) / numItems;
 
     // Wait until all of the input data is transfered
+    _copyWorkers->WaitTasks(MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX);
     for (int i = MODEL_MATRIX_COMPUTE_BINDING_START;
          i < MODEL_MATRIX_COMPUTE_BINDING_INPUT_MAX; i++) {
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, inputBuffers[i]);
-        inputBufferCopyThreads[i].join();
         glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

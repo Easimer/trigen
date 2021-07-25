@@ -8,6 +8,7 @@
 #include <functional>
 #include <unordered_map>
 
+#include "copy_workers.h"
 #include "gl_model_manager.h"
 #include "gl_utils.h"
 #include "glres.h"
@@ -46,7 +47,8 @@ public:
         Material_Manager *materialManager,
         GL_Model_Manager *modelManager,
         Shader_Model_Matrix_Compute *shaderModelMatrixCompute,
-        GLint maxShaderStorageBlockSize);
+        GLint maxShaderStorageBlockSize,
+        Copy_Workers *copyWorkers);
 
     ~GL_Multidraw();
 
@@ -113,5 +115,6 @@ private:
     Map<Material_Type, Map<Material_ID, Material_Instance>> _drawData;
     Shader_Model_Matrix_Compute *_shaderModelMatrixCompute;
     Array_Recycler<gl::VBO> *_vboRecycler;
+    Copy_Workers *_copyWorkers;
 };
 }

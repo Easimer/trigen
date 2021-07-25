@@ -11,6 +11,7 @@
 
 #include <topo.h>
 
+#include "copy_workers.h"
 #include "gl_color_pass.h"
 #include "gl_depth_prepass.h"
 #include "gl_gbuffer.h"
@@ -268,7 +269,7 @@ public:
         auto multiDraw = GL_Multidraw(
             _renderQueue.get(), &_renderableManager, &_materialManager,
             &_modelManager, &_shaderModelMatrixCompute,
-            _maxShaderStorageBlockSize);
+            _maxShaderStorageBlockSize, &_copyWorkers);
 
         glm::mat4 shadowCasterViewProj(1.0f);
         bool foundShadowCaster = false;
@@ -291,11 +292,6 @@ public:
         if (!foundShadowCaster) {
             _shadowPass->Clear();
         }
-
-        if (ImGui::Begin("Shadow map")) {
-            ImGui::Image((ImTextureID)(GLuint)_shadowPass->DepthMap(), ImVec2(2048, 2048));
-        }
-        ImGui::End();
 
         if (doDepthPrepass) {
             _depthPrepass->Execute(_renderQueue.get(), multiDraw, _matVP);
@@ -387,6 +383,8 @@ private:
     unsigned _width, _height;
     GLint _prevFbDraw, _prevFbRead;
     GLint _maxShaderStorageBlockSize;
+
+    Copy_Workers _copyWorkers;
 };
 
 UPtr<IInstance>

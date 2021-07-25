@@ -50,17 +50,19 @@ public:
 
     gl::Framebuffer &
     GetFramebuffer() {
-        return _fb;
+        return _fb[_index];
     }
 
 private:
+    static const int FRAMEBUFFER_COUNT = 2;
     unsigned _width;
     unsigned _height;
-    gl::Framebuffer _fb;
-    gl::Texture _bufBaseColor;
-    gl::Texture _bufNormal;
-    gl::Texture _bufPosition;
-    gl::Renderbuffer _bufRender;
+    int _index;
+    gl::Framebuffer _fb[FRAMEBUFFER_COUNT];
+    gl::Texture _bufBaseColor[FRAMEBUFFER_COUNT];
+    gl::Texture _bufNormal[FRAMEBUFFER_COUNT];
+    gl::Texture _bufPosition[FRAMEBUFFER_COUNT];
+    gl::Renderbuffer _bufRender[FRAMEBUFFER_COUNT];
 
     gl::VAO _quadVao;
     gl::VBO _quadPosVbo;
