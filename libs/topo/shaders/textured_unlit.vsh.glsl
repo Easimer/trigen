@@ -2,6 +2,11 @@
 #define VAO_LAYOUT(i) layout(location = i)
 #endif
 
+#if __VERSION__ < 460
+#extension GL_ARB_shader_draw_parameters : require
+#define gl_DrawID gl_DrawIDARB
+#endif
+
 VAO_LAYOUT(0) in vec3 aPosition;
 VAO_LAYOUT(1) in vec2 aUV;
 VAO_LAYOUT(2) in vec3 aNormal;

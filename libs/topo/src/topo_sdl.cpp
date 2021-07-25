@@ -249,20 +249,41 @@ private:
     decltype(SDL_GetPerformanceCounter()) _timeFrameStart;
 };
 
+static void TrySetContextAttributes() {
+    auto const glMajor = 4;
+    auto const glMinor = 5;
+    auto const glProfile = SDL_GL_CONTEXT_PROFILE_CORE;
+
+    bool ok = true;
+    int attr;
+
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &attr);
+    ok &= (attr == glMajor);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &attr);
+    ok &= (attr == glMinor);
+    SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &attr);
+    ok &= (attr == glProfile);
+
+    if (ok) {
+        return;
+    }
+
+#ifndef NDEBUG
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+#endif
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glMajor);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glMinor);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, glProfile);
+}
+
 UPtr<ISDL_Window>
 MakeWindow(Surface_Config const &cfg) {
     SDL_Init(SDL_INIT_EVERYTHING);
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 4);
-    SDL_GL_SetAttribute(
-        SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-#ifndef NDEBUG
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-#endif
+    TrySetContextAttributes();
 
     auto window = SDL_CreateWindow(
         cfg.title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, cfg.width,
@@ -283,6 +304,8 @@ MakeWindow(Surface_Config const &cfg) {
         return nullptr;
     }
 
+    TrySetContextAttributes();
+
     auto glctx = SDL_GL_CreateContext(window);
 
     if (glctx == nullptr) {
@@ -291,6 +314,7 @@ MakeWindow(Surface_Config const &cfg) {
         SDL_DestroyWindow(window);
         return nullptr;
     }
+
 
     SDL_GL_SetSwapInterval(0);
 

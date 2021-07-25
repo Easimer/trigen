@@ -2,6 +2,11 @@
 #define VAO_LAYOUT(i) layout(location = i)
 #endif
 
+#if __VERSION__ < 460
+#extension GL_ARB_shader_draw_parameters : require
+#define gl_DrawID gl_DrawIDARB
+#endif
+
 VAO_LAYOUT(0) in vec3 aPosition;
 
 layout(std140, binding = 0) readonly buffer Matrices {

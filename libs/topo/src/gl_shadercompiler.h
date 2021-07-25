@@ -18,7 +18,7 @@ struct GL_Shader_Define {
 
 using GL_Shader_Define_List = std::vector<GL_Shader_Define>;
 
-class Shader_Compiler_Exception {
+class Shader_Compiler_Exception : public std::exception {
 public:
     Shader_Compiler_Exception(std::string errorMessage, GLenum stageKind)
         : _errorMessage(std::move(errorMessage))
@@ -31,6 +31,10 @@ public:
     GLenum
     stageKind() const {
         return _stageKind;
+    }
+
+    char const *what() const noexcept {
+        return _errorMessage.c_str();
     }
 
 private:

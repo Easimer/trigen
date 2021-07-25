@@ -17,25 +17,9 @@ CompileShaderFromString(
     std::vector<std::string> defines_fmt;
     std::vector<char const *> sources;
 
-    bool isMesaGPU = false;
-
-    // Detect open-source Intel drivers
-    char const *vendor = (char *)glGetString(GL_VENDOR);
-    isMesaGPU |= (strcmp(vendor, "Intel Open Source Technology Center") == 0);
-    isMesaGPU |= (strcmp(vendor, "VMware, Inc.") == 0);
-
-    char const *version = "#version 460 core\n";
-    char const *lineReset = "#line -1\n";
-
-    if (isMesaGPU) {
-        version = "#version 130\n";
-    }
+    char const *version = "#version 450 core\n";
 
     sources.push_back(version);
-
-    if (isMesaGPU) {
-        sources.push_back("#define VAO_LAYOUT(i)\n");
-    }
 
     for (auto &def : defines) {
         char buf[64];
@@ -43,10 +27,6 @@ CompileShaderFromString(
             buf, 63, "#define %s %s\n", def.key.c_str(), def.value.c_str());
         defines_fmt.push_back(std::string((char const *)buf));
         sources.push_back(defines_fmt.back().c_str());
-    }
-
-    if (!isMesaGPU) {
-        sources.push_back(lineReset);
     }
 
     sources.push_back(source);
