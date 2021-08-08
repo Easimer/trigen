@@ -180,6 +180,7 @@ public:
         = 0;
 };
 
+TOPO_EXPORT
 UPtr<IInstance>
 MakeInstance(
     void *glctx,
