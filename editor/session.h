@@ -12,8 +12,6 @@
 
 #include "world_qt.h"
 
-#include <r_queue.h>
-
 #include <trigen.hpp>
 
 enum class Session_Gizmo_Mode {
@@ -38,9 +36,9 @@ public:
 
 public slots:
     void onTick(float deltaTime);
-    void onRender(gfx::Render_Queue *rq);
+    void onRender(topo::IRender_Queue *rq);
     void setRunning(bool isRunning);
-    void onMeshUpload(gfx::Render_Queue *rq);
+    void onMeshUpload(topo::IInstance *rq);
     void setGizmoMode(Session_Gizmo_Mode mode);
 
 signals:

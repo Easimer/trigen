@@ -59,11 +59,11 @@ target_link_libraries(editor
     PRIVATE
     Qt5::Widgets Qt5::Svg
     FbxSdk::FbxSdk 
-    RCmd::Base
-    arcball_camera renderer_qt
+    arcball_camera
     mesh_export trigen uv_inspect
     mesh_compress
     stb
+    topo_qt
 )
 target_precompile_headers(editor PRIVATE "stdafx.h")
 tri_builddir(editor)

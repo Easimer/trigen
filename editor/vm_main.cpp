@@ -8,13 +8,17 @@
 #include "vm_main.h"
 #include "dlg_meshgen.h"
 
-#include <r_cmd/general.h>
-
 VM_Main::VM_Main(Entity_List_Model *entityListModel)
-: _entityListModel(entityListModel) {
+    : _entityListModel(entityListModel)
+    , _renderer(nullptr) { }
+
+void
+VM_Main::init(topo::IInstance *renderer) {
+    _renderer = renderer;
 }
 
-Session *VM_Main::session() {
+Session *
+VM_Main::session() {
 	return _currentSession;
 }
 
@@ -74,35 +78,17 @@ void VM_Main::createMeshgenDialog(QWidget *parent) {
             auto dlg = make_meshgen_dialog(_currentSession->world(), selectedEntity, parent);
             dlg->show();
             connect(this, &VM_Main::rendering, dlg, &Base_Dialog_Meshgen::onRender);
-            connect(this, &VM_Main::renderingTransparent, dlg, &Base_Dialog_Meshgen::onRenderTransparent);
 		}
 	}
 }
 
-void VM_Main::onRender(gfx::Render_Queue *rq) {
-	if (_framebuffer == nullptr) {
-        gfx::allocate_command_and_initialize<Create_Framebuffer_Command>(
-            rq, &_framebuffer, 1.0f);
-	}
-
-	if (_framebuffer != nullptr) {
-        gfx::allocate_command_and_initialize<Activate_Framebuffer_Command>(
-            rq, _framebuffer);
-    }
-
+void VM_Main::onRender(topo::IRender_Queue *rq) {
 	if (_currentSession != nullptr) {
-		_currentSession->onMeshUpload(rq);
+		_currentSession->onMeshUpload(_renderer);
 		_currentSession->onRender(rq);
 	}
 
     emit rendering(rq);
-
-	if (_framebuffer != nullptr) {
-        gfx::allocate_command_and_initialize<Draw_Framebuffer_Command>(
-            rq, _framebuffer);
-    }
-
-	emit renderingTransparent(rq);
 }
 
 void VM_Main::setRunning(bool isRunning) {

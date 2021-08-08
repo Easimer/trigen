@@ -10,43 +10,58 @@
 
 #include "session.h"
 #include <trigen.hpp>
-#include <r_renderer.h>
+#include <topo.h>
 #include "entity_list.h"
 
 class VM_Main : public QObject {
-	Q_OBJECT;
-public:
-	VM_Main(Entity_List_Model *entityListModel);
-	Session *session();
-	Session *createNewSession(char const *name);
-	void closeSession(Session *session);
-	void switchToSession(Session *session);
+    Q_OBJECT;
 
-	void addSoftbodySimulation(Trigen_Parameters const &cfg);
-	void addColliderFromPath(char const *path);
-	void onTick(float deltaTime);
-	void setGizmoMode(Session_Gizmo_Mode mode);
-    void createMeshgenDialog(QWidget *parent);
+public:
+    VM_Main(Entity_List_Model *entityListModel);
+    void
+    init(topo::IInstance *renderer);
+    Session *
+    session();
+    Session *
+    createNewSession(char const *name);
+    void
+    closeSession(Session *session);
+    void
+    switchToSession(Session *session);
+
+    void
+    addSoftbodySimulation(Trigen_Parameters const &cfg);
+    void
+    addColliderFromPath(char const *path);
+    void
+    onTick(float deltaTime);
+    void
+    setGizmoMode(Session_Gizmo_Mode mode);
+    void
+    createMeshgenDialog(QWidget *parent);
 
 public slots:
-	void onRender(gfx::Render_Queue *rq);
-	void setRunning(bool isRunning);
-	void entitySelectionChanged(QModelIndex const &idx);
+    void
+    onRender(topo::IRender_Queue *rq);
+    void
+    setRunning(bool isRunning);
+    void
+    entitySelectionChanged(QModelIndex const &idx);
 
 signals:
-	void cameraUpdated();
-	void currentSessionChanged(Session *session);
-        /** Emitted when we're rendering opaque objects */
-	void rendering(gfx::Render_Queue *rq);
-        /** Emitted when we're rendering transparent (NOT translucent!) objects
-         */
-	void renderingTransparent(gfx::Render_Queue *rq);
-    void meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
+    void
+    cameraUpdated();
+    void
+    currentSessionChanged(Session *session);
+    /** Emitted when we're rendering opaque objects */
+    void
+    rendering(topo::IRender_Queue *rq);
+    void
+    meshgenAvailabilityChanged(bool isMeshgenAvailableForSelectedEntity);
 
 private:
-	std::list<std::unique_ptr<Session>> _sessions;
-	Session *_currentSession = nullptr;
-	Entity_List_Model *_entityListModel;
-
-	gfx::Framebuffer_ID _framebuffer = nullptr;
+    topo::IInstance *_renderer;
+    std::list<std::unique_ptr<Session>> _sessions;
+    Session *_currentSession = nullptr;
+    Entity_List_Model *_entityListModel;
 };

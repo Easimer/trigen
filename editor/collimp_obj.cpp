@@ -57,9 +57,9 @@ private:
         }
     }
 
-    gfx::Model_ID uploadToRenderer(gfx::IRenderer *renderer) override {
-        gfx::Model_ID ret;
-        gfx::Model_Descriptor descriptor = {};
+    topo::Model_ID uploadToRenderer(topo::IInstance *renderer) override {
+        topo::Model_ID ret;
+        topo::Model_Descriptor descriptor = {};
 
         std::vector<unsigned> elements;
         std::vector<glm::vec2> uvs;
@@ -80,15 +80,15 @@ private:
         descriptor.elements = elements.data();
         descriptor.element_count = elements.size();
 
-        if (!renderer->create_model(&ret, &descriptor)) {
+        if (!renderer->CreateModel(&ret, &descriptor)) {
             std::abort();
         }
 
         return ret;
     }
 
-    gfx::Transform transform() const override {
-        gfx::Transform ret = {};
+    topo::Transform transform() const override {
+        topo::Transform ret = {};
         ret.position = { 0, 0, 0 };
         ret.rotation = { 1, 0, 0, 0 };
         ret.scale = { 1, 1, 1 };

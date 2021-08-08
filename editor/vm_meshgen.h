@@ -16,11 +16,8 @@
 #include "trigen_worker.h"
 #include "world_qt.h"
 
-#include <r_queue.h>
-#include <r_renderer.h>
-
 struct Basic_Mesh {
-    gfx::Model_ID renderer_handle = nullptr;
+    topo::Model_ID renderer_handle = nullptr;
 
     std::vector<std::array<float, 3>> positions;
     std::vector<std::array<float, 3>> normals;
@@ -65,8 +62,7 @@ public:
     VM_Meshgen(QWorld const *world, Entity_Handle ent, IMeshgen_Statusbar *statusBar);
 
     bool checkEntity() const;
-    void onRender(gfx::Render_Queue *rq);
-    void onRenderTransparent(gfx::Render_Queue *rq);
+    void onRender(topo::IRender_Queue *rq);
     void foreachInputTexture(std::function<void(Meshgen_Texture_Kind, char const *, Input_Texture &)> const &callback);
 
 public slots:
@@ -122,8 +118,8 @@ protected:
     regenerateFoliage();
     void repaintMesh();
 
-    void destroyModel(gfx::Model_ID handle);
-    void cleanupModels(gfx::Render_Queue *rq);
+    void destroyModel(topo::Model_ID handle);
+    void cleanupModels(topo::IInstance *rq);
 
 protected slots:
     void onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session session);
@@ -148,12 +144,12 @@ private:
     Trigen_Texture _texOutRoughness;
     Trigen_Texture _texOutAo;
 
-    gfx::Texture_ID _texOutBaseHandle = nullptr;
-    gfx::Texture_ID _texOutNormalHandle = nullptr;
-    gfx::Texture_ID _texLeavesHandle = nullptr;
+    topo::Texture_ID _texOutBaseHandle = nullptr;
+    topo::Texture_ID _texOutNormalHandle = nullptr;
+    topo::Texture_ID _texLeavesHandle = nullptr;
 
-    std::vector<gfx::Model_ID> _modelsDestroying;
-    std::vector<gfx::Texture_ID> _texturesDestroying;
+    std::vector<topo::Model_ID> _modelsDestroying;
+    std::vector<topo::Texture_ID> _texturesDestroying;
 
     bool _renderNormals = false;
 

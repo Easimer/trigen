@@ -14,61 +14,8 @@
 
 #include <uv_inspect.hpp>
 #include <mesh_export.h>
-#include <r_cmd/general.h>
 
 #include <stb_image.h>
-
-/**
- * @param T Either Basic_Mesh or Unwrapped_Mesh
- */
-template<typename T>
-class Upload_Model_Command : public gfx::IRender_Command {
-public:
-    Upload_Model_Command(gfx::Model_ID *out_id, T const *mesh) : _out_id(out_id), _mesh(mesh) {
-        assert(_out_id != nullptr);
-        assert(_mesh != nullptr);
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        gfx::Model_Descriptor model{};
-
-        assert(*_out_id == nullptr);
-        fill(&model, _mesh);
-
-        renderer->create_model(_out_id, &model);
-    }
-
-    void fill(gfx::Model_Descriptor *d, Unwrapped_Mesh const *mesh) {
-        fill(d, (Basic_Mesh *)mesh);
-        d->uv = (std::array<float, 2>*)_mesh->uv.data();
-    }
-
-    void fill(gfx::Model_Descriptor *d, Basic_Mesh const *mesh) {
-        d->vertex_count = _mesh->positions.size();
-        d->vertices = _mesh->positions.data();
-        d->element_count = _mesh->elements.size();
-        d->elements = _mesh->elements.data();
-        d->normals = mesh->normals.data();
-    }
-
-private:
-    gfx::Model_ID *_out_id;
-    T const *_mesh;
-};
-
-class Render_Normals_Command : public gfx::IRender_Command {
-public:
-    Render_Normals_Command(std::vector<glm::vec3> &&lines)
-        : _lines(std::move(lines)) {
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        renderer->draw_lines(_lines.data(), _lines.size() / 2, glm::vec3(0, 0, 0), glm::vec3(0.4, 0.4, 0.8), glm::vec3(0.4, 0.4, 1.0));
-    }
-
-private:
-    std::vector<glm::vec3> _lines;
-};
 
 Unwrapped_Mesh convertMesh(Trigen_Mesh const &mesh) {
     Unwrapped_Mesh ret;
@@ -116,8 +63,8 @@ bool VM_Meshgen::checkEntity() const {
     return _world->exists(_ent) && (_world->getMapForComponent<Plant_Component>().count(_ent) > 0);
 }
 
-void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
-    gfx::Transform renderTransform {
+void VM_Meshgen::onRender(topo::IRender_Queue *rq) {
+    topo::Transform renderTransform {
         { 0, 0, 0 },
         { 1, 0, 0, 0 },
         { 1, 1, 1 }
@@ -130,74 +77,6 @@ void VM_Meshgen::onRender(gfx::Render_Queue *rq) {
         renderTransform.scale = transform.scale;
     }
 
-    if (_texOutBase.image != nullptr && _texOutBaseHandle == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutBaseHandle, _texOutBase.image, _texOutBase.width, _texOutBase.height, gfx::Texture_Format::SRGB888);
-    }
-
-    if (_texOutNormal.image != nullptr && _texOutNormalHandle == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(rq, &_texOutNormalHandle, _texOutNormal.image, _texOutNormal.width, _texOutNormal.height, gfx::Texture_Format::RGB888);
-    }
-
-    if (_texLeaves.data != nullptr && _texLeavesHandle == nullptr) {
-        gfx::allocate_command_and_initialize<Upload_Texture_Command>(
-            rq, &_texLeavesHandle, _texLeaves.data.get(), _texLeaves.info.width,
-            _texLeaves.info.height, gfx::Texture_Format::RGBA8888);
-    }
-
-    if (_unwrappedMesh.has_value()) {
-        if (_unwrappedMesh->renderer_handle != nullptr) {
-            // Render mesh
-            if (_texOutBaseHandle != nullptr && _texOutNormalHandle != nullptr) {
-                gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, _texOutNormalHandle, renderTransform);
-                // gfx::allocate_command_and_initialize<Render_Model>(rq, _unwrappedMesh->renderer_handle, _texOutBaseHandle, renderTransform);
-            } else {
-                gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, _unwrappedMesh->renderer_handle, renderTransform);
-            }
-        } else {
-            gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_unwrappedMesh->renderer_handle, &*_unwrappedMesh);
-        }
-    }
-
-    if (_unwrappedMesh.has_value()) {
-        if (_renderNormals) {
-            std::vector<glm::vec3> lines;
-            // TODO: for each vertex, draw the normal
-            gfx::allocate_command_and_initialize<Render_Normals_Command>(rq, std::move(lines));
-        }
-    }
-}
-
-void
-VM_Meshgen::onRenderTransparent(gfx::Render_Queue *rq) {
-    gfx::Transform renderTransform {
-        { 0, 0, 0 },
-        { 1, 0, 0, 0 },
-        { 1, 1, 1 }
-    };
-    auto &transforms = _world->getMapForComponent<Transform_Component>();
-    if (transforms.count(_ent)) {
-        auto &transform = transforms.at(_ent);
-        renderTransform.position = transform.position;
-        renderTransform.rotation = transform.rotation;
-        renderTransform.scale = transform.scale;
-    }
-
-    if (_foliageMesh) {
-        if (_foliageMesh->renderer_handle != nullptr) {
-            if (_texLeavesHandle != nullptr) {
-                gfx::allocate_command_and_initialize<Render_Transparent_Model>(
-                    rq, _foliageMesh->renderer_handle, _texLeavesHandle,
-                    renderTransform);
-            } else {
-                auto cmd = gfx::allocate_command_and_initialize<
-                    Render_Untextured_Model>(
-                    rq, _foliageMesh->renderer_handle, renderTransform);
-                cmd->tint() = glm::vec4(0, 1, 0, 1);
-            }
-        } else {
-            gfx::allocate_command_and_initialize<Upload_Model_Command<Unwrapped_Mesh>>(rq, &_foliageMesh->renderer_handle, &*_foliageMesh);
-        }
-    }
 }
 
 void VM_Meshgen::foreachInputTexture(std::function<void(Meshgen_Texture_Kind, char const *, Input_Texture &)> const &callback) {
@@ -209,14 +88,13 @@ void VM_Meshgen::foreachInputTexture(std::function<void(Meshgen_Texture_Kind, ch
     callback(Meshgen_Texture_Kind::LeafBaseColor, "Leaves", _texLeaves);
 }
 
-void VM_Meshgen::destroyModel(gfx::Model_ID handle) {
+void VM_Meshgen::destroyModel(topo::Model_ID handle) {
     _modelsDestroying.push_back(handle);
 }
 
-void VM_Meshgen::cleanupModels(gfx::Render_Queue *rq) {
+void VM_Meshgen::cleanupModels(topo::IInstance *renderer) {
     for (auto handle : _modelsDestroying) {
         if (handle != nullptr) {
-            gfx::allocate_command_and_initialize<Destroy_Model_Command>(rq, handle);
         }
     }
 

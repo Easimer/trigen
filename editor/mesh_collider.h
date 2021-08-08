@@ -7,13 +7,12 @@
 
 #include <optional>
 
-#include <r_renderer.h>
 #include <trigen.hpp>
 
 class IMesh_Collider {
 public:
     virtual ~IMesh_Collider() = default;
     virtual std::optional<trigen::Collider> uploadToSimulation(trigen::Session &sim) = 0;
-    virtual gfx::Model_ID uploadToRenderer(gfx::IRenderer *renderer) = 0;
-    virtual gfx::Transform transform() const = 0;
+    virtual topo::Model_ID uploadToRenderer(topo::IInstance *renderer) = 0;
+    virtual topo::Transform transform() const = 0;
 };

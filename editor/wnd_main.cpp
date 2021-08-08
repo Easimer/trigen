@@ -29,6 +29,8 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstrac
 
     _entityList.setModel(_entityListModel.get());
 
+    _vm->init(_viewport.renderer().get());
+
     connect(_ui->actionNew, &QAction::triggered, this, [this]() { newSession("TEST"); });
 
     connect(_vm.get(), &VM_Main::currentSessionChanged, this, &Window_Main::currentSessionChanged);
@@ -88,7 +90,7 @@ Window_Main::Window_Main(std::unique_ptr<VM_Main> &&vm, std::unique_ptr<QAbstrac
         action->setEnabled(false);
     }
 
-    connect(&_viewport, &GLViewport::rendering, _vm.get(), &VM_Main::onRender);
+    connect(&_viewport, &topo::GLViewport::rendering, _vm.get(), &VM_Main::onRender);
 
     connect(_entityList.selectionModel(), &QItemSelectionModel::currentChanged, _vm.get(), &VM_Main::entitySelectionChanged);
     connect(_entityList.selectionModel(), &QItemSelectionModel::selectionChanged, [&](QItemSelection const &selected, QItemSelection const &deselected) {

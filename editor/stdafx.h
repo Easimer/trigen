@@ -21,7 +21,7 @@
 #include <QWidget>
 #include <QWizard>
 
-#include <glviewport.h>
+#include <topo/glviewport.h>
 
 #include <trigen.hpp>
 #include <arcball_camera.h>

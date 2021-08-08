@@ -13,43 +13,12 @@
 #include <filesystem>
 #include <variant>
 
-#include <r_cmd/general.h>
-
 #include <imgui.h>
 #include <ImGuizmo.h>
 
 #include <trigen.h>
 
 namespace fs = std::filesystem;
-
-class Visualize_Branches : public gfx::IRender_Command {
-public:
-    Visualize_Branches(trigen::Session *session)
-        : _session(session) {
-    }
-
-private:
-    trigen::Session *_session;
-    void execute(gfx::IRenderer *renderer) override {
-        Trigen_Status rc;
-        std::vector<glm::vec3> lines;
-
-        size_t count = 0;
-        rc = Trigen_GetBranches(_session->handle(), &count, nullptr);
-        if (rc != Trigen_OK) {
-            return;
-        }
-
-        lines.resize(count * 2);
-
-        rc = Trigen_GetBranches(_session->handle(), &count, (float *)lines.data());
-        if (rc != Trigen_OK) {
-            return;
-        }
-
-        renderer->draw_lines(lines.data(), lines.size() / 2, {0, 0, 0}, {.35, 0, 0}, {1, 0, 0});
-    }
-};
 
 Session::Session(char const *name) :
     _name(name),
@@ -122,7 +91,7 @@ void Session::onTick(float deltaTime) {
     auto &transforms = _world.getMapForComponent<Transform_Component>();
     auto &colliders = _world.getMapForComponent<Collider_Component>();
     auto &plants = _world.getMapForComponent<Plant_Component>();
-    auto &untexturedMeshRenderables = _world.getMapForComponent<Untextured_Mesh_Render_Component>();
+    auto &meshRenderables = _world.getMapForComponent<Mesh_Render_Component>();
 
     for (auto &colliderEnt : colliders) {
         // Check whether all colliders are added to all plant sims
@@ -136,7 +105,7 @@ void Session::onTick(float deltaTime) {
         }
 
         // Collider has no mesh renderable yet; schedule a mesh upload
-        if (untexturedMeshRenderables.count(colliderEnt.first) == 0) {
+        if (meshRenderables.count(colliderEnt.first) == 0) {
             _pendingColliderMeshUploads.push_back(colliderEnt.first);
         }
 
@@ -208,68 +177,26 @@ void Session::onTick(float deltaTime) {
     }
 }
 
-void Session::onRender(gfx::Render_Queue *rq) {
+void Session::onRender(topo::IRender_Queue *rq) {
     auto &transforms = _world.getMapForComponent<Transform_Component>();
     auto &plants = _world.getMapForComponent<Plant_Component>();
     auto &meshRenders = _world.getMapForComponent<Mesh_Render_Component>();
-    auto &untexturedMeshRenders = _world.getMapForComponent<Untextured_Mesh_Render_Component>();
 
-    gfx::allocate_command_and_initialize<Fetch_Camera_Matrices>(rq, &_matView, &_matProj);
-
-    gfx::allocate_command_and_initialize<Render_Grid>(rq);
-
-    for (auto &kv : plants) {
-        gfx::allocate_command_and_initialize<Visualize_Branches>(rq, kv.second.session);
-    }
-
-    using Mesh_Render = std::variant<Mesh_Render_Component *, Untextured_Mesh_Render_Component *>;
-    struct Renderable {
-        Entity_Handle handle;
-        Mesh_Render component;
-        Transform_Component *transform;
-    };
+    // TODO: visualize branches
+    // TODO: tint selected object
 
     // Find all entities that have both render info and a world transform
-    std::vector<Renderable> renderables;
-    for (auto &kv : untexturedMeshRenders) {
-        if (transforms.count(kv.first)) {
-            renderables.emplace_back(Renderable{ kv.first, &kv.second, &transforms.at(kv.first) });
-        }
-    }
-
     for (auto &kv : meshRenders) {
         if (transforms.count(kv.first)) {
-            renderables.emplace_back(Renderable{ kv.first, &kv.second, &transforms.at(kv.first) });
-        }
-    }
-
-    for (auto &renderable : renderables) {
-        std::visit([&](auto &&arg) {
-            using T = std::decay_t<decltype(arg)>;
-            auto mdl = arg->model;
-            auto transform = gfx::Transform{
-                renderable.transform->position,
-                renderable.transform->rotation,
-                renderable.transform->scale
+            auto &transform = transforms[kv.first];
+            auto &meshRender = kv.second;
+            topo::Transform topoTransform = {
+                transform.position,
+                transform.rotation,
+                transform.scale
             };
-
-            glm::vec4 tintColor = { 1, 1, 1, 1 };
-
-            // Tint selected object green
-            if (_selectedEntity.has_value() && renderable.handle == _selectedEntity.value()) {
-                tintColor = { 0, 0.75f, 0, 1 };
-            }
-
-            if constexpr (std::is_same_v<T, Mesh_Render_Component *>) {
-                auto texDiffuse = arg->material.diffuse;
-                auto cmd = gfx::allocate_command_and_initialize<Render_Model>(rq, mdl, texDiffuse, transform);
-                cmd->tint() = tintColor;
-            } else if constexpr (std::is_same_v<T, Untextured_Mesh_Render_Component *>) {
-                auto cmd = gfx::allocate_command_and_initialize<Render_Untextured_Model>(rq, mdl, transform);
-                cmd->tint() = tintColor;
-                cmd->wireframe_on_top() = true;
-            }
-        }, renderable.component);
+            rq->Submit(meshRender.renderable, topoTransform);
+        }
     }
 }
 
@@ -277,30 +204,19 @@ void Session::setRunning(bool isRunning) {
     _isRunning = isRunning;
 }
 
-class Collider_Mesh_Upload : public gfx::IRender_Command {
-public:
-    Collider_Mesh_Upload(Entity_Handle handle, Collider_Component *collider, std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> *meshRenderables) :
-    _handle(handle), _collider(collider), _meshRenderables(meshRenderables) {
-    }
-
-    void execute(gfx::IRenderer *renderer) override {
-        auto mdl = _collider->mesh_collider->uploadToRenderer(renderer);
-        (*_meshRenderables)[_handle] = Untextured_Mesh_Render_Component{ mdl };
-    }
-private:
-    Entity_Handle _handle;
-    Collider_Component *_collider;
-    std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> *_meshRenderables;
-};
-
-void Session::onMeshUpload(gfx::Render_Queue *rq) {
+void Session::onMeshUpload(topo::IInstance *renderer) {
     if (_pendingColliderMeshUploads.size() > 0) {
         auto &colliders = _world.getMapForComponent<Collider_Component>();
-        auto &meshRenderables = _world.getMapForComponent<Untextured_Mesh_Render_Component>();
+        auto &meshRenderables = _world.getMapForComponent<Mesh_Render_Component>();
 
         for (auto handle : _pendingColliderMeshUploads) {
             assert(meshRenderables.count(handle) == 0);
-            gfx::allocate_command_and_initialize<Collider_Mesh_Upload>(rq, handle, &colliders[handle], &meshRenderables);
+            auto mdl = colliders[handle].mesh_collider->uploadToRenderer(renderer);
+            topo::Material_ID material = nullptr;
+            topo::Renderable_ID renderable = nullptr;
+            renderer->CreateSolidColorMaterial(&material, { 1, 1, 1 });
+            renderer->CreateRenderable(&renderable, mdl, material);
+            meshRenderables[handle] = { renderable, mdl, material };
         }
 
         _pendingColliderMeshUploads.clear();

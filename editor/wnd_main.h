@@ -12,7 +12,7 @@
 #include <QSplitter>
 #include "ui_wnd_main.h"
 #include "vm_main.h"
-#include <glviewport.h>
+#include <topo/glviewport.h>
 #include <QTimer>
 #include <QAbstractItemModel>
 #include <QListView>
@@ -36,7 +36,7 @@ private:
     Ui::Window_Main *_ui;
     std::unique_ptr<VM_Main> _vm;
     QSplitter _splitter;
-    GLViewport _viewport;
+    topo::GLViewport _viewport;
     QTimer _renderTimer;
     QListView _entityList;
     std::unique_ptr<QAbstractItemModel> _entityListModel;

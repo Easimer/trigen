@@ -33,7 +33,6 @@ using Entity_Handle = std::make_signed<size_t>::type;
 	func(Collider_Component, _c_collider) \
 	func(Plant_Component, _c_plant) \
 	func(Mesh_Render_Component, _c_mesh_render) \
-	func(Untextured_Mesh_Render_Component, _c_untex_mesh_render) \
 	func(Transform_Component, _c_transform)
 
 class World {
@@ -74,5 +73,4 @@ protected:
 	std::unordered_map<Entity_Handle, Collider_Component> _c_collider;
 	std::unordered_map<Entity_Handle, Plant_Component> _c_plant;
 	std::unordered_map<Entity_Handle, Mesh_Render_Component> _c_mesh_render;
-	std::unordered_map<Entity_Handle, Untextured_Mesh_Render_Component> _c_untex_mesh_render;
 };

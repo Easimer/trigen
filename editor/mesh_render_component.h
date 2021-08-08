@@ -5,13 +5,10 @@
 
 #pragma once
 
-#include <r_renderer.h>
+#include <topo.h>
 
 struct Mesh_Render_Component {
-    gfx::Model_ID model;
-    gfx::Material_Unlit material;
-};
-
-struct Untextured_Mesh_Render_Component {
-    gfx::Model_ID model;
+    topo::Renderable_ID renderable;
+    topo::Model_ID model;
+    topo::Material_ID material;
 };

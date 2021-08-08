@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <QDialog>
-#include <r_queue.h>
 
 #include "world_qt.h"
 
@@ -29,12 +28,7 @@ public slots:
      * Renders the generated mesh
      * \param[inout] rq Render queue
      */
-    virtual void onRender(gfx::Render_Queue *rq) = 0;
-    /**
-     * Renders the transparent parts of the generated mesh
-     * \param[inout] rq Render queue
-     */
-    virtual void onRenderTransparent(gfx::Render_Queue *rq) = 0;
+    virtual void onRender(topo::IRender_Queue *rq) = 0;
 };
 
 /**
