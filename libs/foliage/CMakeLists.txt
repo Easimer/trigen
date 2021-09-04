@@ -21,6 +21,8 @@ target_sources(foliage
 target_link_libraries(foliage
 	PUBLIC
         softbody mesh_compress
+	PRIVATE
+		CONAN_PKG::boost
 )
 set_target_properties(foliage
     PROPERTIES

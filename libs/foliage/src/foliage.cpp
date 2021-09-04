@@ -6,11 +6,13 @@
 #include <foliage.hpp>
 
 #include <cstring>
+#include <mutex>
 #include <optional>
 #include <random>
 #include <unordered_set>
 
 #include <trigen/mesh_compress.h>
+#include <worker_group.hpp>
 
 using Simulation_Ptr = sb::Unique_Ptr<sb::ISoftbody_Simulation>;
 
@@ -26,6 +28,26 @@ struct Foliage_Mesh_Arrays {
     std::vector<uint32_t> elements;
 };
 
+static float
+distance_to_closest_leaf_bud(
+    std::vector<glm::vec3> const &leaf_positions,
+    glm::vec3 const &cur,
+    float foliage_radius) {
+    float min_dist = foliage_radius;
+    // Compute the minimum of the distances between `cur`
+    // and the leaves
+    for (auto &leaf_bud_position : leaf_positions) {
+        const auto dist
+            = glm::min(distance(cur, leaf_bud_position), foliage_radius);
+        min_dist = glm::min(min_dist, dist);
+
+        if (glm::epsilonEqual(min_dist, 0.0f, 0.001f)) {
+            break;
+        }
+    }
+    return min_dist;
+}
+
 static std::vector<glm::vec3>
 collect_leaf_positions(Simulation_Ptr &simulation) {
     auto *plant = simulation->get_extension_plant_simulation();
@@ -39,17 +61,96 @@ collect_leaf_positions(Simulation_Ptr &simulation) {
     auto leaf_bud_set
         = std::unordered_set<sb::index_t>(leaf_buds.cbegin(), leaf_buds.cend());
 
+    float const foliage_radius = 1.0f;
+    float const foliage_density = 4.0f;
+    glm::vec3 leaf_min(+INFINITY, +INFINITY, +INFINITY);
+    glm::vec3 leaf_max(-INFINITY, -INFINITY, -INFINITY);
+
     std::vector<glm::vec3> leaf_positions;
+    leaf_positions.reserve(leaf_bud_set.size());
 
     for (auto iter = simulation->get_particles(); !iter->ended();
          iter->step()) {
         auto particle = iter->get();
         if (leaf_bud_set.count(particle.id)) {
+            leaf_min = glm::min(leaf_min, particle.position);
+            leaf_max = glm::max(leaf_max, particle.position);
             leaf_positions.emplace_back(particle.position);
         }
     }
 
-    return leaf_positions;
+    leaf_min -= glm::vec3(foliage_radius, foliage_radius, foliage_radius);
+    leaf_max += glm::vec3(foliage_radius, foliage_radius, foliage_radius);
+    auto step = (1 / 8.0f) * (leaf_max - leaf_min);
+
+    Worker_Group workers;
+
+    std::mutex leaves_lock;
+    std::vector<glm::vec3> leaves;
+
+    auto task_leaf_gen
+        = [&](float x0, float x1, float y0, float y1, float z0, float z1) {
+              std::mt19937 rand(0);
+              std::uniform_real_distribution dist(0.f, 1.f);
+              std::vector<glm::vec3> local_leaves;
+
+              const auto step = glm::max(1 / foliage_density, 0.001f);
+
+
+              for (float x = x0; x < x1; x += step) {
+                  for (float y = y0; y < y1; y += step) {
+                      for (float z = z0; z < z1; z += step) {
+                          glm::vec3 cur = { x, y, z };
+
+                          auto min_dist = distance_to_closest_leaf_bud(
+                              leaf_positions, cur, foliage_radius);
+
+                          if (min_dist == foliage_radius) {
+                              continue;
+                          }
+
+                          const auto dice_roll = dist(rand);
+                          const auto prob
+                              = 1 - glm::sqrt(min_dist / foliage_radius);
+                          if (prob >= dice_roll) {
+                              local_leaves.push_back(cur);
+                          }
+                      }
+                  }
+              }
+
+              std::lock_guard G(leaves_lock);
+              leaves.insert(
+                  leaves.end(), local_leaves.cbegin(), local_leaves.cend());
+          };
+
+    struct Range {
+        float x0, x1, y0, y1, z0, z1;
+    };
+    std::vector<Range> ranges;
+    for (float x0 = leaf_min.x; x0 < leaf_max.x; x0 += step.x) {
+        float x1 = x0 + step.x;
+        assert(x0 < x1);
+        for (float y0 = leaf_min.y; y0 < leaf_max.y; y0 += step.y) {
+            float y1 = y0 + step.y;
+            assert(y0 < y1);
+            for (float z0 = leaf_min.z; z0 < leaf_max.z; z0 += step.z) {
+                float z1 = z0 + step.z;
+                assert(z0 < z1);
+                ranges.push_back({ x0, x1, y0, y1, z0, z1 });
+            }
+        }
+    }
+
+    for (auto &range : ranges) {
+        workers.emplace_task([&, range]() {
+            task_leaf_gen(
+                range.x0, range.x1, range.y0, range.y1, range.z0, range.z1);
+        });
+    }
+    workers.wait();
+
+    return leaves;
 }
 
 static std::vector<glm::quat>
@@ -133,6 +234,8 @@ compress_mesh(
 
     TMC_CreateContext(&ctx, k_ETMCHint_None);
     TMC_SetIndexArrayType(ctx, k_ETMCType_UInt32);
+    // Mesh is mostly quads
+    TMC_SetParamInteger(ctx, k_ETMCParam_WindowSize, 4);
 
     tmc::Buffer bufPos(ctx, positions);
     tmc::Buffer bufNormal(ctx, normals);
