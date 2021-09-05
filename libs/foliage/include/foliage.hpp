@@ -21,13 +21,21 @@
 
 enum class Foliage_Generator_Parameter_Name {
     EndOfList = 0,
+    /**
+     * Scale of the leaf quads; float.
+     */
     Scale,
+    /**
+     * Seed used by the random number generators; unsigned.
+     */
+    Seed,
 };
 
 struct Foliage_Generator_Parameter {
     Foliage_Generator_Parameter_Name name;
     union {
         float f;
+        unsigned u;
     } value;
 };
 

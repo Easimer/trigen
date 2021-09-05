@@ -28,6 +28,11 @@ struct Foliage_Mesh_Arrays {
     std::vector<uint32_t> elements;
 };
 
+struct Foliage_Params {
+    float scale = 1.0f;
+    unsigned rnd_seed = 0;
+};
+
 static float
 distance_to_closest_leaf_bud(
     std::vector<glm::vec3> const &leaf_positions,
@@ -36,7 +41,7 @@ distance_to_closest_leaf_bud(
     float min_dist = foliage_radius;
     // Compute the minimum of the distances between `cur`
     // and the leaves
-    for (auto &leaf_bud_position : leaf_positions) {
+    for (auto const &leaf_bud_position : leaf_positions) {
         const auto dist
             = glm::min(distance(cur, leaf_bud_position), foliage_radius);
         min_dist = glm::min(min_dist, dist);
@@ -49,7 +54,9 @@ distance_to_closest_leaf_bud(
 }
 
 static std::vector<glm::vec3>
-collect_leaf_positions(Simulation_Ptr &simulation) {
+collect_leaf_positions(
+    Foliage_Params const &params,
+    Simulation_Ptr &simulation) {
     auto *plant = simulation->get_extension_plant_simulation();
     assert(plant != nullptr);
 
@@ -72,12 +79,14 @@ collect_leaf_positions(Simulation_Ptr &simulation) {
     for (auto iter = simulation->get_particles(); !iter->ended();
          iter->step()) {
         auto particle = iter->get();
-        if (leaf_bud_set.count(particle.id)) {
+        if (leaf_bud_set.count(particle.id) != 0) {
             leaf_min = glm::min(leaf_min, particle.position);
             leaf_max = glm::max(leaf_max, particle.position);
             leaf_positions.emplace_back(particle.position);
         }
     }
+
+    assert(leaf_positions.size() == leaf_bud_set.size());
 
     leaf_min -= glm::vec3(foliage_radius, foliage_radius, foliage_radius);
     leaf_max += glm::vec3(foliage_radius, foliage_radius, foliage_radius);
@@ -88,41 +97,39 @@ collect_leaf_positions(Simulation_Ptr &simulation) {
     std::mutex leaves_lock;
     std::vector<glm::vec3> leaves;
 
-    auto task_leaf_gen
-        = [&](float x0, float x1, float y0, float y1, float z0, float z1) {
-              std::mt19937 rand(0);
-              std::uniform_real_distribution dist(0.f, 1.f);
-              std::vector<glm::vec3> local_leaves;
+    auto task_leaf_gen = [&](float x0, float x1, float y0, float y1, float z0,
+                             float z1) {
+        std::mt19937 rand(params.rnd_seed);
+        std::uniform_real_distribution dist(0.f, 1.f);
+        std::vector<glm::vec3> local_leaves;
 
-              const auto step = glm::max(1 / foliage_density, 0.001f);
+        const auto step = glm::max(1 / foliage_density, 0.001f);
+        assert(step > glm::epsilon<float>());
 
+        for (float x = x0; x < x1; x += step) {
+            for (float y = y0; y < y1; y += step) {
+                for (float z = z0; z < z1; z += step) {
+                    glm::vec3 cur = { x, y, z };
 
-              for (float x = x0; x < x1; x += step) {
-                  for (float y = y0; y < y1; y += step) {
-                      for (float z = z0; z < z1; z += step) {
-                          glm::vec3 cur = { x, y, z };
+                    auto min_dist = distance_to_closest_leaf_bud(
+                        leaf_positions, cur, foliage_radius);
 
-                          auto min_dist = distance_to_closest_leaf_bud(
-                              leaf_positions, cur, foliage_radius);
+                    if (min_dist == foliage_radius) {
+                        continue;
+                    }
 
-                          if (min_dist == foliage_radius) {
-                              continue;
-                          }
+                    const auto dice_roll = dist(rand);
+                    const auto prob = 1 - glm::sqrt(min_dist / foliage_radius);
+                    if (prob >= dice_roll) {
+                        local_leaves.push_back(cur);
+                    }
+                }
+            }
+        }
 
-                          const auto dice_roll = dist(rand);
-                          const auto prob
-                              = 1 - glm::sqrt(min_dist / foliage_radius);
-                          if (prob >= dice_roll) {
-                              local_leaves.push_back(cur);
-                          }
-                      }
-                  }
-              }
-
-              std::lock_guard G(leaves_lock);
-              leaves.insert(
-                  leaves.end(), local_leaves.cbegin(), local_leaves.cend());
-          };
+        std::lock_guard G(leaves_lock);
+        leaves.insert(leaves.end(), local_leaves.cbegin(), local_leaves.cend());
+    };
 
     struct Range {
         float x0, x1, y0, y1, z0, z1;
@@ -154,12 +161,11 @@ collect_leaf_positions(Simulation_Ptr &simulation) {
 }
 
 static std::vector<glm::quat>
-generate_random_orientations(size_t N) {
+generate_random_orientations(Foliage_Params const &params, size_t N) {
     std::vector<glm::quat> ret;
     ret.reserve(N);
 
-    // TODO(danielm): seed
-    std::mt19937 rand(0);
+    std::mt19937 rand(params.rnd_seed);
     std::uniform_real_distribution dist(-1.0f, 1.0f);
 
     while (N > 0) {
@@ -174,7 +180,8 @@ generate_random_orientations(size_t N) {
 namespace tmc {
 template <typename T> class Buffer {
 public:
-    Buffer(TMC_Context ctx, std::vector<T> const &data) {
+    Buffer(TMC_Context ctx, std::vector<T> const &data)
+        : _handle(nullptr) {
         TMC_CreateBuffer(ctx, &_handle, data.data(), data.size() * sizeof(T));
     }
 
@@ -187,15 +194,20 @@ private:
 template <typename T> struct Type;
 template <> struct Type<float> { ETMC_Type type = k_ETMCType_Float32; };
 
-template <typename T, unsigned N> class Attribute { public:
+template <typename T, unsigned N> class Attribute {
 public:
-    Attribute(TMC_Context ctx, TMC_Buffer buffer, TMC_Size stride, TMC_Size offset) {
-        TMC_CreateAttribute(ctx, &_handle, buffer, N, Type<T>().type, stride, offset);
+    Attribute(
+        TMC_Context ctx,
+        TMC_Buffer buffer,
+        TMC_Size stride,
+        TMC_Size offset)
+        : _handle(nullptr) {
+        TMC_CreateAttribute(
+            ctx, &_handle, buffer, N, Type<T>().type, stride, offset);
     }
 
-
-    Attribute(TMC_Context ctx, TMC_Buffer buffer) : Attribute(ctx, buffer, N * sizeof(T), 0) {
-    }
+    Attribute(TMC_Context ctx, TMC_Buffer buffer)
+        : Attribute(ctx, buffer, N * sizeof(T), 0) { }
 
     operator TMC_Attribute() const { return _handle; }
 
@@ -262,7 +274,9 @@ compress_mesh(
 }
 
 static Foliage_Mesh_Arrays
-generate_quads(Foliage_Arrays const& foliage_arrays, float scale) {
+generate_quads(
+    Foliage_Params const &params,
+    Foliage_Arrays const &foliage_arrays) {
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texcoords;
@@ -271,13 +285,13 @@ generate_quads(Foliage_Arrays const& foliage_arrays, float scale) {
     normals.reserve(foliage_arrays.positions.size() * 6);
     texcoords.reserve(foliage_arrays.positions.size() * 6);
 
+    auto const scale = params.scale;
+
     for (size_t i = 0; i < foliage_arrays.positions.size(); i++) {
         auto p = foliage_arrays.positions[i];
         auto R = foliage_arrays.orientations[i];
-        auto up = R * glm::vec3(0, 1, 0)
-            * conjugate(R);
-        auto right = R * glm::vec3(1, 0, 0)
-            * conjugate(R);
+        auto up = R * glm::vec3(0, 1, 0) * conjugate(R);
+        auto right = R * glm::vec3(1, 0, 0) * conjugate(R);
         auto normal = cross(right, up);
 
         up *= scale;
@@ -316,16 +330,22 @@ generate_quads(Foliage_Arrays const& foliage_arrays, float scale) {
 class Foliage_Generator : public IFoliage_Generator {
 public:
     ~Foliage_Generator() override = default;
-    Foliage_Generator(Simulation_Ptr &simulation, Foliage_Generator_Parameter const *parameters)
+    Foliage_Generator(
+        Simulation_Ptr &simulation,
+        Foliage_Generator_Parameter const *parameters)
         : _simulation(simulation) {
         while (parameters != nullptr
                && parameters->name
                    != Foliage_Generator_Parameter_Name::EndOfList) {
             switch (parameters->name) {
             case Foliage_Generator_Parameter_Name::Scale: {
-                _scale = parameters->value.f;
+                _params.scale = parameters->value.f;
                 assert(_scale > 0.0f);
                 break;
+            case Foliage_Generator_Parameter_Name::Seed: {
+                _params.rnd_seed = parameters->value.u;
+                break;
+            }
             }
             default: {
                 assert(!"Unhandled parameter");
@@ -340,16 +360,16 @@ public:
     bool
     generate() override {
         Foliage_Arrays foliage;
-        foliage.positions = collect_leaf_positions(_simulation);
+        foliage.positions = collect_leaf_positions(_params, _simulation);
 
-        if (foliage.positions.size() == 0) {
+        if (foliage.positions.empty()) {
             return false;
         }
 
         foliage.orientations
-            = generate_random_orientations(foliage.positions.size());
+            = generate_random_orientations(_params, foliage.positions.size());
 
-        _mesh = generate_quads(foliage, _scale);
+        _mesh = generate_quads(_params, foliage);
 
         return true;
     }
@@ -399,7 +419,7 @@ public:
 private:
     Simulation_Ptr &_simulation;
     std::optional<Foliage_Mesh_Arrays> _mesh;
-    float _scale = 1.0f;
+    Foliage_Params _params;
 };
 
 FOLIAGE_IMPORT
@@ -407,7 +427,8 @@ std::unique_ptr<IFoliage_Generator>
 make_foliage_generator(
     sb::Unique_Ptr<sb::ISoftbody_Simulation> &simulation,
     Foliage_Generator_Parameter const *parameters) {
-    if (!simulation || !simulation->get_extension_plant_simulation()) {
+    if (simulation == nullptr
+        || !simulation->get_extension_plant_simulation()) {
         return nullptr;
     }
 
