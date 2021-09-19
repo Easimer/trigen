@@ -106,6 +106,7 @@ add_subdirectory(objscan)
 add_subdirectory(softbody_crosscheck)
 
 add_subdirectory(editor)
+add_subdirectory(demo)
 add_subdirectory(renderer_demo)
 add_subdirectory(nettest)
 

@@ -21,4 +21,3 @@ add_subdirectory(uv_inspect)
 
 add_subdirectory(renderer_qt)
 add_subdirectory(trigen)
-add_subdirectory(trigen-net)
