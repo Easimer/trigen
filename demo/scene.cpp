@@ -5,6 +5,7 @@
 
 #include "scene.h"
 #include <memory>
+#include <algorithm>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -80,25 +81,32 @@ indices_to_vector(TMC_Context ctx) {
 }
 
 std::unique_ptr<Scene>
-MakeScene_Basic_Cube(topo::IInstance *renderer);
+MakeScene_Basic_Cube(topo::IInstance *renderer, Trigen_Session simulation);
 
 std::unique_ptr<Scene>
-MakeScene(Scene::Kind kind, topo::IInstance *renderer) {
+MakeScene(
+    Scene::Kind kind,
+    topo::IInstance *renderer,
+    Trigen_Session simulation) {
     switch (kind) {
     case Scene::K_BASIC_CUBE:
-        return MakeScene_Basic_Cube(renderer);
+        return MakeScene_Basic_Cube(renderer, simulation);
     }
 
     return nullptr;
 }
 
-std::vector<topo::Model_ID>
-Scene::LoadObjMesh(topo::IInstance *renderer, char const *path) {
+std::vector<Scene::Collider>
+Scene::LoadObjMeshCollider(
+    topo::IInstance *renderer,
+    Trigen_Session simulation,
+    Trigen_Transform const &transform,
+    char const *path) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     std::string err;
-    std::vector<topo::Model_ID> ret;
+    std::vector<Collider> ret;
 
     if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path)) {
         return ret;
@@ -157,8 +165,38 @@ Scene::LoadObjMesh(topo::IInstance *renderer, char const *path) {
         descriptor.vertex_count = positions.size();
         descriptor.uv = texcoords.data();
 
-        if (renderer->CreateModel(&hModel, &descriptor)) {
-            ret.push_back(hModel);
+        Trigen_Collider hCollider;
+        Trigen_Collider_Mesh collDescriptor;
+        std::vector<tg_u64> indicesU64;
+        indicesU64.reserve(indices.size());
+        std::transform(
+            indices.cbegin(), indices.cend(), std::back_inserter(indicesU64),
+            [&](uint32_t val) { return (tg_u64)val; });
+
+        collDescriptor.indices = indicesU64.data();
+        collDescriptor.triangle_count = indicesU64.size() / 3;
+        collDescriptor.normals = (tg_f32*)normals.data();
+        collDescriptor.normal_count = normals.size();
+        collDescriptor.positions = (tg_f32*)positions.data();
+        collDescriptor.position_count = positions.size();
+        auto colliderOk = Trigen_CreateCollider(
+                      &hCollider, simulation, &collDescriptor, &transform)
+            == Trigen_OK;
+
+        auto visualOk = renderer->CreateModel(&hModel, &descriptor);
+
+        if (colliderOk && visualOk) {
+            ret.emplace_back(hModel, hCollider);
+        } else {
+            if (colliderOk) {
+                fprintf(stderr, "WHOOPS!, you can't remove a collider from a simulation at runtime!\n");
+                // WORKAROUND: scale the collider into a point
+                Trigen_Transform null = { {}, {}, { 0, 0, 0 } };
+                Trigen_UpdateCollider(hCollider, &null);
+            }
+            if (visualOk) {
+                renderer->DestroyModel(hModel);
+            }
         }
 
         CHK_TMC(TMC_DestroyContext(ctx));

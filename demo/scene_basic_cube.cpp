@@ -9,8 +9,9 @@ class Scene_Basic_Cube : public Scene {
 public:
     ~Scene_Basic_Cube() override = default;
 
-    Scene_Basic_Cube(topo::IInstance *renderer) {
-        _models = LoadObjMesh(renderer, "cube.obj");
+    Scene_Basic_Cube(topo::IInstance *renderer, Trigen_Session simulation) {
+        Trigen_Transform transform = { {}, { 1, 0, 0, 0 }, { 1, 1, 1 } };
+         _environment = LoadObjMeshCollider(renderer, simulation, transform, "monkeything.obj");
 
         topo::Material_ID material = nullptr;
         if (!renderer->CreateSolidColorMaterial(&material, { 0.9, 0.9, 0.9 })) {
@@ -19,17 +20,17 @@ public:
 
         _materials.push_back(material);
 
-        for (auto &model : _models) {
+        for (auto &collider : _environment) {
             topo::Renderable_ID renderable = nullptr;
-            renderer->CreateRenderable(&renderable, model, material);
+            renderer->CreateRenderable(&renderable, collider.hVisual, material);
             _renderables.push_back(renderable);
         }
     }
 
     void
     Cleanup(topo::IInstance *renderer) override {
-        for (auto &id : _models) {
-            renderer->DestroyModel(id);
+        for (auto &collider : _environment) {
+            renderer->DestroyModel(collider.hVisual);
         }
     }
 
@@ -42,12 +43,12 @@ public:
     }
 
 private:
-    std::vector<topo::Model_ID> _models;
+    std::vector<Scene::Collider> _environment;
     std::vector<topo::Material_ID> _materials;
     std::vector<topo::Renderable_ID> _renderables;
 };
 
 std::unique_ptr<Scene>
-MakeScene_Basic_Cube(topo::IInstance *renderer) {
-    return std::make_unique<Scene_Basic_Cube>(renderer);
+MakeScene_Basic_Cube(topo::IInstance *renderer, Trigen_Session simulation) {
+    return std::make_unique<Scene_Basic_Cube>(renderer, simulation);
 }
