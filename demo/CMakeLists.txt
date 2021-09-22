@@ -8,5 +8,8 @@ target_sources(demo PRIVATE
     scene_basic_cube.cpp
 )
 
-target_link_libraries(demo PRIVATE topo trigen mesh_compress arcball_camera)
+target_link_libraries(demo PRIVATE
+	topo trigen mesh_compress
+    arcball_camera stb CONAN_PKG::boost
+)
 tri_builddir(demo)

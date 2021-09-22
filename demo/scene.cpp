@@ -10,6 +10,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 #include <trigen/mesh_compress.h>
+#include <stb_image.h>
+#include <worker_group.hpp>
 
 #if defined(NDEBUG)
 #define CHK_TMC(expr)                                                          \
@@ -112,15 +114,102 @@ Scene::LoadObjMeshCollider(
         return ret;
     }
 
+    Worker_Group textureLoaderWorkers;
+
+    std::vector<topo::Material_ID> topoMaterials;
+    for (int midx = 0; midx < materials.size(); midx++) {
+        auto &material = materials[midx];
+        auto funcLoadTexture = [&](int *w, int *h, void **ptr,
+                                   const char *path) {
+            int ch;
+            *ptr = stbi_load(path, w, h, &ch, 3);
+            if (!(*ptr)) {
+                fprintf(stderr, "stbi_load failed to load '%s'\n", path);
+                return;
+            }
+        };
+
+        int texDiffuseWidth, texDiffuseHeight;
+        void *texDiffuseImage = nullptr;
+        int texNormalWidth, texNormalHeight;
+        void *texNormalImage = nullptr;
+
+        if (!material.diffuse_texname.empty()) {
+            textureLoaderWorkers.emplace_task([&]() {
+                funcLoadTexture(
+                    &texDiffuseWidth, &texDiffuseHeight, &texDiffuseImage,
+                    material.diffuse_texname.c_str());
+            });
+        }
+
+        if (!material.bump_texname.empty()) {
+            textureLoaderWorkers.emplace_task([&]() {
+                funcLoadTexture(
+                    &texNormalWidth, &texNormalHeight, &texNormalImage,
+                    material.bump_texname.c_str());
+            });
+        }
+
+        topo::Texture_ID texDiffuse = nullptr;
+        topo::Texture_ID texNormal = nullptr;
+
+        textureLoaderWorkers.wait();
+
+        if (texDiffuseImage) {
+            renderer->CreateTexture(
+                &texDiffuse, texDiffuseWidth, texDiffuseHeight,
+                topo::Texture_Format::RGB888, texDiffuseImage);
+
+            if (texNormalImage) {
+                renderer->CreateTexture(
+                    &texNormal, texNormalWidth, texNormalHeight,
+                    topo::Texture_Format::RGB888, texNormalImage);
+            }
+        }
+
+        stbi_image_free(texDiffuseImage);
+        stbi_image_free(texNormalImage);
+
+        topo::Material_ID hMaterial;
+        
+        if (!texDiffuse) {
+            renderer->CreateSolidColorMaterial(
+                &hMaterial,
+                { material.diffuse[0], material.diffuse[1],
+                  material.diffuse[2] });
+        } else {
+            _textures.push_back(texDiffuse);
+            if (texNormal) {
+                _textures.push_back(texNormal);
+                renderer->CreateLitMaterial(&hMaterial, texDiffuse, texNormal);
+            } else {
+                renderer->CreateUnlitMaterial(&hMaterial, texDiffuse);
+            }
+        }
+
+        if (hMaterial) {
+            _materials.push_back(hMaterial);
+            topoMaterials.push_back(hMaterial);
+        }
+    }
+
     // We create a separate mesh collider for each shape/mesh in
     // the model
     for (int sidx = 0; sidx < shapes.size(); sidx++) {
         auto &shape = shapes[sidx];
+        auto materialId = (shape.mesh.material_ids.size() > 0)
+            ? shape.mesh.material_ids[0]
+            : 0;
 
         std::vector<glm::vec3> flatPositions;
         std::vector<glm::vec3> flatNormals;
         std::vector<glm::vec2> flatTexcoords;
         flatten_mesh(attrib, shape, flatPositions, flatNormals, flatTexcoords);
+
+        // Flip vertex UVs
+        for (size_t i = 0; i < flatTexcoords.size(); i++) {
+            flatTexcoords[i] = { flatTexcoords[i].x, 1 - flatTexcoords[i].y };
+        }
 
         TMC_Context ctx;
         TMC_Buffer bufPositions, bufNormals, bufTexcoords;
@@ -164,14 +253,20 @@ Scene::LoadObjMeshCollider(
         descriptor.vertices = positions.data();
         descriptor.vertex_count = positions.size();
         descriptor.uv = texcoords.data();
+        renderer->CreateModel(&hModel, &descriptor);
+
+        topo::Renderable_ID hRenderable;
+        bool visualOk = false;
+        if (hModel) {
+            visualOk = renderer->CreateRenderable(&hRenderable, hModel, topoMaterials[materialId]);
+        }
 
         Trigen_Collider hCollider;
         Trigen_Collider_Mesh collDescriptor;
-        std::vector<tg_u64> indicesU64;
-        indicesU64.reserve(indices.size());
-        std::transform(
-            indices.cbegin(), indices.cend(), std::back_inserter(indicesU64),
-            [&](uint32_t val) { return (tg_u64)val; });
+        std::vector<tg_u64> indicesU64(indices.size());
+        for (size_t i = 0; i < indices.size(); i++) {
+            indicesU64[i] = (tg_u64)indices[i];
+        }
 
         collDescriptor.indices = indicesU64.data();
         collDescriptor.triangle_count = indicesU64.size() / 3;
@@ -183,24 +278,46 @@ Scene::LoadObjMeshCollider(
                       &hCollider, simulation, &collDescriptor, &transform)
             == Trigen_OK;
 
-        auto visualOk = renderer->CreateModel(&hModel, &descriptor);
-
         if (colliderOk && visualOk) {
-            ret.emplace_back(hModel, hCollider);
-        } else {
-            if (colliderOk) {
-                fprintf(stderr, "WHOOPS!, you can't remove a collider from a simulation at runtime!\n");
-                // WORKAROUND: scale the collider into a point
-                Trigen_Transform null = { {}, {}, { 0, 0, 0 } };
-                Trigen_UpdateCollider(hCollider, &null);
-            }
-            if (visualOk) {
-                renderer->DestroyModel(hModel);
-            }
+            topo::Transform visualTransform
+                = { { transform.position[0], transform.position[1],
+                      transform.position[2] },
+                    { transform.orientation[0], transform.orientation[1],
+                      transform.orientation[2], transform.orientation[3] },
+                    { transform.scale[0], transform.scale[1],
+                      transform.scale[2] } };
+            _environment.emplace_back(hRenderable, hCollider, visualTransform);
+            ret.emplace_back(hRenderable, hCollider, visualTransform);
         }
 
         CHK_TMC(TMC_DestroyContext(ctx));
     }
 
     return ret;
+}
+
+void
+Scene::Cleanup(topo::IInstance* renderer) {
+    renderer->BeginModelManagement();
+
+    for (auto& coll : _environment) {
+        renderer->DestroyRenderable(coll.hVisual);
+    }
+
+    for (auto& material : _materials) {
+        renderer->DestroyMaterial(material);
+    }
+
+    for (auto& texture : _textures) {
+        renderer->DestroyTexture(texture);
+    }
+
+    renderer->FinishModelManagement();
+}
+
+void
+Scene::Render(topo::IRender_Queue *rq) {
+    for (auto& coll : _environment) {
+        rq->Submit(coll.hVisual, coll.transform);
+    }
 }
