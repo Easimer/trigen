@@ -256,9 +256,12 @@ GL_Model_Manager::DestroyModel(Model_ID model) {
     if (model == nullptr)
         return;
 
-    std::remove_if(_models.begin(), _models.end(), [&](Mesh_Data const &m) {
-        return &m == model;
-    });
+    for (auto it = _models.begin(); it != _models.end(); ++it) {
+        if (&(*it) == model) {
+            _models.erase(it);
+            break;
+        }
+    }
 }
 
 void

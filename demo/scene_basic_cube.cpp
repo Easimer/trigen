@@ -11,7 +11,7 @@ public:
 
     Scene_Basic_Cube(topo::IInstance *renderer, Trigen_Session simulation) {
         Trigen_Transform transform = { {}, { 1, 0, 0, 0 }, { 1, 1, 1 } };
-         LoadObjMeshCollider(renderer, simulation, transform, "backpack.obj");
+         LoadObjMeshCollider(renderer, simulation, transform, "rockwall.obj");
     }
 };
 

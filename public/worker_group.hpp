@@ -43,7 +43,7 @@ public:
 
 private:
     class Semaphore {
-        unsigned _count = 0;
+        volatile unsigned _count = 0;
         boost::mutex _mutex;
         boost::condition_variable _cv;
 

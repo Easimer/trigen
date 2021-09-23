@@ -93,8 +93,8 @@ main(int argc, char **argv) {
         scene->Render(rq);
 
         ang += 1 / 60.0f;
-        auto pos = glm::vec3(10 * glm::cos(ang), 0, 10 * glm::sin(ang));
-        rq->AddLight({ 1, 1, 1, 1 }, { pos, glm::quat(), glm::vec3(1, 1, 1) }, true);
+        auto pos = glm::vec3(30 * glm::cos(ang), 0, 30 * glm::sin(ang));
+        rq->AddLight({ 1, 1, 1, 5 }, { pos, glm::quat(), glm::vec3(1, 1, 1) }, true);
 
         wnd->FinishRendering();
         wnd->Present();

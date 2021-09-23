@@ -114,20 +114,18 @@ Scene::LoadObjMeshCollider(
         return ret;
     }
 
-    Worker_Group textureLoaderWorkers;
-
     std::vector<topo::Material_ID> topoMaterials;
     for (int midx = 0; midx < materials.size(); midx++) {
         auto &material = materials[midx];
-        auto funcLoadTexture = [&](int *w, int *h, void **ptr,
-                                   const char *path) {
-            int ch;
-            *ptr = stbi_load(path, w, h, &ch, 3);
-            if (!(*ptr)) {
-                fprintf(stderr, "stbi_load failed to load '%s'\n", path);
-                return;
-            }
-        };
+        auto funcLoadTexture
+            = [](int *w, int *h, void **ptr, const char *path) {
+                  int ch;
+                  *ptr = stbi_load(path, w, h, &ch, 3);
+                  if (!(*ptr)) {
+                      fprintf(stderr, "stbi_load failed to load '%s'\n", path);
+                      return;
+                  }
+              };
 
         int texDiffuseWidth, texDiffuseHeight;
         void *texDiffuseImage = nullptr;
@@ -135,25 +133,19 @@ Scene::LoadObjMeshCollider(
         void *texNormalImage = nullptr;
 
         if (!material.diffuse_texname.empty()) {
-            textureLoaderWorkers.emplace_task([&]() {
-                funcLoadTexture(
-                    &texDiffuseWidth, &texDiffuseHeight, &texDiffuseImage,
-                    material.diffuse_texname.c_str());
-            });
+            funcLoadTexture(
+                &texDiffuseWidth, &texDiffuseHeight, &texDiffuseImage,
+                material.diffuse_texname.c_str());
         }
 
         if (!material.bump_texname.empty()) {
-            textureLoaderWorkers.emplace_task([&]() {
-                funcLoadTexture(
-                    &texNormalWidth, &texNormalHeight, &texNormalImage,
-                    material.bump_texname.c_str());
-            });
+            funcLoadTexture(
+                &texNormalWidth, &texNormalHeight, &texNormalImage,
+                material.bump_texname.c_str());
         }
 
         topo::Texture_ID texDiffuse = nullptr;
         topo::Texture_ID texNormal = nullptr;
-
-        textureLoaderWorkers.wait();
 
         if (texDiffuseImage) {
             renderer->CreateTexture(
@@ -195,7 +187,7 @@ Scene::LoadObjMeshCollider(
 
     // We create a separate mesh collider for each shape/mesh in
     // the model
-    for (int sidx = 0; sidx < shapes.size(); sidx++) {
+    for (size_t sidx = 0; sidx < shapes.size(); sidx++) {
         auto &shape = shapes[sidx];
         auto materialId = (shape.mesh.material_ids.size() > 0)
             ? shape.mesh.material_ids[0]
@@ -254,6 +246,7 @@ Scene::LoadObjMeshCollider(
         descriptor.vertex_count = positions.size();
         descriptor.uv = texcoords.data();
         renderer->CreateModel(&hModel, &descriptor);
+        _models.push_back(hModel);
 
         topo::Renderable_ID hRenderable;
         bool visualOk = false;
@@ -298,10 +291,12 @@ Scene::LoadObjMeshCollider(
 
 void
 Scene::Cleanup(topo::IInstance* renderer) {
-    renderer->BeginModelManagement();
-
     for (auto& coll : _environment) {
         renderer->DestroyRenderable(coll.hVisual);
+    }
+
+    for (auto& model : _models) {
+        renderer->DestroyModel(model);
     }
 
     for (auto& material : _materials) {
@@ -311,8 +306,6 @@ Scene::Cleanup(topo::IInstance* renderer) {
     for (auto& texture : _textures) {
         renderer->DestroyTexture(texture);
     }
-
-    renderer->FinishModelManagement();
 }
 
 void
