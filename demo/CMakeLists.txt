@@ -11,5 +11,6 @@ target_sources(demo PRIVATE
 target_link_libraries(demo PRIVATE
 	topo trigen mesh_compress
     arcball_camera stb CONAN_PKG::boost
+    CONAN_PKG::nlohmann_json
 )
 tri_builddir(demo)
