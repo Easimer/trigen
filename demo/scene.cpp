@@ -82,22 +82,6 @@ indices_to_vector(TMC_Context ctx) {
     return ret;
 }
 
-std::unique_ptr<Scene>
-MakeScene_Basic_Cube(topo::IInstance *renderer, Trigen_Session simulation);
-
-std::unique_ptr<Scene>
-MakeScene(
-    Scene::Kind kind,
-    topo::IInstance *renderer,
-    Trigen_Session simulation) {
-    switch (kind) {
-    case Scene::K_BASIC_CUBE:
-        return MakeScene_Basic_Cube(renderer, simulation);
-    }
-
-    return nullptr;
-}
-
 std::vector<Scene::Collider>
 Scene::LoadObjMeshCollider(
     topo::IInstance *renderer,

@@ -5,7 +5,8 @@ target_sources(demo PRIVATE
     scene.cpp
     scene.h
 
-    scene_basic_cube.cpp
+    scene_loader.cpp
+    scene_loader.h
 )
 
 target_link_libraries(demo PRIVATE

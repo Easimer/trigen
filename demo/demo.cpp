@@ -10,6 +10,7 @@
 #include <trigen.h>
 
 #include "scene.h"
+#include "scene_loader.h"
 
 int
 main(int argc, char **argv) {
@@ -23,28 +24,11 @@ main(int argc, char **argv) {
     SDL_Event ev;
 
     Trigen_Session simulation = nullptr;
-    Trigen_Parameters params;
-    params.flags = Trigen_F_PreferCPU;
-    params.particle_count_limit = 512;
-    params.seed_position[0] = 0;
-    params.seed_position[1] = 0;
-    params.seed_position[2] = 0;
-    params.density = 1;
-    params.phototropism_response_strength = 1;
-    params.aging_rate = 0.1;
-    params.branching_probability = 0.25;
-    params.branch_angle_variance = 3.141592;
-    params.surface_adaption_strength = 1.0;
-    params.attachment_strength = 1.0;
-    params.stiffness = 0.2;
-    auto rc = Trigen_CreateSession(&simulation, &params);
-    if (rc != Trigen_OK) {
-        fprintf(stderr, "CreateSession has failed, rc=%d\n", rc);
-        return 1;
-    }
 
     wnd->BeginModelManagement();
-    auto scene = MakeScene(Scene::K_BASIC_CUBE, wnd.get(), simulation);
+    Scene scene;
+    std::vector<Scene::Collider> colliders;
+    LoadSceneFromFile("scene_rockywall.json", scene, wnd.get(), &simulation, colliders);
     wnd->FinishModelManagement();
 
     auto camera = create_arcball_camera();
@@ -90,7 +74,7 @@ main(int argc, char **argv) {
         wnd->SetEyeViewMatrix(camera->get_view_matrix());
         auto *rq = wnd->BeginRendering();
 
-        scene->Render(rq);
+        scene.Render(rq);
 
         ang += 1 / 60.0f;
         auto pos = glm::vec3(30 * glm::cos(ang), 0, 30 * glm::sin(ang));
@@ -101,7 +85,7 @@ main(int argc, char **argv) {
     }
 
     wnd->BeginModelManagement();
-    scene->Cleanup(wnd.get());
+    scene.Cleanup(wnd.get());
     wnd->FinishModelManagement();
     Trigen_DestroySession(simulation);
     return 0;

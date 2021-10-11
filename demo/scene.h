@@ -40,10 +40,6 @@ public:
         Trigen_Transform const &transform,
         char const *path);
 
-    enum Kind {
-        K_BASIC_CUBE,
-    };
-
     private:
     std::vector<topo::Model_ID> _models;
     std::vector<topo::Texture_ID> _textures;
@@ -51,9 +47,3 @@ public:
 
     std::vector<Collider> _environment;
 };
-
-std::unique_ptr<Scene>
-MakeScene(
-    Scene::Kind kind,
-    topo::IInstance *renderer,
-    Trigen_Session simulator);
