@@ -27,7 +27,7 @@ public:
         , _msg("Trigen status was not OK: " + std::to_string(status)) { }
 
     const char *
-    what() const override {
+    what() const noexcept override {
         return _msg.c_str();
     }
 
