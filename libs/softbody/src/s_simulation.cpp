@@ -592,7 +592,7 @@ void Softbody_Simulation::step(float delta_time) {
 
     time_accumulator += delta_time;
 
-    if (time_accumulator > PHYSICS_STEP) {
+    while (time_accumulator > PHYSICS_STEP) {
         // FrameMarkStart("Softbody");
         auto phdt = PHYSICS_STEP;
 
