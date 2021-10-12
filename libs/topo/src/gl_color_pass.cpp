@@ -87,6 +87,11 @@ GL_Color_Pass::RenderModels(
     auto setupShader = [&](topo::Material_Type type) {
         ZoneScoped;
         switch (type) {
+        case topo::MAT_UNLIT_TRANSPARENT:
+            // TODO:
+            glUseProgram(_shaderTexturedUnlit->Program());
+            gl::SetUniformLocation(_shaderTexturedUnlit->locMatVP(), matVP);
+            break;
         case topo::MAT_UNLIT:
             glUseProgram(_shaderTexturedUnlit->Program());
             gl::SetUniformLocation(_shaderTexturedUnlit->locMatVP(), matVP);
@@ -109,6 +114,16 @@ GL_Color_Pass::RenderModels(
         case topo::MAT_UNLIT: {
             auto *mul
                 = (Material_Unlit *)_materialManager->GetMaterialData(material);
+            auto texDiffuse = _textureManager->GetHandle(mul->diffuse);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texDiffuse);
+            gl::SetUniformLocation(_shaderTexturedUnlit->locTexDiffuse(), 0);
+            break;
+        }
+        case topo::MAT_UNLIT_TRANSPARENT: {
+            // TODO:
+            auto *mul
+                = (Material_Transparent *)_materialManager->GetMaterialData(material);
             auto texDiffuse = _textureManager->GetHandle(mul->diffuse);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, texDiffuse);
