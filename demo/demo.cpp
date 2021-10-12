@@ -9,6 +9,7 @@
 #include <arcball_camera.h>
 #include <trigen.h>
 
+#include "playback.h"
 #include "scene.h"
 #include "scene_loader.h"
 
@@ -28,11 +29,15 @@ main(int argc, char **argv) {
     wnd->BeginModelManagement();
     Scene scene;
     std::vector<Scene::Collider> colliders;
-    LoadSceneFromFile("scene_rockywall.json", scene, wnd.get(), &simulation, colliders);
+    Demo demo;
+    LoadSceneFromFile(
+        "scene_rockywall.json", scene, wnd.get(), &simulation, colliders, demo);
     wnd->FinishModelManagement();
 
     auto camera = create_arcball_camera();
     camera->set_screen_size(surf.width, surf.height);
+
+    Playback playback(demo, simulation, wnd.get());
 
     float ang = 0;
 
@@ -71,10 +76,13 @@ main(int argc, char **argv) {
             }
         }
 
+        shutdown |= playback.step(1 / 60.0f);
+
         wnd->SetEyeViewMatrix(camera->get_view_matrix());
         auto *rq = wnd->BeginRendering();
 
         scene.Render(rq);
+        playback.render(rq);
 
         ang += 1 / 60.0f;
         auto pos = glm::vec3(30 * glm::cos(ang), 0, 30 * glm::sin(ang));

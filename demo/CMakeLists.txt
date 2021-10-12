@@ -4,9 +4,10 @@ target_sources(demo PRIVATE
 
     scene.cpp
     scene.h
-
     scene_loader.cpp
     scene_loader.h
+    playback.cpp
+    playback.h
 )
 
 target_link_libraries(demo PRIVATE

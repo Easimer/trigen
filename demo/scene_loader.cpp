@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <stb_image.h>
 
 static void
 MakeColliderObject(
@@ -69,7 +70,13 @@ ValueOrDefault(nlohmann::json const &J, const char *key, T value) {
 }
 
 bool
-LoadSceneFromFile(std::string const &path, Scene &scene, topo::IInstance *renderer, Trigen_Session *session, std::vector<Scene::Collider> &colliders) {
+LoadSceneFromFile(
+    std::string const &path,
+    Scene &scene,
+    topo::IInstance *renderer,
+    Trigen_Session *session,
+    std::vector<Scene::Collider> &colliders,
+    Demo &demo) {
     std::ifstream stream(path);
     if (!stream) {
         return false;
@@ -156,6 +163,56 @@ LoadSceneFromFile(std::string const &path, Scene &scene, topo::IInstance *render
                 "Unknown environment object kind '" + (std::string)kind + "'");
         }
     }
+
+    auto elemDemo = J["demo"];
+    auto elemKind = elemDemo["kind"];
+
+    if (elemKind == "oneshot") {
+        demo.kind = Demo::ONESHOT;
+        demo.oneshot.at = ValueOrDefault(elemDemo, "at", 0.0f);
+        demo.oneshot.hold = ValueOrDefault(elemDemo, "hold", 1.0f);
+    } else if (elemKind == "timelapse") {
+        demo.kind = Demo::TIMELAPSE;
+        demo.timelapse.from = ValueOrDefault(elemDemo, "from", 0.0f);
+        demo.timelapse.to = ValueOrDefault(elemDemo, "to", 10.0f);
+        demo.timelapse.step = ValueOrDefault(elemDemo, "step", 1.0f);
+        demo.timelapse.stepFrequency
+            = ValueOrDefault(elemDemo, "stepFrequency", 2.0f);
+    } else {
+        demo.kind = Demo::NONE;
+    }
+
+    auto elemPainting = J["painting"];
+    auto elemDiffuse = elemPainting["diffuse"];
+    auto elemNormal = elemPainting["normal"];
+    if (!elemDiffuse.is_string() || !elemNormal.is_string()) {
+        throw Scene_Loader_Exception(
+            "One or more painting parameters are missing!");
+    }
+
+    auto loadTexture = [session](
+                           std::string const &path,
+                           Trigen_Texture_Kind kind) {
+        int width, height, ch;
+        auto image = stbi_load(path.c_str(), &width, &height, &ch, 3);
+
+        if (image == nullptr) {
+            throw Scene_Loader_Exception("Couldn't load " + path + "!");
+        }
+
+        Trigen_Texture texture;
+        texture.width = width;
+        texture.height = height;
+        texture.image = image;
+        Trigen_Painting_SetInputTexture(
+            *session, kind, &texture);
+
+        stbi_image_free(image);
+    };
+
+
+    loadTexture(elemDiffuse, Trigen_Texture_BaseColor);
+    loadTexture(elemNormal, Trigen_Texture_NormalMap);
 
     return true;
 }

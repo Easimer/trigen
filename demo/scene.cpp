@@ -193,6 +193,7 @@ Scene::LoadObjMeshCollider(
 
         CHK_TMC(TMC_CreateContext(&ctx, k_ETMCHint_None));
         CHK_TMC(TMC_SetIndexArrayType(ctx, k_ETMCType_UInt32));
+        CHK_TMC(TMC_SetParamInteger(ctx, k_ETMCParam_WindowSize, 3));
 
         CHK_TMC(TMC_CreateBuffer(
             ctx, &bufPositions, flatPositions.data(),

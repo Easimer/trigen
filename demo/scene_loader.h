@@ -9,13 +9,35 @@
 
 #include "scene.h"
 
+struct Demo {
+    enum {
+        NONE,
+        ONESHOT,
+        TIMELAPSE,
+    } kind;
+
+    union {
+        struct {
+            float at;
+            float hold;
+        } oneshot;
+        struct {
+            float from;
+            float to;
+            float step;
+            float stepFrequency;
+        } timelapse;
+    };
+};
+
 bool
 LoadSceneFromFile(
     std::string const &path,
     Scene &scene,
     topo::IInstance *renderer,
     Trigen_Session *session,
-    std::vector<Scene::Collider> &colliders);
+    std::vector<Scene::Collider> &colliders,
+    Demo &demo);
 
 class Scene_Loader_Exception : public std::exception {
 public:
