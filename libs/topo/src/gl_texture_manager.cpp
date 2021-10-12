@@ -65,7 +65,7 @@ GL_Texture_Manager::CreateTexture(
     _textures.push_front(texture);
     *outHandle = &_textures.front();
 
-    return false;
+    return true;
 }
 
 void
