@@ -597,7 +597,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_GetOutputTexture(
     TRIGEN_HANDLE Trigen_Session session,
     Trigen_Texture_Kind kind,
-    TRIGEN_INOUT Trigen_Texture *texture) {
+    TRIGEN_OUT Trigen_Texture *texture) {
     assert(session);
     assert(Trigen_Texture_BaseColor <= kind && kind < Trigen_Texture_Max);
     assert(texture);

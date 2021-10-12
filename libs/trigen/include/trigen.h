@@ -378,12 +378,12 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_Regenerate(
  * 
  * \param [in] session Session handle
  * \param [in] kind Texture slot identifier
- * \param [inout] texture Where to store the texture info
+ * \param [out] texture Where to store the texture info
  */
 TRIGEN_RETURN_CODE TRIGEN_API Trigen_Painting_GetOutputTexture(
     TRIGEN_HANDLE Trigen_Session session,
     Trigen_Texture_Kind kind,
-    TRIGEN_INOUT Trigen_Texture *texture);
+    TRIGEN_OUT Trigen_Texture *texture);
 
 /**
  * \brief Translates a status code to a human-readable error message.
