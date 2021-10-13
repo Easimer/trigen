@@ -224,11 +224,11 @@ LoadSceneFromFile(
         topo::Texture_ID texLeaf;
         renderer->CreateTexture(
             &texLeaf, result->width, result->height,
-            topo::Texture_Format::SRGB888, result->image);
+            topo::Texture_Format::RGBA8888, result->image);
         app->OnLeafTextureLoaded(texLeaf);
         app->OnInputTextureLoaded();
     };
-    request.channels = 3;
+    request.channels = 4;
     request.data = nullptr;
     request.path = elemLeaves;
     loader->BeginAsyncImageLoad(std::move(request));
