@@ -32,6 +32,9 @@ public:
         = 0;
 
     virtual void
+    OnLeafTextureLoaded(topo::Texture_ID texture)
+        = 0;
+    virtual void
     OnInputTextureLoaded()
         = 0;
 

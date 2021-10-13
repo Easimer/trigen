@@ -68,6 +68,11 @@ public:
     void
     render(topo::IRender_Queue *rq);
 
+    void
+    setLeafTexture(topo::Texture_ID tex) {
+        _texLeaf = tex;
+    }
+
 protected:
     void
     beginRegenerateRenderable();
@@ -107,6 +112,8 @@ private:
 
     uv_work_t _workGrow;
     bool _generatingVisuals = false;
+
+    topo::Texture_ID _texLeaf = nullptr;
 
     Visual _visTree;
     Visual _visFoliage;

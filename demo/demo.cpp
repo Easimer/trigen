@@ -185,6 +185,12 @@ public:
     }
 
     void
+    OnLeafTextureLoaded(topo::Texture_ID texture) override {
+        _texLeaf = texture;
+        _playback->setLeafTexture(texture);
+    }
+
+    void
     OnTreeVisualsReady() override {
         _renderPlayback = true;
     }
@@ -226,10 +232,11 @@ private:
     std::optional<Playback> _playback;
     std::unique_ptr<Arcball_Camera> _camera;
 
+    topo::Texture_ID _texLeaf = nullptr;
     float _ang = 0;
     bool _shutdown = false;
     bool _renderPlayback = false;
-    unsigned _inputTexturesRemain = 2;
+    unsigned _inputTexturesRemain = 3;
 
     uv_loop_t _loopMain;
     uv_timer_t _timerRender;

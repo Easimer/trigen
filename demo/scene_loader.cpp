@@ -186,7 +186,9 @@ LoadSceneFromFile(
     auto elemPainting = J["painting"];
     auto elemDiffuse = elemPainting["diffuse"];
     auto elemNormal = elemPainting["normal"];
-    if (!elemDiffuse.is_string() || !elemNormal.is_string()) {
+    auto elemLeaves = elemPainting["leaves"];
+    if (!elemDiffuse.is_string() || !elemNormal.is_string()
+        || !elemLeaves.is_string()) {
         throw Scene_Loader_Exception(
             "One or more painting parameters are missing!");
     }
@@ -213,6 +215,23 @@ LoadSceneFromFile(
 
     loadTexture(elemDiffuse, Trigen_Texture_BaseColor);
     loadTexture(elemNormal, Trigen_Texture_NormalMap);
+
+
+    auto *loader = app->ImageLoader();
+    Image_Load_Request request;
+    request.callback = [app](void *user, Image_Load_Result *result) {
+        auto *renderer = app->Renderer();
+        topo::Texture_ID texLeaf;
+        renderer->CreateTexture(
+            &texLeaf, result->width, result->height,
+            topo::Texture_Format::SRGB888, result->image);
+        app->OnLeafTextureLoaded(texLeaf);
+        app->OnInputTextureLoaded();
+    };
+    request.channels = 3;
+    request.data = nullptr;
+    request.path = elemLeaves;
+    loader->BeginAsyncImageLoad(std::move(request));
 
     return true;
 }

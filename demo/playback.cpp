@@ -105,12 +105,22 @@ Playback::regenerateRenderableAfter() {
     renderer->CreateTexture(
         &texNormal, textureNormal.width, textureNormal.height,
         topo::Texture_Format::RGB888, textureNormal.image);
-    renderer->CreateTexture(
-        &texLeaves, 1, 1, topo::Texture_Format::RGBA8888, imageGreen);
+    if (_texLeaf != nullptr) {
+        texLeaves = _texLeaf;
+    } else {
+        printf("[Playback] leaf texture was nullptr, what's going on?\n");
+        renderer->CreateTexture(
+            &texLeaves, 1, 1, topo::Texture_Format::RGBA8888, imageGreen);
+    }
     renderer->CreateLitMaterial(&matTree, texDiffuse, texNormal);
     renderer->CreateUnlitTransparentMaterial(&matFoliage, texLeaves);
     renderer->CreateRenderable(&renderableTree, model, matTree);
     renderer->CreateRenderable(&renderableFoliage, modelFoliage, matFoliage);
+    
+    if (_visFoliage.texDiffuse == _texLeaf) {
+        // Save the leaf texture from being destroyed by the clear() below
+        _visFoliage.texDiffuse = nullptr;
+    }
 
     _visTree.clear();
     _visFoliage.clear();
