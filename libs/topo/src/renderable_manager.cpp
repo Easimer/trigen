@@ -40,20 +40,17 @@ Renderable_Manager::DestroyRenderable(Renderable_ID id) {
 
     switch (renderable->kind) {
     case RENDERABLE_MODEL:
-        std::remove_if(
-            _models.begin(), _models.end(),
-            [&](auto const &t) { return &t == renderable->model; });
+        // std::remove_if(
+        //     _models.begin(), _models.end(),
+        //     [&](auto const &t) { return &t == renderable->model; });
         break;
     case RENDERABLE_LINES:
-        std::remove_if(
-            _lines.begin(), _lines.end(),
+        _lines.remove_if(
             [&](auto const &t) { return &t == renderable->lines; });
         break;
     }
 
-    std::remove_if(
-        _renderables.begin(), _renderables.end(),
-        [&](auto const &t) { return &t == id; });
+    _renderables.remove_if([&](auto const &t) { return &t == id; });
 }
 
 Renderable_Manager::Renderable_Kind
