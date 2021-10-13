@@ -88,11 +88,17 @@ GL_Depth_Pass::Execute(Render_Queue *renderQueue, GL_Multidraw &multiDraw, glm::
 
     _modelManager->BindMegabuffer();
 
-    auto setupShader = [&](topo::Material_Type) {
+    auto setupShader = [&](topo::Material_Type type) {
+        switch (type) {
+        case topo::Material_Type::MAT_UNLIT_TRANSPARENT:
+            return false;
+        default:
+            return true;
+        }
     };
 
-    auto setupMaterial = [&](topo::Material_Type, topo::Material_ID) {
-    };
+    auto setupMaterial
+        = [&](topo::Material_Type, topo::Material_ID) { return true; };
 
     multiDraw.Execute(setupShader, setupMaterial);
 

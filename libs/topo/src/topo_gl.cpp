@@ -59,6 +59,7 @@ public:
               &_materialManager,
               &_textureManager,
               &_shaderTexturedUnlit,
+              &_shaderTexturedTransparent,
               &_shaderTexturedLit,
               &_shaderSolidColor,
               &_shaderLines) {
@@ -74,6 +75,7 @@ public:
         }
 
         _shaderTexturedUnlit.Build();
+        _shaderTexturedTransparent.Build();
         _shaderTexturedLit.Build();
         _shaderDepthPass.build();
         _shaderSolidColor.Build();
@@ -360,6 +362,7 @@ private:
     Renderable_Manager _renderableManager;
 
     Shader_Textured_Unlit _shaderTexturedUnlit;
+    Shader_Textured_Transparent _shaderTexturedTransparent;
     Shader_Textured_Lit _shaderTexturedLit;
     Shader_Solid_Color _shaderSolidColor;
     Shader_Lines _shaderLines;

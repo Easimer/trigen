@@ -114,10 +114,14 @@ GL_Multidraw::Execute(
     ZoneScoped;
 
     for (auto &materialGroup : _drawData) {
-        setupShader(materialGroup.first);
+        if (!setupShader(materialGroup.first)) {
+            continue;
+        }
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, _modelMatrixBuffer);
         for (auto &materialInstance : materialGroup.second) {
-            setupMaterial(materialGroup.first, materialInstance.first);
+            if (!setupMaterial(materialGroup.first, materialInstance.first)) {
+                continue;
+            }
             for (auto &indexType : materialInstance.second.instances) {
                 auto N = indexType.second.indirectBuffers.size();
 

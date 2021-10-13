@@ -79,8 +79,8 @@ public:
         Map<GLenum, Instances> instances;
     };
 
-    using Shader_Setup_Callback = std::function<void(topo::Material_Type materialType)>;
-    using Material_Setup_Callback = std::function<void(topo::Material_Type materialType, topo::Material_ID material)>;
+    using Shader_Setup_Callback = std::function<bool(topo::Material_Type materialType)>;
+    using Material_Setup_Callback = std::function<bool(topo::Material_Type materialType, topo::Material_ID material)>;
 
     void
     Execute(
