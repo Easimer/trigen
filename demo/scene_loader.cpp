@@ -73,8 +73,7 @@ bool
 LoadSceneFromFile(
     std::string const &path,
     Scene &scene,
-    topo::IInstance *renderer,
-    Trigen_Session *session,
+    IApplication *app,
     std::vector<Scene::Collider> &colliders,
     Demo &demo) {
     std::ifstream stream(path);
@@ -142,9 +141,11 @@ LoadSceneFromFile(
     }
 
     Trigen_Status rc;
-    if ((rc = Trigen_CreateSession(session, &params)) != Trigen_OK) {
+    Trigen_Session sim;
+    if ((rc = Trigen_CreateSession(&sim, &params)) != Trigen_OK) {
         throw Scene_Loader_Exception(rc);
     }
+    app->SetSimulation(sim);
 
     auto env = J["environment"];
     for (auto x : env) {
@@ -157,7 +158,7 @@ LoadSceneFromFile(
         }
 
         if (kind == "collider") {
-            MakeColliderObject(colliders, x, scene, renderer, *session);
+            MakeColliderObject(colliders, x, scene, app->Renderer(), app->Simulation());
         } else {
             throw Scene_Loader_Exception(
                 "Unknown environment object kind '" + (std::string)kind + "'");
@@ -190,26 +191,25 @@ LoadSceneFromFile(
             "One or more painting parameters are missing!");
     }
 
-    auto loadTexture = [session](
+    auto loadTexture = [app](
                            std::string const &path,
                            Trigen_Texture_Kind kind) {
-        int width, height, ch;
-        auto image = stbi_load(path.c_str(), &width, &height, &ch, 3);
-
-        if (image == nullptr) {
-            throw Scene_Loader_Exception("Couldn't load " + path + "!");
-        }
-
-        Trigen_Texture texture;
-        texture.width = width;
-        texture.height = height;
-        texture.image = image;
-        Trigen_Painting_SetInputTexture(
-            *session, kind, &texture);
-
-        stbi_image_free(image);
+        auto *loader = app->ImageLoader();
+        Image_Load_Request request;
+        request.callback = [app, kind](void *user, Image_Load_Result *result) {
+            Trigen_Texture texture;
+            texture.width = result->width;
+            texture.height = result->height;
+            texture.image = result->image;
+            Trigen_Painting_SetInputTexture(app->Simulation(), kind, &texture);
+            app->OnInputTextureLoaded();
+        };
+        request.channels = 3;
+        request.data = nullptr;
+        request.path = path;
+        
+        loader->BeginAsyncImageLoad(std::move(request));
     };
-
 
     loadTexture(elemDiffuse, Trigen_Texture_BaseColor);
     loadTexture(elemNormal, Trigen_Texture_NormalMap);

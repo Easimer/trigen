@@ -340,7 +340,7 @@ public:
             switch (parameters->name) {
             case Foliage_Generator_Parameter_Name::Scale: {
                 _params.scale = parameters->value.f;
-                assert(_scale > 0.0f);
+                assert(_params.scale > 0.0f);
                 break;
             case Foliage_Generator_Parameter_Name::Seed: {
                 _params.rnd_seed = parameters->value.u;

@@ -18,7 +18,7 @@ struct Visual {
     topo::Renderable_ID renderable = nullptr;
 
     Visual &
-        operator=(Visual&& other) noexcept {
+    operator=(Visual&& other) noexcept {
         clear();
         std::swap(renderer, other.renderer);
         std::swap(texDiffuse, other.texDiffuse);
@@ -55,12 +55,12 @@ class Playback {
 public:
     Playback(
         Demo const &demo,
-        Trigen_Session simulation,
-        topo::IInstance *renderer)
+        IApplication *app)
         : _demo(demo)
         , _currentTime(0)
-        , _simulation(simulation)
-        , _renderer(renderer) { }
+        , _app(app)
+        , _visTree()
+        , _visFoliage() { }
 
     bool
     step(float dt);
@@ -68,9 +68,17 @@ public:
     void
     render(topo::IRender_Queue *rq);
 
-    protected:
+protected:
+    void
+    beginRegenerateRenderable();
     void
     regenerateRenderable();
+    void
+    regenerateRenderableAfter();
+    void
+    oneshotGrow();
+    void
+    oneshotGrowAfter();
 
     bool
     doOneshot(float dt);
@@ -78,12 +86,27 @@ public:
     bool
     doTimelapse(float dt);
 
+    static void
+    regenerateRenderable(uv_work_t *work);
+    static void
+    regenerateRenderableAfter(uv_work_t *work, int status);
+
+    static void
+    oneshotGrow(uv_work_t *work);
+    static void
+    oneshotGrowAfter(uv_work_t *work, int status);
+
 private:
     Demo _demo;
     float _currentTime;
 
-    Trigen_Session _simulation;
-    topo::IInstance *_renderer;
+    IApplication *_app;
+
+    Trigen_Mesh _mesh, _meshFoliage;
+    uv_work_t _workMeshRegen;
+
+    uv_work_t _workGrow;
+    bool _generatingVisuals = false;
 
     Visual _visTree;
     Visual _visFoliage;

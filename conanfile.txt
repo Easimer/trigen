@@ -4,6 +4,7 @@ boost/1.76.0
 stduuid/1.0
 hedley/15
 nlohmann_json/3.9.1
+libuv/1.41.1
 
 [generators]
 cmake

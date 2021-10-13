@@ -8,6 +8,7 @@
 #include <string>
 
 #include "scene.h"
+#include "iapplication.h"
 
 struct Demo {
     enum {
@@ -34,8 +35,7 @@ bool
 LoadSceneFromFile(
     std::string const &path,
     Scene &scene,
-    topo::IInstance *renderer,
-    Trigen_Session *session,
+    IApplication *app,
     std::vector<Scene::Collider> &colliders,
     Demo &demo);
 

@@ -24,8 +24,12 @@ Playback::step(float dt) {
 void
 Playback::render(topo::IRender_Queue *rq) {
     topo::Transform transform;
-    rq->Submit(_visTree.renderable, transform);
-    rq->Submit(_visFoliage.renderable, transform);
+    if (_visTree.renderable) {
+        rq->Submit(_visTree.renderable, transform);
+    }
+    if (_visFoliage.renderable) {
+        rq->Submit(_visFoliage.renderable, transform);
+    }
 }
 
 static topo::Model_ID
@@ -48,58 +52,88 @@ UploadTrigenMeshToTopo(topo::IInstance* renderer, Trigen_Mesh const& mesh) {
 }
 
 void
+Playback::beginRegenerateRenderable() {
+    _workMeshRegen.data = this;
+    uv_queue_work(
+        _app->Loop(), &_workMeshRegen, &Playback::regenerateRenderable,
+        &Playback::regenerateRenderableAfter);
+}
+
+void
 Playback::regenerateRenderable() {
-    _visTree.clear();
-    _visFoliage.clear();
-    Trigen_Mesh_SetSubdivisions(_simulation, 64);
-    Trigen_Metaballs_SetScale(_simulation, 0.1);
-    Trigen_Metaballs_Regenerate(_simulation);
-    Trigen_Mesh_Regenerate(_simulation);
-    Trigen_Foliage_Regenerate(_simulation);
+    auto *sim = _app->Simulation();
+    Trigen_Mesh_SetSubdivisions(sim, 64);
+    Trigen_Metaballs_SetScale(sim, 0.1);
+    Trigen_Metaballs_Regenerate(sim);
+    Trigen_Mesh_Regenerate(sim);
+    Trigen_Foliage_Regenerate(sim);
 
-    Trigen_Mesh mesh, meshFoliage;
-    Trigen_Mesh_GetMesh(_simulation, &mesh);
-    Trigen_Foliage_GetMesh(_simulation, &meshFoliage);
+    Trigen_Painting_SetOutputResolution(sim, 512, 512);
+    Trigen_Painting_Regenerate(sim);
 
-    _renderer->BeginModelManagement();
-    auto model = UploadTrigenMeshToTopo(_renderer, mesh);
-    auto modelFoliage = UploadTrigenMeshToTopo(_renderer, meshFoliage);
-    _renderer->FinishModelManagement();
-    Trigen_Mesh_FreeMesh(&mesh);
+    Trigen_Mesh_GetMesh(sim, &_mesh);
+    Trigen_Foliage_GetMesh(sim, &_meshFoliage);
+}
 
-    Trigen_Painting_SetOutputResolution(_simulation, 512, 512);
-    Trigen_Painting_Regenerate(_simulation);
+void
+Playback::regenerateRenderableAfter() {
+    auto *renderer = _app->Renderer();
+    auto *sim = _app->Simulation();
 
-    Trigen_Texture texture;
-    topo::Texture_ID texDiffuse;
-    topo::Texture_ID texNormal;
-    topo::Texture_ID texLeaves;
+    renderer->BeginModelManagement();
+    auto model = UploadTrigenMeshToTopo(renderer, _mesh);
+    auto modelFoliage = UploadTrigenMeshToTopo(renderer, _meshFoliage);
+    renderer->FinishModelManagement();
+    Trigen_Mesh_FreeMesh(&_mesh);
+    Trigen_Foliage_FreeMesh(&_meshFoliage);
+    _mesh = {};
+    _meshFoliage = {};
 
-    Trigen_Painting_GetOutputTexture(
-        _simulation, Trigen_Texture_BaseColor, &texture);
-    _renderer->CreateTexture(
-        &texDiffuse, texture.width, texture.height,
-        topo::Texture_Format::SRGB888, texture.image);
-    Trigen_Painting_GetOutputTexture(
-        _simulation, Trigen_Texture_NormalMap, &texture);
-    _renderer->CreateTexture(
-        &texNormal, texture.width, texture.height,
-        topo::Texture_Format::RGB888, texture.image);
+    Trigen_Texture textureDiffuse, textureNormal;
+
+    Trigen_Painting_GetOutputTexture(sim, Trigen_Texture_BaseColor, &textureDiffuse);
+    Trigen_Painting_GetOutputTexture(sim, Trigen_Texture_NormalMap, &textureNormal);
 
     unsigned char imageGreen[4] = {0, 255, 0, 255};
-    _renderer->CreateTexture(
-        &texLeaves, 1, 1, topo::Texture_Format::RGBA8888, imageGreen);
 
+    topo::Texture_ID texDiffuse, texNormal, texLeaves;
     topo::Material_ID matTree, matFoliage;
-    _renderer->CreateLitMaterial(&matTree, texDiffuse, texNormal);
-    _renderer->CreateUnlitTransparentMaterial(&matFoliage, texLeaves);
     topo::Renderable_ID renderableTree, renderableFoliage;
-    _renderer->CreateRenderable(&renderableTree, model, matTree);
-    _renderer->CreateRenderable(&renderableFoliage, modelFoliage, matFoliage);
+    renderer->CreateTexture(
+        &texDiffuse, textureDiffuse.width, textureDiffuse.height,
+        topo::Texture_Format::SRGB888, textureDiffuse.image);
+    renderer->CreateTexture(
+        &texNormal, textureNormal.width, textureNormal.height,
+        topo::Texture_Format::RGB888, textureNormal.image);
+    renderer->CreateTexture(
+        &texLeaves, 1, 1, topo::Texture_Format::RGBA8888, imageGreen);
+    renderer->CreateLitMaterial(&matTree, texDiffuse, texNormal);
+    renderer->CreateUnlitTransparentMaterial(&matFoliage, texLeaves);
+    renderer->CreateRenderable(&renderableTree, model, matTree);
+    renderer->CreateRenderable(&renderableFoliage, modelFoliage, matFoliage);
+
+    _visTree.clear();
+    _visFoliage.clear();
+
     _visTree
-        = { _renderer, texDiffuse, texNormal, matTree, model, renderableTree };
-    _visFoliage = { _renderer,  texLeaves,    nullptr,
+        = { renderer, texDiffuse, texNormal, matTree, model, renderableTree };
+    _visFoliage = { renderer,  texLeaves,    nullptr,
                     matFoliage, modelFoliage, renderableFoliage };
+
+    _generatingVisuals = false;
+    _app->OnTreeVisualsReady();
+}
+
+void
+Playback::oneshotGrow() {
+    auto *sim = _app->Simulation();
+    Trigen_Grow(sim, _demo.oneshot.at);
+}
+
+void
+Playback::oneshotGrowAfter() {
+    printf("[Playback] Finished Trigen_Grow\n");
+    beginRegenerateRenderable();
 }
 
 bool
@@ -107,9 +141,13 @@ Playback::doOneshot(float dt) {
     if (_currentTime >= _demo.oneshot.hold) {
         return true;
     }
-    if (!_visTree) {
-        Trigen_Grow(_simulation, _demo.oneshot.at);
-        regenerateRenderable();
+    if (!_visTree && !_generatingVisuals) {
+        printf("[Playback] Queueing Trigen_Grow\n");
+        _workGrow.data = this;
+        _generatingVisuals = true;
+        uv_queue_work(
+            _app->Loop(), &_workGrow, &Playback::oneshotGrow,
+            &Playback::oneshotGrowAfter);
     }
     return false;
 }
@@ -118,3 +156,26 @@ bool
 Playback::doTimelapse(float dt) {
     return false;
 }
+
+void
+Playback::regenerateRenderable(uv_work_t *work) {
+    auto playback = (Playback *)work->data;
+    playback->regenerateRenderable();
+}
+
+void
+Playback::regenerateRenderableAfter(uv_work_t *work, int status) {
+    auto playback = (Playback *)work->data;
+    playback->regenerateRenderableAfter();
+}
+
+void
+Playback::oneshotGrow(uv_work_t *work) {
+    ((Playback *)work->data)->oneshotGrow();
+}
+
+void
+Playback::oneshotGrowAfter(uv_work_t *work, int status) {
+    ((Playback *)work->data)->oneshotGrowAfter();
+}
+
