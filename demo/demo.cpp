@@ -129,6 +129,10 @@ public:
         _scene.Render(rq);
         if (_playback && _renderPlayback) {
             _playback->render(rq);
+        } else {
+            if (_renderableSimulationWireframe) {
+                rq->Submit(_renderableSimulationWireframe, {});
+            }
         }
 
         _ang += 1 / 60.0f;
@@ -191,6 +195,33 @@ public:
     }
 
     void
+    OnSimulationStepOver() override {
+        if (_renderableSimulationWireframe != nullptr) {
+            _renderer->DestroyRenderable(_renderableSimulationWireframe);
+            _renderableSimulationWireframe = nullptr;
+        }
+
+        if (_simulation == nullptr) {
+            return;
+        }
+
+        std::vector<glm::vec3> endpoints;
+        tg_usize count = 0;
+        if (Trigen_GetBranches(_simulation, &count, nullptr) != Trigen_OK) {
+            return;
+        }
+        endpoints.resize(count * 2);
+        if (Trigen_GetBranches(_simulation, &count, (tg_f32 *)endpoints.data())
+            != Trigen_OK) {
+            return;
+        }
+        if (!_renderer->CreateRenderableLinesStreaming(
+            &_renderableSimulationWireframe, endpoints.data(), count,
+            { 0.7, 0, 0 }, { 1.0, 0, 0 })) {
+        }
+    }
+
+    void
     OnTreeVisualsReady() override {
         _renderPlayback = true;
     }
@@ -246,6 +277,8 @@ private:
     uint64_t _timeThen;
 
     Async_Image_Loader _imageLoader;
+
+    topo::Renderable_ID _renderableSimulationWireframe = nullptr;
 };
 
 int

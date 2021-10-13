@@ -41,4 +41,8 @@ public:
     virtual void
     OnTreeVisualsReady()
         = 0;
+
+    virtual void
+    OnSimulationStepOver()
+        = 0;
 };

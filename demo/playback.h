@@ -81,7 +81,7 @@ protected:
     void
     regenerateRenderableAfter();
     void
-    oneshotGrow();
+    oneshotGrow(float dt);
     void
     oneshotGrowAfter();
 
@@ -110,8 +110,9 @@ private:
     Trigen_Mesh _mesh, _meshFoliage;
     uv_work_t _workMeshRegen;
 
-    uv_work_t _workGrow;
     bool _generatingVisuals = false;
+    bool _growing = false;
+    bool _simulationLocked = false;
 
     topo::Texture_ID _texLeaf = nullptr;
 

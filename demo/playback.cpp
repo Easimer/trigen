@@ -7,6 +7,11 @@
 #include <algorithm>
 #include <iterator>
 
+struct Grow_Work_Info {
+    Playback *playback;
+    float dt;
+};
+
 bool
 Playback::step(float dt) {
     _currentTime += dt;
@@ -135,30 +140,56 @@ Playback::regenerateRenderableAfter() {
 }
 
 void
-Playback::oneshotGrow() {
+Playback::oneshotGrow(float dt) {
     auto *sim = _app->Simulation();
-    Trigen_Grow(sim, _demo.oneshot.at);
+    Trigen_Grow(sim, dt);
 }
 
 void
 Playback::oneshotGrowAfter() {
-    printf("[Playback] Finished Trigen_Grow\n");
-    beginRegenerateRenderable();
+    _simulationLocked = false;
+    _app->OnSimulationStepOver();
 }
 
 bool
 Playback::doOneshot(float dt) {
-    if (_currentTime >= _demo.oneshot.hold) {
-        return true;
+    if (!_visTree && !_generatingVisuals && !_growing) {
+        printf("[Playback] Begin growing\n");
+        _growing = true;
+        _currentTime = 0;
     }
-    if (!_visTree && !_generatingVisuals) {
-        printf("[Playback] Queueing Trigen_Grow\n");
-        _workGrow.data = this;
-        _generatingVisuals = true;
-        uv_queue_work(
-            _app->Loop(), &_workGrow, &Playback::oneshotGrow,
-            &Playback::oneshotGrowAfter);
+
+    if (_growing) {
+        if (_currentTime < _demo.oneshot.at) {
+            if (!_simulationLocked) {
+                auto *workGrow = new uv_work_t;
+                workGrow->data = new Grow_Work_Info({ this, dt });
+                _simulationLocked = true;
+                uv_queue_work(
+                    _app->Loop(), workGrow, &Playback::oneshotGrow,
+                    &Playback::oneshotGrowAfter);
+            } else {
+                _currentTime -= dt;
+            }
+        } else {
+            printf("[Playback] Begin regenerate renderable\n");
+            _growing = false;
+            _generatingVisuals = true;
+            beginRegenerateRenderable();
+        }
     }
+
+    if (!_visTree && _generatingVisuals) {
+        _currentTime = 0;
+    }
+
+    if (_visTree) {
+        _generatingVisuals = false;
+        if (_currentTime >= _demo.oneshot.hold) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -181,11 +212,15 @@ Playback::regenerateRenderableAfter(uv_work_t *work, int status) {
 
 void
 Playback::oneshotGrow(uv_work_t *work) {
-    ((Playback *)work->data)->oneshotGrow();
+    auto *info = (Grow_Work_Info *)work->data;
+    info->playback->oneshotGrow(info->dt);
 }
 
 void
 Playback::oneshotGrowAfter(uv_work_t *work, int status) {
-    ((Playback *)work->data)->oneshotGrowAfter();
+    auto *info = (Grow_Work_Info *)work->data;
+    info->playback->oneshotGrowAfter();
+    delete info;
+    delete work;
 }
 
