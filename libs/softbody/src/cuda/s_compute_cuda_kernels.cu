@@ -16,7 +16,8 @@
 #include "cuda_linalg.cuh"
 #include "cuda_helper_math.h"
 
-#include "s_compute_cuda.h"
+#include "../s_compute_cuda.h"
+#include "reduce.cuh"
 
 #define EXPLODE_F32x4(v) v.x, v.y, v.z, v.w
 
@@ -318,39 +319,35 @@ __global__ void k_apply_rotations(
     d_goal_positions[id] = goal;
 }
 
-__global__ void k_predict(
-        int N, float dt, int offset,
-        float4* d_predicted_positions,
-        float4* d_predicted_orientations,
-        float4 const* d_positions,
-        float4 const* d_orientations,
-        float4 const* d_velocities,
-        float4 const* d_angular_velocities,
-        float const* d_masses
-        ) {
+__global__ void
+k_predict(
+    int N,
+    float dt,
+    int offset,
+    float4 *d_predicted_positions,
+    float4 *d_predicted_orientations,
+    float4 const *d_positions,
+    float4 const *d_orientations,
+    float4 const *d_velocities,
+    float4 const *d_angular_velocities,
+    float4 const *d_internal_forces,
+    float const *d_masses) {
+
     int const id = threadIdx.x + blockDim.x * blockIdx.x + offset;
     if(id >= N) {
         return;
     }
 
-    // Velocity damping
-    float3 v0_predamp = xyz(d_velocities[id]);
-    float3 ang_v0_predamp = xyz(d_angular_velocities[id]);
-    float d = 1 / powf(2, dt);
-    float3 v0 = d * v0_predamp;
-    float3 ang_v0 = d * ang_v0_predamp;
-
-    float3 pos0 = xyz(d_positions[id]);
-
-    float3 ext_forces = make_float3(0, -10, 0);
     float w = 1 / d_masses[id];
-
-    float3 v = v0 + dt * w * ext_forces;
-    float3 pos = pos0 + dt * v;
-    float ang_v_len = length(ang_v0);
+    float4 ext_forces = make_float4(0, -10, 0, 0);
+    float4 forces = ext_forces + d_internal_forces[id];
+    float4 v = d_velocities[id] + dt * w * forces;
+    float4 pos = d_positions[id] + dt * v;
 
     float4 orient0 = d_orientations[id];
 
+    float4 ang_v0 = d_angular_velocities[id];
+    float ang_v_len = length(ang_v0);
     float4 q;
     if(ang_v_len < 0.01f) {
         // Angular velocity is too small; for stability reasons we keep
@@ -360,7 +357,7 @@ __global__ void k_predict(
         // Convert angular velocity to quaternion
         float s = ang_v_len * dt / 2;
         float angle = cos(s);
-        float3 axis = ang_v0 / ang_v_len * sin(s);
+        float3 axis = xyz(ang_v0 / ang_v_len * sin(s));
         q = angle_axis(angle, axis);
     }
 
@@ -368,7 +365,15 @@ __global__ void k_predict(
     d_predicted_orientations[id] = q;
 }
 
-#include "s_compute_cuda.h"
+__global__ void
+k_dampen(int N, float dt, int offset,
+    float4 global_center_of_mass,
+    float* internal_forces,
+    float const* predicted_positions,
+    float const* positions) {
+}
+
+#include "../s_compute_cuda.h"
 
 void Compute_CUDA::calculate_masses(
         int N,
@@ -496,15 +501,20 @@ void Compute_CUDA::extract_rotations(
     scheduler.printf<Stream::Compute>("[ExtRot] done\n");
 }
 
-void Compute_CUDA::predict(
-        int N, float dt, int offset, int batch_size,
-        CUDA_Array<float4>& predicted_positions,
-        CUDA_Array<float4>& predicted_orientations,
-        CUDA_Array<float4> const& positions,
-        CUDA_Array<float4> const& orientations,
-        CUDA_Array<float4> const& velocities,
-        CUDA_Array<float4> const& angular_velocities,
-        Mass_Buffer const& masses) {
+void
+Compute_CUDA::predict(
+    int N,
+    float dt,
+    int offset,
+    int batch_size,
+    Predicted_Position_Buffer &predicted_positions,
+    Predicted_Rotation_Buffer &predicted_orientations,
+    Position_Buffer const &positions,
+    Rotation_Buffer const &orientations,
+    Velocity_Buffer const &velocities,
+    Angular_Velocity_Buffer const &angular_velocities,
+    Internal_Force_Buffer const &internal_forces,
+    Mass_Buffer const &masses) { 
     scheduler.printf<Stream::Predict>("[Predict] begins\n");
     scheduler.on_stream<Stream::Predict>([&](cudaStream_t stream) {
         auto const block_size = 256;
@@ -514,8 +524,37 @@ void Compute_CUDA::predict(
             predicted_positions, predicted_orientations,
             positions, orientations,
             velocities, angular_velocities,
+            internal_forces,
             masses
         );
     });
     scheduler.printf<Stream::Predict>("[Predict] done\n");
+}
+
+void
+Compute_CUDA::dampen(
+    int N,
+    float dt,
+    int offset,
+    int batch_size,
+    float4 global_center_of_mass,
+    Predicted_Position_Buffer &predicted_positions,
+    Position_Buffer &positions,
+    Internal_Force_Buffer &internal_forces) {
+}
+
+void
+Compute_CUDA::compute_global_com(
+    int N,
+    glm::vec4 &com,
+    Position_Buffer const &positions,
+    Mass_Buffer const &masses) {
+    scheduler.printf<Stream::Predict>("[GlobalCoM] begin\n");
+    scheduler.on_stream<Stream::Predict>([&](cudaStream_t stream) {
+        auto pos_tmp = positions.duplicate(stream);
+        auto mass_tmp = masses.duplicate(stream);
+        reduce_weighted(&com, N, pos_tmp, mass_tmp, stream, cudaMemcpyDeviceToHost);
+    });
+    scheduler.printf<Stream::Predict>("[GlobalCoM] done\n");
+
 }

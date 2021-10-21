@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <vector>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
@@ -172,7 +173,7 @@ struct CUDA_Array_Base {
 
     CUDA_Array_Base<T> duplicate(cudaStream_t stream) const {
         CUDA_Array_Base<T> ret(N);
-        ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(ret.d_buf, d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice));
+        ASSERT_CUDA_SUCCEEDED(cudaMemcpyAsync(ret.d_buf, d_buf, N * sizeof(T), cudaMemcpyDeviceToDevice, stream));
         return ret;
     }
 
@@ -205,6 +206,10 @@ struct CUDA_Array : public CUDA_Array_Base<T> {
 
     CUDA_Array<T>& untag() { return reinterpret_cast<CUDA_Array<T>&>(*this); }
     CUDA_Array<T> const& untag() const { return reinterpret_cast<CUDA_Array<T> const&>(*this); }
+
+    T *operator->() {
+        return d_buf;
+    }
 };
 
 class CUDA_Event_Recycler {
@@ -215,9 +220,9 @@ public:
         if(cursor < event_handles.size()) {
             *out = event_handles[cursor];
         } else {
-            event_handles.push_back(0);
-            auto& ev = event_handles.back();
+            cudaEvent_t ev;
             ASSERT_CUDA_SUCCEEDED(cudaEventCreateWithFlags(&ev, cudaEventDefault));
+            event_handles.push_back(ev);
             *out = ev;
         }
         ret = cursor;
@@ -227,6 +232,11 @@ public:
 
     void flip() {
         cursor = 0;
+    }
+
+    CUDA_Event_Recycler()
+        : event_handles(0) {
+        event_handles.reserve(16);
     }
 
     ~CUDA_Event_Recycler() {

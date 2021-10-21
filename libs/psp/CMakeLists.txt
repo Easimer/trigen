@@ -17,6 +17,7 @@ target_link_libraries(psp PUBLIC CONAN_PKG::glm PRIVATE intersect CONAN_PKG::boo
 target_precompile_headers(psp PRIVATE src/stdafx.h)
 target_include_directories(psp PUBLIC include/)
 set_target_properties(psp PROPERTIES FOLDER "Libs")
+tri_builddir(psp)
 
 if(${PSP_ENABLE_TRACY})
     target_compile_definitions(psp PRIVATE TRACY_ENABLE=1)

@@ -8,14 +8,12 @@
 #include <array>
 #include <rt_intersect.h>
 #include "s_compute_backend.h"
-#include "s_compute_cuda_codegen.h"
-#include "cuda_utils.cuh"
+#include "cuda/s_compute_cuda_codegen.h"
+#include "cuda/cuda_utils.cuh"
 #include <rt_intersect.h>
-
-struct Particle_Correction_Info {
-    float4 pos_bind; // bind position wrt center of mass
-    float inv_num_clusters; // 1 / number of clusters
-};
+#include "cuda/CUDA_Scheduler.h"
+#include "cuda/BufferTypes.h"
+#include "cuda/Dampening_Scheduler.h"
 
 using Raytracer = rt_intersect::Unique_Ptr<rt_intersect::IInstance>;
 
@@ -55,124 +53,20 @@ enum class Stream : size_t {
 
     Predict,
     PredictCopyToDev,
+    GlobalCenterOfMass,
 
     Max
 };
 
-static void cuda_cb_printf(void* user) {
-    if(user != NULL) {
-        auto msg = (char*)user;
-        printf("%s", msg);
-        delete[] msg;
-    }
-}
-
-template<typename Index_Type, Index_Type N>
-class CUDA_Scheduler {
-public:
-    CUDA_Scheduler(std::array<cudaStream_t, (size_t)N>&& streams) : _streams(streams) {}
-
-    ~CUDA_Scheduler() {
-        for(auto stream : _streams) {
-            cudaStreamDestroy(stream);
-        }
-    }
-
-
-    template<Index_Type StreamID>
-    cudaError_t on_stream(std::function<cudaError_t(cudaStream_t)> const& fun) {
-        static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
-
-        auto stream = _streams[(size_t)StreamID];
-
-        return fun(stream);
-    }
-
-    template<Index_Type StreamID>
-    cudaError_t on_stream(std::function<void(cudaStream_t)> const& fun) {
-        static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
-
-        auto stream = _streams[(size_t)StreamID];
-
-        fun(stream);
-
-        return cudaGetLastError();
-    }
-
-    template<Index_Type GeneratorStream, Index_Type BlockedStream>
-    void insert_dependency(CUDA_Event_Recycler& evr) {
-        static_assert((size_t)GeneratorStream < (size_t)N, "Generator stream index is invalid!");
-        static_assert((size_t)BlockedStream < (size_t)N, "Blocked stream index is invalid!");
-
-        cudaEvent_t ev;
-        evr.get(&ev);
-        cudaEventRecord(ev, _streams[(size_t)GeneratorStream]);
-        cudaStreamWaitEvent(_streams[(size_t)BlockedStream], ev, 0);
-    }
-
-    template<Index_Type StreamID>
-    void synchronize() {
-        static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
-        cudaStreamSynchronize(_streams[(size_t)StreamID]);
-    }
-
-    template<Index_Type StreamID>
-    void stall_pipeline(CUDA_Event_Recycler& evr) {
-        static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
-
-        cudaEvent_t ev;
-        evr.get(&ev);
-        cudaEventRecord(ev, _streams[(size_t)StreamID]);
-        for(size_t i = 0; i < (size_t)N; i++) {
-            if(i != (size_t)StreamID) {
-                cudaStreamWaitEvent(_streams[i], ev, 0);
-            }
-        }
-    }
-
-    template<Index_Type StreamID>
-    void printf(char const* fmt, ...) {
-        static_assert((size_t)StreamID < (size_t)N, "Stream index is invalid!");
-#if ENABLE_SCHEDULER_PRINTFS
-        va_list ap;
-        va_start(ap, fmt);
-        auto siz = vsnprintf(NULL, 0, fmt, ap);
-        va_end(ap);
-        va_start(ap, fmt);
-        auto buf = new char[siz + 1];
-        vsnprintf(buf, siz + 1, fmt, ap);
-        buf[siz] = 0;
-        va_end(ap);
-
-        cudaLaunchHostFunc(_streams[(size_t)StreamID], cuda_cb_printf, buf);
-#endif /* ENABLE_SCHEDULER_PRINTFS */
-    }
-
-private:
-    std::array<cudaStream_t, (size_t)N> _streams;
-};
-
-using Adjacency_Table_Buffer = CUDA_Array<unsigned, struct Adjacency_Table_Buffer_Tag>;
-using Cluster_Matrix_Buffer = CUDA_Array<float4, struct Cluster_Matrix_Buffer_Tag>;
-using Position_Buffer = CUDA_Array<float4, struct Position_Buffer_Tag>;
-using Center_Of_Mass_Buffer = CUDA_Array<float4, struct Center_Of_Mass_Buffer_Tag>;
-using Predicted_Position_Buffer = CUDA_Array<float4, struct Predicted_Position_Buffer_Tag>;
-using Predicted_Rotation_Buffer = CUDA_Array<float4, struct Predicted_Rotation_Buffer_Tag>;
-using Bind_Pose_Position_Buffer = CUDA_Array<float4, struct Bind_Pose_Position_Buffer_Tag>;
-using Bind_Pose_Inverse_Bind_Pose_Buffer = CUDA_Array<float4, struct Bind_Pose_Inverse_Bind_Pose_Buffer_Tag>;
-using Bind_Pose_Center_Of_Mass_Buffer = CUDA_Array<float4, struct Bind_Pose_Center_Of_Mass_Buffer_Tag>;
-using Mass_Buffer = CUDA_Array<float, struct Mass_Buffer_Tag>;
-using Size_Buffer = CUDA_Array<float4, struct Size_Buffer_Tag>;
-using Density_Buffer = CUDA_Array<float, struct Density_Buffer_Tag>;
-using Particle_Correction_Info_Buffer = CUDA_Array<Particle_Correction_Info, struct Particle_Correction_Info_Buffer_Tag>;
-
-using New_Position_Buffer = CUDA_Array<float4, struct New_Position_Buffer_Tag>;
-using New_Rotation_Buffer = CUDA_Array<float4, struct New_Rotation_Buffer_Tag>;
-using New_Goal_Position_Buffer = CUDA_Array<float4, struct New_Goal_Position_Buffer_Tag>;
-
 class Compute_CUDA : public ICompute_Backend {
 public:
-    Compute_CUDA(ILogger* logger, Raytracer &&rt, std::array<cudaStream_t, (size_t)Stream::Max>&& streams);
+    Compute_CUDA(
+        ILogger *logger,
+        Raytracer &&rt,
+        std::array<cudaStream_t, (size_t)Stream::Max> &&streams,
+        std::array<cudaStream_t, (size_t)Dampening::Stream::Max> &&streams2
+        );
+
 private:
     using Scheduler = CUDA_Scheduler<Stream, Stream::Max>;
 
@@ -280,13 +174,28 @@ private:
 
     void predict(
             int N, float dt, int offset, int batch_size,
-            CUDA_Array<float4>& predicted_positions,
-            CUDA_Array<float4>& predicted_orientations,
-            CUDA_Array<float4> const& positions,
-            CUDA_Array<float4> const& orientations,
-            CUDA_Array<float4> const& velocities,
-            CUDA_Array<float4> const& angular_velocities,
+            Predicted_Position_Buffer& predicted_positions,
+            Predicted_Rotation_Buffer& predicted_orientations,
+            Position_Buffer const& positions,
+            Rotation_Buffer const& orientations,
+            Velocity_Buffer const& velocities,
+            Angular_Velocity_Buffer const& angular_velocities,
+			Internal_Force_Buffer const &internal_forces,
             Mass_Buffer const& masses);
+
+    void
+    compute_global_com(
+        int N,
+        glm::vec4 &com,
+        Position_Buffer const &positions,
+        Mass_Buffer const &masses);
+
+    void
+    dampen(int N, float dt, int offset, int batch_size,
+        float4 global_center_of_mass,
+        Predicted_Position_Buffer& predicted_positions,
+        Position_Buffer& positions,
+        Internal_Force_Buffer& internal_forces);
 
     void do_one_iteration_of_shape_matching_constraint_resolution(System_State& s, float dt) override;
 
@@ -326,6 +235,7 @@ private:
     };
 
     Scheduler scheduler;
+    Dampening::Scheduler dampening_scheduler;
 
     std::vector<Collision_Constraints> coll_constraints;
     sb::Unique_Ptr<ICompute_Backend> compute_ref;

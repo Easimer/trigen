@@ -16,28 +16,37 @@
 #define SB_BENCHMARK 1
 #define SB_BENCHMARK_UNITS microseconds
 #define SB_BENCHMARK_UNITS_STR "us"
+#define ENABLE_SCHEDULER_PRINTFS (0)
 #include "s_benchmark.h"
 #include "s_compute_backend.h"
-#include "s_compute_cuda_codegen.h"
+#include "cuda/s_compute_cuda_codegen.h"
 #include "s_compute_cuda.h"
+#include "cuda/BufferTypes.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "collider_handles.h"
 
 #include <Tracy.hpp>
 #include <TracyC.h>
 
-#include "cuda_memtrack.h"
+#include "cuda/cuda_memtrack.h"
 
 // #define OUTPUT_SANITY_CHECK (1)
-// #define ENABLE_SCHEDULER_PRINTFS (1)
 
 #define LOG(t, l, fmt, ...) _log->log(sb::Debug_Message_Source::Compute_Backend, sb::Debug_Message_Type::t, sb::Debug_Message_Severity::l, fmt, __VA_ARGS__)
 
-Compute_CUDA::Compute_CUDA(ILogger* logger, Raytracer &&rt, std::array<cudaStream_t, (size_t)Stream::Max>&& streams) :
-    scheduler(Scheduler(std::move(streams))),
-    current_particle_count(0),
-    _log(logger),
-    _rt(std::move(rt)) {
+static CUcontext
+getSBCtx();
+
+Compute_CUDA::Compute_CUDA(
+    ILogger *logger,
+    Raytracer &&rt,
+    std::array<cudaStream_t, (size_t)Stream::Max> &&streams,
+    std::array<cudaStream_t, (size_t)Dampening::Stream::Max> &&streams2)
+    : scheduler(Scheduler(std::move(streams)))
+    , dampening_scheduler(std::move(streams2))
+    , current_particle_count(0)
+    , _log(logger)
+    , _rt(std::move(rt)) {
     LOG(Informational, Low, "cuda-backend-created", 0);
 
     compute_ref = Make_Reference_Backend(logger);
@@ -54,6 +63,8 @@ void Compute_CUDA::begin_new_frame(System_State const& s) {
     auto N = particle_count(s);
     assert(N > 0);
     current_particle_count = N;
+
+    cuCtxPushCurrent(getSBCtx());
 
     mp_predicted_orientation = CUDA_Memory_Pin(s.predicted_orientation);
     mp_bind_pose_inverse_bind_pose = CUDA_Memory_Pin(s.bind_pose_inverse_bind_pose);
@@ -93,6 +104,8 @@ void Compute_CUDA::end_frame(System_State const& sim) {
     mp_orientation = CUDA_Memory_Pin();
     mp_velocity = CUDA_Memory_Pin();
     mp_angular_velocity = CUDA_Memory_Pin();
+
+    cuCtxPopCurrent(nullptr);
 }
 
 void Compute_CUDA::predict(System_State& s, float dt) {
@@ -102,24 +115,35 @@ void Compute_CUDA::predict(System_State& s, float dt) {
 
     TracyCZoneN(ctx_make_buf, "Making buffers", 1);
     auto const N = particle_count(s);
-    CUDA_Array<float4> predicted_positions(N);
-    CUDA_Array<float4> predicted_orientations(N);
-    CUDA_Array<float4> positions(N);
-    CUDA_Array<float4> orientations(N);
-    CUDA_Array<float4> velocities(N);
-    CUDA_Array<float4> angular_velocities(N);
+     Predicted_Position_Buffer predicted_positions(N);
+     Predicted_Rotation_Buffer predicted_orientations(N);
+     Position_Buffer positions(N);
+    Rotation_Buffer orientations(N);
+     Velocity_Buffer velocities(N);
+     Angular_Velocity_Buffer angular_velocities(N);
+    Internal_Force_Buffer internal_forces(N);
     TracyCZoneEnd(ctx_make_buf);
 
     int const batch_size = 2048;
+
+	scheduler.insert_dependency<Stream::Compute, Stream::Predict>(ev_recycler);
 
     auto process_batch = [&](int offset, int batch_size) {
         // Upload input subdata
         TracyCZoneN(ctx_htod, "Scheduling HtoD memcpys", 1);
         scheduler.on_stream<Stream::PredictCopyToDev>([&](cudaStream_t stream) {
-            ASSERT_CUDA_SUCCEEDED(positions.write_sub((float4*)s.position.data(), offset, batch_size, stream));
-            ASSERT_CUDA_SUCCEEDED(orientations.write_sub((float4*)s.orientation.data(), offset, batch_size, stream));
-            ASSERT_CUDA_SUCCEEDED(velocities.write_sub((float4*)s.velocity.data(), offset, batch_size, stream));
-            ASSERT_CUDA_SUCCEEDED(angular_velocities.write_sub((float4*)s.angular_velocity.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(positions.write_sub(
+                (float4 *)s.position.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(orientations.write_sub(
+                (float4 *)s.orientation.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(velocities.write_sub(
+                (float4 *)s.velocity.data(), offset, batch_size, stream));
+            ASSERT_CUDA_SUCCEEDED(angular_velocities.write_sub(
+                (float4 *)s.angular_velocity.data(), offset, batch_size,
+                stream));
+            ASSERT_CUDA_SUCCEEDED(internal_forces.write_sub(
+                (float4 *)s.internal_forces.data(), offset, batch_size,
+                stream));
         });
         TracyCZoneEnd(ctx_htod);
 
@@ -130,6 +154,7 @@ void Compute_CUDA::predict(System_State& s, float dt) {
                 predicted_positions, predicted_orientations,
                 positions, orientations,
                 velocities, angular_velocities,
+				internal_forces,
                 masses);
         TracyCZoneEnd(ctx_kernel);
 
@@ -156,7 +181,10 @@ void Compute_CUDA::predict(System_State& s, float dt) {
         process_batch(offset, remains);
     }
 
+    compute_global_com(N, s.global_center_of_mass, positions, masses);
+
     TracyCZoneN(ctx_sync, "Synchronizing", 1);
+    scheduler.synchronize<Stream::Predict>();
     scheduler.synchronize<Stream::CopyToHost>();
     TracyCZoneEnd(ctx_sync);
 
@@ -683,6 +711,11 @@ static int g_cudaInit = 0;
 static CUdevice g_cudaDevice;
 static CUcontext g_cudaContext;
 
+static CUcontext
+getSBCtx() {
+    return g_cudaContext;
+}
+
 static bool init_cuda(ILogger* logger) {
     assert(g_cudaInit >= 0);
 
@@ -753,30 +786,32 @@ sb::Unique_Ptr<ICompute_Backend> Make_CUDA_Backend(ILogger* logger) {
     cudaError_t hr;
 
     if(init_cuda(logger)) {
-        constexpr auto stream_n = (size_t)Stream::Max;
-        std::array<cudaStream_t, stream_n> streams;
-        int i;
-        for(i = 0; i < stream_n; i++) {
+        std::array<cudaStream_t, (size_t)Stream::Max> streams;
+        std::array<cudaStream_t, (size_t)Dampening::Stream::Max> streams2;
+        size_t n = 0;
+        for(size_t i = 0; i < (size_t)Stream::Max; i++) {
             if(!CUDA_SUCCEEDED(hr, cudaStreamCreate(&streams[i]))) {
                 break;
             }
+            n++;
+        }
+
+        for(size_t i = 0; i < (size_t)Dampening::Stream::Max; i++) {
+            if(!CUDA_SUCCEEDED(hr, cudaStreamCreate(&streams2[i]))) {
+                break;
+            }
+            n++;
         }
 
         // Did any of the stream creation calls fail?
-        if(i != stream_n) {
-            i--;
-            while(i >= 0) {
-                cudaStreamDestroy(streams[i]);
-                i--;
-            }
-
+        if(n != streams.size() + streams2.size()) {
             LOG(Error, High, "cuda-stream-create-failed rc=%d", hr);
             fini_cuda();
             return nullptr;
         }
 
         auto rt = rt_intersect::make_instance();
-        auto ret = std::make_unique<Compute_CUDA>(logger, std::move(rt), std::move(streams));
+        auto ret = std::make_unique<Compute_CUDA>(logger, std::move(rt), std::move(streams), std::move(streams2));
         return ret;
     }
 

@@ -304,10 +304,14 @@ static void raycast(
 
     auto raycast_task = [&](size_t const start_index, size_t const count) {
         // Setup intersection test
-        std::vector<glm::vec3> ray_origins(count);
-        std::vector<glm::vec3> ray_directions(count);
-        std::vector<glm::vec3> xp(count);
-        std::vector<int> result(count);
+        std::vector<glm::vec3> ray_origins;
+        ray_origins.resize(count);
+        std::vector<glm::vec3> ray_directions;
+        ray_directions.resize(count);
+        std::vector<glm::vec3> xp;
+        xp.resize(count);
+        std::vector<int> result;
+        result.resize(count);
 
         for (size_t i = 0; i < count; i++) {
             auto gid = start_index + i;

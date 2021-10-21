@@ -3,15 +3,15 @@
 // Purpose: SDF AST to CUDA code generator
 //
 
-#include "stdafx.h"
+#include "../stdafx.h"
 #include <cassert>
 #include <cstdarg>
 #include <array>
 #include <softbody.h>
-#include "s_simulation.h"
-#include "types.h"
+#include "../s_simulation.h"
+#include "../types.h"
 #define SB_BENCHMARK 1
-#include "s_benchmark.h"
+#include "../s_benchmark.h"
 #include "s_compute_cuda_codegen.h"
 #include "cuda_utils.cuh"
 

@@ -84,7 +84,7 @@ if(${SOFTBODY_ENABLE_CUDA})
 
     add_subdirectory(rt_intersect)
 
-    embed_file(cuda_templates.cpp ${CMAKE_CURRENT_SOURCE_DIR}/cuda_templates.cu)
+    embed_file(cuda_templates.cpp ${CMAKE_CURRENT_SOURCE_DIR}/cuda/cuda_templates.cu)
 
     enable_language(CUDA)
 
@@ -94,10 +94,16 @@ if(${SOFTBODY_ENABLE_CUDA})
     target_sources(softbody PRIVATE
         s_compute_cuda.cpp
         s_compute_cuda.h
-        s_compute_cuda_kernels.cu
-        s_compute_cuda_codegen.cpp
+        cuda/s_compute_cuda_kernels.cu
+        cuda/s_compute_cuda_codegen.cpp
         cuda_templates.cpp
-        cuda_memtrack.cpp cuda_memtrack.h
+        cuda/cuda_memtrack.cpp
+        cuda/cuda_memtrack.h
+        cuda/CUDA_Scheduler.h
+        cuda/Dampening_Scheduler.cpp
+        cuda/Dampening_Scheduler.cu
+        cuda/Dampening_Scheduler.h
+        cuda/reduce.cuh
     )
 
     target_link_libraries(softbody PRIVATE
