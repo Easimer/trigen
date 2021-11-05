@@ -185,6 +185,10 @@ struct CUDA_Array_Base {
         return d_buf;
     }
 
+    T *operator->() {
+        return d_buf;
+    }
+
     T* d_buf;
     size_t N;
 };
@@ -206,10 +210,6 @@ struct CUDA_Array : public CUDA_Array_Base<T> {
 
     CUDA_Array<T>& untag() { return reinterpret_cast<CUDA_Array<T>&>(*this); }
     CUDA_Array<T> const& untag() const { return reinterpret_cast<CUDA_Array<T> const&>(*this); }
-
-    T *operator->() {
-        return d_buf;
-    }
 };
 
 class CUDA_Event_Recycler {
