@@ -38,7 +38,6 @@ namespace Dampening {
         compute_internal_forces(System_State &s);
 
         protected:
-        __declspec(noinline)
         float
         do_masses(
             int N,
