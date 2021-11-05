@@ -379,59 +379,70 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
 
 void
 split_vertices(PSP::Mesh &mesh, std::vector<Chart> const &charts) {
-    std::unordered_map<size_t, size_t> numberOfChartsAnElementAppearsIn;
-    for (auto& chart : charts) {
-        std::unordered_set<size_t> elementsInChart;
-        for (auto& tri : chart.triangles) {
+    std::unordered_map<size_t, std::vector<Chart const *>>
+        chartsAVertexAppearsIn;
+    for (auto &chart : charts) {
+        std::unordered_set<size_t> verticesInChart;
+        for (auto &tri : chart.triangles) {
             auto baseVtxIdx = tri * 3;
             for (auto v = 0; v < 3; v++) {
                 auto elementIdx = baseVtxIdx + v;
                 auto vtxIdx = mesh.elements[baseVtxIdx + v];
-                elementsInChart.insert(vtxIdx);
+                verticesInChart.insert(vtxIdx);
             }
         }
 
-        for (auto &vtxIdx : elementsInChart) {
-            if (numberOfChartsAnElementAppearsIn.count(vtxIdx) == 0) {
-                numberOfChartsAnElementAppearsIn[vtxIdx] = 0;
+        for (auto &vtxIdx : verticesInChart) {
+            if (chartsAVertexAppearsIn.count(vtxIdx) == 0) {
+                chartsAVertexAppearsIn[vtxIdx] = {};
             }
 
-            numberOfChartsAnElementAppearsIn[vtxIdx]++;
+            chartsAVertexAppearsIn[vtxIdx].push_back(&chart);
         }
     }
 
     // Filter out vertices that are not shared between charts
-    for (auto it = numberOfChartsAnElementAppearsIn.begin();
-        it != numberOfChartsAnElementAppearsIn.end();
+    for (auto it = chartsAVertexAppearsIn.begin();
+        it != chartsAVertexAppearsIn.end();
         ) {
-        if (it->second < 2) {
-            it = numberOfChartsAnElementAppearsIn.erase(it);
+        if (it->second.size() < 2) {
+            it = chartsAVertexAppearsIn.erase(it);
         } else {
             ++it;
         }
     }
 
     // Split the vertices that are shared between charts
-    for (auto &kv : numberOfChartsAnElementAppearsIn) {
+    for (auto &kv : chartsAVertexAppearsIn) {
         auto const numDuplicates = kv.second;
         auto numRemains = kv.second;
         auto idxVtx = kv.first;
 
-        for (size_t idxElement = 0; idxElement < mesh.elements.size();
-            idxElement++) {
-            auto idxVtxCur = mesh.elements[idxElement];
-            if (idxVtxCur == idxVtx) {
-                if (numRemains == numDuplicates) {
-                    // Skip the first instance
-                    numRemains--;
-                    continue;
-                }
+        bool firstChart = true;
+        for (auto *chart : kv.second) {
+            if (firstChart) {
+                // Skip the first chart
+                firstChart = false;
+                continue;
+            }
 
-                auto idxVtxSplit = mesh.position.size();
-                mesh.position.push_back(mesh.position[idxVtx]);
-                mesh.normal.push_back(mesh.normal[idxVtx]);
-                mesh.elements[idxElement] = idxVtxSplit;
-                numRemains--;
+            // Insert a new vertex
+			auto idxVtxSplit = mesh.position.size();
+			mesh.position.push_back(mesh.position[idxVtx]);
+			mesh.normal.push_back(mesh.normal[idxVtx]);
+
+            // Replace all instances of idxVtx with idxVtxSplit
+            for (auto tri : chart->triangles) {
+                auto idxElemBase = tri * 3;
+                for (auto off = 0; off < 3; off++) {
+                    auto idxElem = idxElemBase + off;
+                    auto idxVtxCur = mesh.elements[idxElem];
+                    if (idxVtxCur == idxVtx) {
+                        mesh.elements[idxElem] = idxVtxSplit;
+                        // Break since the elements of a triangle must be unique
+                        break;
+                    }
+                }
             }
         }
     }
