@@ -8,6 +8,7 @@
 int PSP::unwrap(/* inout */ Mesh &mesh) {
     // Assign UV coordinates
     auto charts = chart(mesh);
+    split_vertices(mesh, charts);
     project_charts(mesh, charts);
     sort_charts_by_area_descending(mesh, charts);
     divide_quad_among_charts(mesh, charts);

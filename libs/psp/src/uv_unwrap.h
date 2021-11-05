@@ -19,5 +19,6 @@ struct Chart {
 
 std::vector<Chart> chart(PSP::Mesh &mesh);
 void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts);
+void split_vertices(PSP::Mesh &mesh, std::vector<Chart> const &charts);
 void sort_charts_by_area_descending(PSP::Mesh const &mesh, std::vector<Chart> &charts);
 void divide_quad_among_charts(PSP::Mesh &mesh, std::vector<Chart> const &charts);

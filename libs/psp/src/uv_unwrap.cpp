@@ -377,6 +377,66 @@ void project_charts(PSP::Mesh &mesh, std::vector<Chart> &charts) {
     }
 }
 
+void
+split_vertices(PSP::Mesh &mesh, std::vector<Chart> const &charts) {
+    std::unordered_map<size_t, size_t> numberOfChartsAnElementAppearsIn;
+    for (auto& chart : charts) {
+        std::unordered_set<size_t> elementsInChart;
+        for (auto& tri : chart.triangles) {
+            auto baseVtxIdx = tri * 3;
+            for (auto v = 0; v < 3; v++) {
+                auto elementIdx = baseVtxIdx + v;
+                auto vtxIdx = mesh.elements[baseVtxIdx + v];
+                elementsInChart.insert(vtxIdx);
+            }
+        }
+
+        for (auto &vtxIdx : elementsInChart) {
+            if (numberOfChartsAnElementAppearsIn.count(vtxIdx) == 0) {
+                numberOfChartsAnElementAppearsIn[vtxIdx] = 0;
+            }
+
+            numberOfChartsAnElementAppearsIn[vtxIdx]++;
+        }
+    }
+
+    // Filter out vertices that are not shared between charts
+    for (auto it = numberOfChartsAnElementAppearsIn.begin();
+        it != numberOfChartsAnElementAppearsIn.end();
+        ) {
+        if (it->second < 2) {
+            it = numberOfChartsAnElementAppearsIn.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Split the vertices that are shared between charts
+    for (auto &kv : numberOfChartsAnElementAppearsIn) {
+        auto const numDuplicates = kv.second;
+        auto numRemains = kv.second;
+        auto idxVtx = kv.first;
+
+        for (size_t idxElement = 0; idxElement < mesh.elements.size();
+            idxElement++) {
+            auto idxVtxCur = mesh.elements[idxElement];
+            if (idxVtxCur == idxVtx) {
+                if (numRemains == numDuplicates) {
+                    // Skip the first instance
+                    numRemains--;
+                    continue;
+                }
+
+                auto idxVtxSplit = mesh.position.size();
+                mesh.position.push_back(mesh.position[idxVtx]);
+                mesh.normal.push_back(mesh.normal[idxVtx]);
+                mesh.elements[idxElement] = idxVtxSplit;
+                numRemains--;
+            }
+        }
+    }
+}
+
 struct Quad {
     glm::vec2 min, max;
 };
