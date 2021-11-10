@@ -18,6 +18,8 @@ struct Mesh_Collider_Slot {
     Vector<uint64_t> normal_indices;
     Vector<Vec3> vertices;
     Vector<Vec3> normals;
+
+    Vec3 min, max;
 };
 
 struct SDF_Slot {

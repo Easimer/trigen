@@ -353,6 +353,12 @@ protected:
                 auto thru = s.predicted_position[i];
                 auto const dir = thru - start;
 
+                if (!intersect::ray_aabb(
+                    start, { 1 / dir.x, 1 / dir.y, 1 / dir.z }, coll.min,
+                    coll.max)) {
+                    continue;
+                }
+
                 // for every triangle in coll: check intersection
 
                 // TODO(danielm): check each triangle but do a minimum search by
@@ -460,7 +466,8 @@ protected:
         memset(result.data(), 0, sizeof(result[0]) * N);
 
         // Cache the line direction vectors
-        Vector<Vec3> dir(N);
+        Vector<Vec3> dir;
+        dir.resize(N);
 
         for (index_t lineIdx = 0; lineIdx < N; lineIdx++) {
             dir[lineIdx] = to[lineIdx] - from[lineIdx];

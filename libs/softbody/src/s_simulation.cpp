@@ -322,9 +322,16 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
     slot->vertices.reserve(mesh->num_positions);
     slot->normals.reserve(mesh->num_normals);
 
+    Vec3 min(INFINITY, INFINITY, INFINITY);
+    Vec3 max(-INFINITY, -INFINITY, -INFINITY);
     for (auto i = 0ull; i < mesh->num_positions; i++) {
         auto b = i * 3; // base index
-        slot->vertices.push_back(Vec3(mesh->positions[b + 0], mesh->positions[b + 1], mesh->positions[b + 2]));
+        auto pos = Vec3(
+            mesh->positions[b + 0], mesh->positions[b + 1],
+            mesh->positions[b + 2]);
+        slot->vertices.emplace_back(pos);
+        min = glm::min(min, pos);
+        max = glm::max(max, pos);
     }
 
     for (auto i = 0ull; i < mesh->num_normals; i++) {
@@ -332,6 +339,8 @@ bool Softbody_Simulation::add_collider(Collider_Handle &out_handle, sb::Mesh_Col
         slot->normals.push_back(Vec3(mesh->normals[b + 0], mesh->normals[b + 1], mesh->normals[b + 2]));
     }
 
+    slot->min = min;
+    slot->max = max;
     compute->on_collider_added(s, out_handle);
 
     return true;
