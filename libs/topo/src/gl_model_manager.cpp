@@ -284,6 +284,9 @@ GL_Model_Manager::Regenerate() {
             indexDataSize += model.numElements * sizeof(GLushort);
             break;
         }
+
+        // Padding for a 4-byte alignment
+        indexDataSize = (indexDataSize + 3) & (~3);
     }
 
     fprintf(stderr, "[ topo ] Total vec2 data: %zu bytes\n", vec2DataSize);
