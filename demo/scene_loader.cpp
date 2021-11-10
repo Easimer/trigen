@@ -39,7 +39,7 @@ MakeColliderObject(
             transform.orientation[i] = (float)orientation[i];
         }
     }
-    if (scale.is_array() && scale.size() >= 4) {
+    if (scale.is_array() && scale.size() >= 3) {
         for (int i = 0; i < 3; i++) {
             transform.scale[i] = (float)scale[i];
         }
@@ -146,6 +146,10 @@ LoadSceneFromFile(
         throw Scene_Loader_Exception(rc);
     }
     app->SetSimulation(sim);
+
+    auto const &meshgen = J["meshgen"];
+    Trigen_Mesh_SetSubdivisions(
+        sim, ValueOrDefault(meshgen, "subdivisions", 16));
 
     auto env = J["environment"];
     for (auto x : env) {
