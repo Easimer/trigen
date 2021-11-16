@@ -126,7 +126,8 @@ private:
                 _lifetime[i] = dt;
             }
 
-            if (_lifetime[i] > 3) {
+            if (_lifetime[i] > 3 && s.fixed_particles.count(i) == 0) {
+                s.bind_pose[i] = s.predicted_position[i];
                 s.fixed_particles.insert(i);
             }
         }
@@ -165,8 +166,8 @@ private:
         // - Gather information about particles that will grow apical branches
         for (index_t i = 0; i < particleIndices.size(); i++) {
             auto pidx = particleIndices[i];
-            // Don't grow branches out of particles that are too fast
-            if (length(s.velocity[pidx]) > 2) {
+            // Don't grow branches out of particles that are still moving
+            if (length(s.velocity[pidx]) > 0) {
                 couldntGrow.emplace_back(pidx);
                 continue;
             }
@@ -177,7 +178,7 @@ private:
             auto parent = _parents[pidx];
             auto branch_dir
                 = normalize(s.bind_pose[pidx] - s.bind_pose[parent]);
-            auto branch_len = 1.0f;
+            auto branch_len = 4.0f;
 
             apical_branches_to_grow.push_back({ pidx, branch_dir, branch_len });
 
@@ -342,6 +343,34 @@ private:
     std::vector<index_t>
     get_leaf_buds() override {
         return _leaf_bud;
+    }
+
+    std::vector<index_t>
+    get_apical_children() override {
+        std::vector<index_t> ret;
+        for (auto const& kv : _apical_child) {
+            bool ok = true;
+            for (auto const &kvo : _apical_child) {
+                if (kvo.first == kv.second) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if (ok) {
+                ret.push_back(kv.second);
+            }
+        }
+        return ret;
+    }
+
+    std::vector<index_t>
+    get_lateral_buds() override {
+        std::vector<index_t> ret;
+        for (auto const& kv : _lateral_bud) {
+            ret.push_back(kv.second);
+        }
+        return ret;
     }
 
 #define MAX_POSSIBLE_CHUNK_COUNT (5)

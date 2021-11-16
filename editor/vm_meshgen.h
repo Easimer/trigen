@@ -76,6 +76,11 @@ public slots:
     void resolutionChanged(int resolution);
     void inspectUV();
 
+    void
+    foliageRadiusChanged(float radius);
+    void
+    foliageDensityChanged(float density);
+
     /**
      * Call this from the view when the user wants to export the generated
      * mesh.

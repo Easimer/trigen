@@ -125,7 +125,7 @@ public:
 
     void
     ResolutionChanged(unsigned width, unsigned height) override {
-        _matProj = glm::perspective(glm::radians(90.0f), float(height) / float(width), 0.1f, 1000.0f);
+        _matProj = glm::perspective(glm::radians(90.0f), float(height) / float(width), 0.1f, 4096.0f);
         RecalculateVP();
         glViewport(0, 0, width, height);
 
@@ -263,10 +263,12 @@ public:
 
         static bool doDepthPrepass = true;
 
+#ifndef _NDEBUG
         if (ImGui::Begin("Renderer")) {
             ImGui::Checkbox("Enable depth prepass", &doDepthPrepass);
         }
         ImGui::End();
+#endif
 
         auto multiDraw = GL_Multidraw(
             _renderQueue.get(), &_renderableManager, &_materialManager,

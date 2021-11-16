@@ -322,6 +322,28 @@ void VM_Meshgen::inspectUV() {
     }
 }
 
+void
+VM_Meshgen::foliageRadiusChanged(float radius) {
+    Trigen_Foliage_Parameters params;
+    params.kind = Trigen_FoliageParam_Radius;
+    params.valuef32 = radius;
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Foliage_SetParameters(session->handle(), &params);
+
+    regenerateFoliage();
+}
+
+void
+VM_Meshgen::foliageDensityChanged(float density) {
+    Trigen_Foliage_Parameters params;
+    params.kind = Trigen_FoliageParam_Density;
+    params.valuef32 = density;
+    auto session = _world->getMapForComponent<Plant_Component>().at(_ent).session;
+    Trigen_Foliage_SetParameters(session->handle(), &params);
+
+    regenerateFoliage();
+}
+
 void VM_Meshgen::onExportClicked() {
     emit showExportFileDialog();
 }
@@ -436,7 +458,7 @@ void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session 
             try {
                 auto mesh = trigen::Mesh::make(session);
                 _unwrappedMesh = convertMesh(*mesh);
-                regenerateFoliage();
+                repaintMesh();
             } catch(trigen::Exception const &ex) {
             }
             break;
@@ -445,7 +467,9 @@ void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session 
             try {
                 auto mesh = trigen::Foliage_Mesh::make(session);
                 _foliageMesh = convertMesh(*mesh);
-                repaintMesh();
+				if (_statusBar) {
+					_statusBar->setBusy(false);
+				}
             } catch(trigen::Exception const &ex) {
             }
             break;
@@ -472,9 +496,7 @@ void VM_Meshgen::onStageDone(Stage_Tag stage, Trigen_Status res, Trigen_Session 
             _texturesDestroying.push_back(_texOutBaseHandle);
             _texOutBaseHandle = nullptr;
 
-            if (_statusBar) {
-                _statusBar->setBusy(false);
-            }
+            regenerateFoliage();
             break;
         }
     }

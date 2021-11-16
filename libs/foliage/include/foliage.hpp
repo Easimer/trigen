@@ -26,9 +26,17 @@ enum class Foliage_Generator_Parameter_Name {
      */
     Scale,
     /**
+     * Radius of the foliage; float.
+     */
+    Radius,
+    /**
      * Seed used by the random number generators; unsigned.
      */
     Seed,
+    /**
+     * Foliage density; float.
+     */
+    Density,
 };
 
 struct Foliage_Generator_Parameter {

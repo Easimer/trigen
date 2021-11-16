@@ -30,6 +30,8 @@ struct Foliage_Mesh_Arrays {
 
 struct Foliage_Params {
     float scale = 1.0f;
+    float radius = 1.0f;
+    float density = 1.0f;
     unsigned rnd_seed = 0;
 };
 
@@ -65,11 +67,16 @@ collect_leaf_positions(
     }
 
     auto leaf_buds = plant->get_leaf_buds();
-    auto leaf_bud_set
-        = std::unordered_set<sb::index_t>(leaf_buds.cbegin(), leaf_buds.cend());
+    auto apical_children = plant->get_apical_children();
+    auto lateral_buds = plant->get_lateral_buds();
+    std::unordered_set<sb::index_t> leaf_bud_set;
+    for (auto const idx : leaf_buds)
+        leaf_bud_set.insert(idx);
+    for (auto const idx : apical_children)
+        leaf_bud_set.insert(idx);
 
-    float const foliage_radius = 1.0f;
-    float const foliage_density = 4.0f;
+    float const foliage_radius = params.radius;
+    float const foliage_density = params.density;
     glm::vec3 leaf_min(+INFINITY, +INFINITY, +INFINITY);
     glm::vec3 leaf_max(-INFINITY, -INFINITY, -INFINITY);
 
@@ -114,7 +121,7 @@ collect_leaf_positions(
                     auto min_dist = distance_to_closest_leaf_bud(
                         leaf_positions, cur, foliage_radius);
 
-                    if (min_dist == foliage_radius) {
+                    if (min_dist > foliage_radius) {
                         continue;
                     }
 
@@ -342,10 +349,19 @@ public:
                 _params.scale = parameters->value.f;
                 assert(_params.scale > 0.0f);
                 break;
+            }
+            case Foliage_Generator_Parameter_Name::Radius: {
+                _params.radius = parameters->value.f;
+                assert(_params.radius > 0.0f);
+                break;
+            }
             case Foliage_Generator_Parameter_Name::Seed: {
                 _params.rnd_seed = parameters->value.u;
                 break;
             }
+            case Foliage_Generator_Parameter_Name::Density: {
+                _params.density = parameters->value.f;
+                break;
             }
             default: {
                 assert(!"Unhandled parameter");

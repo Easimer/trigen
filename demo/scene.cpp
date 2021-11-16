@@ -43,8 +43,16 @@ flatten_mesh(
         auto idxNormal = shape.mesh.indices[i].normal_index;
         auto idxTexcoord = shape.mesh.indices[i].texcoord_index;
         positions.emplace_back(aVertices[idxPos]);
-        normals.emplace_back(aNormals[idxNormal]);
-        texcoords.emplace_back(aTexcoords[idxTexcoord]);
+        if (idxNormal != -1) {
+            normals.emplace_back(aNormals[idxNormal]);
+        } else {
+            normals.emplace_back(0, 0, 1);
+        }
+        if (idxTexcoord != -1) {
+            texcoords.emplace_back(aTexcoords[idxTexcoord]);
+        } else {
+            texcoords.emplace_back(0, 0);
+        }
     }
 }
 

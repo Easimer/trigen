@@ -207,8 +207,19 @@ typedef struct Trigen_Texture_Slot_Descriptor_t {
     } defaultPixel;
 } Trigen_Texture_Slot_Descriptor;
 
+typedef enum {
+    Trigen_FoliageParam_Scale = 0,
+    Trigen_FoliageParam_Radius,
+    Trigen_FoliageParam_Density,
+
+    Trigen_FoliageParam_Max
+} Trigen_Foliage_Parameter_Kind;
+
 typedef struct Trigen_Foliage_Parameters_t {
-    float scale;
+    Trigen_Foliage_Parameter_Kind kind;
+    union {
+        float valuef32;
+    };
 } Trigen_Foliage_Parameters;
 
 #ifdef __cplusplus

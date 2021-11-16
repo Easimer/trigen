@@ -59,7 +59,11 @@ struct Trigen_Session_t {
 
     std::unique_ptr<IFoliage_Generator> foliageGenerator;
     std::vector<tg_u64> foliageIndexBuffer;
-    Trigen_Foliage_Parameters foliageParams;
+    struct {
+        float density = 1.0f;
+        float radius = 1.0f;
+        float scale = 0.5f;
+    } foliageParams;
 };
 
 #define TEXSLOTDESC_INIT_RGB888(slot, r, g, b) \
@@ -223,7 +227,8 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_CreateSession(
         DefaultInitializeTextureSlots(s);
     }
 
-    s->foliageParams.scale = 1.0f;
+    s->foliageParams.density = 1.0f;
+    s->foliageParams.radius = 1.0f;
 
     *session = s;
     return Trigen_OK;
@@ -392,7 +397,7 @@ TRIGEN_RETURN_CODE TRIGEN_API Trigen_Metaballs_Regenerate(
             for (int i = 0; i < 3; i++) {
                 radius = glm::max(size[i] / 2, radius);
             }
-            session->_metaballs.push_back({ p, radius / 8, session->metaballScale });
+            session->_metaballs.push_back({ p, radius / 4, session->metaballScale });
         }
     }
 
@@ -751,11 +756,26 @@ Trigen_Foliage_SetParameters(
         return Trigen_InvalidArguments;
     }
 
-    if (params->scale <= 0.0f) {
-        return Trigen_InvalidArguments;
+    switch (params->kind) {
+    case Trigen_FoliageParam_Density:
+		if (params->valuef32 <= 0.0f) {
+			return Trigen_InvalidArguments;
+		}
+        session->foliageParams.density = params->valuef32;
+        break;
+    case Trigen_FoliageParam_Scale:
+		if (params->valuef32 <= 0.0f) {
+			return Trigen_InvalidArguments;
+		}
+        session->foliageParams.scale = params->valuef32;
+        break;
+    case Trigen_FoliageParam_Radius:
+		if (params->valuef32 <= 0.0f) {
+			return Trigen_InvalidArguments;
+		}
+        session->foliageParams.radius = params->valuef32;
+        break;
     }
-
-    session->foliageParams = *params;
 
     return Trigen_OK;
 }
@@ -769,6 +789,10 @@ Trigen_Foliage_Regenerate(TRIGEN_HANDLE Trigen_Session session) {
     Foliage_Generator_Parameter params[]
         = { { Foliage_Generator_Parameter_Name::Scale,
               { session->foliageParams.scale } },
+            { Foliage_Generator_Parameter_Name::Density,
+              { session->foliageParams.density } },
+            { Foliage_Generator_Parameter_Name::Radius,
+              { session->foliageParams.radius } },
             { Foliage_Generator_Parameter_Name::EndOfList, {} } };
 
     auto foliageGenerator = make_foliage_generator(session->simulation, params);

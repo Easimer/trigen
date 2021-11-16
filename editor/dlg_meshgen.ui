@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>392</width>
-    <height>257</height>
+    <height>348</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -111,6 +111,43 @@
           <layout class="QFormLayout" name="layoutTextures"/>
          </item>
         </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="gbFoliage">
+     <property name="title">
+      <string>Foliage</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout_3">
+      <item row="2" column="1">
+       <widget class="QDoubleSpinBox" name="flRadius">
+        <property name="value">
+         <double>2.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="flDensity">
+        <property name="value">
+         <double>4.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="lblDensity">
+        <property name="text">
+         <string>Density</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="lblRadius">
+        <property name="text">
+         <string>Radius</string>
+        </property>
        </widget>
       </item>
      </layout>

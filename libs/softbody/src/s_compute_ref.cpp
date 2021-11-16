@@ -514,7 +514,8 @@ protected:
                     if (intersect::ray_triangle(
                             xp, t, from[lineIdx], dir[lineIdx], tri.v0, tri.v1,
                             tri.v2)
-                        || t > 1) {
+                        // || t > 1) {
+                        && t <= 1) {
                         result[lineIdx] = 1;
                         break;
                     }

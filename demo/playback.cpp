@@ -67,13 +67,16 @@ Playback::beginRegenerateRenderable() {
 void
 Playback::regenerateRenderable() {
     auto *sim = _app->Simulation();
-    Trigen_Mesh_SetSubdivisions(sim, 64);
-    Trigen_Metaballs_SetScale(sim, 0.1);
+    Trigen_Metaballs_SetScale(sim, 1.0f);
     Trigen_Metaballs_Regenerate(sim);
     Trigen_Mesh_Regenerate(sim);
+    Trigen_Foliage_Parameters params;
+    params.kind = Trigen_FoliageParam_Scale;
+    params.valuef32 = 0.5f;
+    Trigen_Foliage_SetParameters(sim, &params);
     Trigen_Foliage_Regenerate(sim);
 
-    Trigen_Painting_SetOutputResolution(sim, 512, 512);
+    Trigen_Painting_SetOutputResolution(sim, 2048, 2048);
     Trigen_Painting_Regenerate(sim);
 
     Trigen_Mesh_GetMesh(sim, &_mesh);

@@ -65,11 +65,19 @@ public:
         connect(_ui.sbMetaballRadius, qOverload<double>(&QDoubleSpinBox::valueChanged), &_vm, &VM_Meshgen::metaballRadiusChanged);
         connect(_ui.sbNumSubdivisions, qOverload<int>(&QSpinBox::valueChanged), &_vm, &VM_Meshgen::numberOfSubdivionsChanged);
         connect(_ui.sbResolution, qOverload<int>(&QSpinBox::valueChanged), &_vm, &VM_Meshgen::resolutionChanged);
+        connect(
+            _ui.flDensity, qOverload<double>(&QDoubleSpinBox::valueChanged),
+            &_vm, &VM_Meshgen::foliageDensityChanged);
+        connect(
+            _ui.flRadius, qOverload<double>(&QDoubleSpinBox::valueChanged),
+            &_vm, &VM_Meshgen::foliageRadiusChanged);
 
         // HACKHACKHACK(danielm): trigger the valueChanged signal for fields with default values
         _vm.resolutionChanged(_ui.sbResolution->value());
         _vm.numberOfSubdivionsChanged(_ui.sbNumSubdivisions->value());
         _vm.metaballRadiusChanged(_ui.sbMetaballRadius->value());
+        _vm.foliageDensityChanged(_ui.flDensity->value());
+        _vm.foliageRadiusChanged(_ui.flRadius->value());
 
         connect(_ui.actionInspectUV, &QAction::triggered, &_vm, &VM_Meshgen::inspectUV);
 
